@@ -1,0 +1,1 @@
+PAM,Tyndall Air Force Base,Panama City,US,medium_airport

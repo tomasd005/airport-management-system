@@ -1,0 +1,120 @@
+#include "validacao_passageiros.h"
+#include "validacao_comum.h"
+#include "../../include/utils.h"
+#include <string.h>
+#include <ctype.h>
+
+#define IDX_DOC 0
+#define IDX_FIRST 1
+#define IDX_LAST 2
+#define IDX_DOB 3
+#define IDX_NAT 4
+#define IDX_GEN 5
+#define IDX_EMAIL 6
+#define IDX_PHONE 7
+#define IDX_ADDR 8
+#define IDX_PHOTO 9
+
+static gboolean valida_document_number(const char *doc)
+{
+    if (!doc || strlen(doc) != 9)
+        return FALSE;
+
+    if (contem_espacos(doc))
+        return FALSE;
+
+    for (int i = 0; i < 9; i++)
+        if (!isdigit((unsigned char)doc[i]))
+            return FALSE;
+
+    return TRUE;
+}
+
+static gboolean valida_genero(const char *gen)
+{
+    return gen && strlen(gen) == 1 &&
+           (gen[0] == 'M' || gen[0] == 'F' || gen[0] == 'O');
+}
+
+static gboolean valida_email(const char *email)
+{
+    if (!email)
+        return FALSE;
+
+    const char *at = strchr(email, '@');
+    if (!at || at == email)
+        return FALSE;
+
+    for (const char *p = email; p < at; p++)
+    {
+        if (!((*p >= 'a' && *p <= 'z') ||
+              (*p >= '0' && *p <= '9') ||
+              *p == '.'))
+            return FALSE;
+    }
+
+    const char *domain = at + 1;
+    const char *dot = strchr(domain, '.');
+    if (!dot || dot == domain)
+        return FALSE;
+
+    for (const char *p = domain; p < dot; p++)
+        if (!(*p >= 'a' && *p <= 'z'))
+            return FALSE;
+
+    const char *ext = dot + 1;
+    int len = strlen(ext);
+    if (len < 2 || len > 3)
+        return FALSE;
+
+    if (strchr(ext, '.'))
+        return FALSE;
+
+    for (int i = 0; i < len; i++)
+        if (!(ext[i] >= 'a' && ext[i] <= 'z'))
+            return FALSE;
+
+    return TRUE;
+}
+
+passageiro_t *valida_passageiro(char **colunas)
+{
+    if (!colunas)
+        return NULL;
+
+    for (int i = 0; i <= IDX_PHOTO; i++)
+        if (colunas[i])
+            utils_remove_aspas(colunas[i]);
+
+    if (!valida_document_number(colunas[IDX_DOC]))
+        return NULL;
+
+    for (int i = 0; i <= IDX_PHOTO; i++)
+        if (colunas[i])
+            utils_trim(colunas[i]);
+
+    if (!validacao_data(colunas[IDX_DOB]))
+        return NULL;
+
+    if (!valida_genero(colunas[IDX_GEN]))
+        return NULL;
+
+    if (!valida_email(colunas[IDX_EMAIL]))
+        return NULL;
+
+    if (!colunas[IDX_FIRST] || !*colunas[IDX_FIRST])
+        return NULL;
+    if (!colunas[IDX_LAST] || !*colunas[IDX_LAST])
+        return NULL;
+    if (!colunas[IDX_NAT] || !*colunas[IDX_NAT])
+        return NULL;
+    if (!colunas[IDX_PHONE] || !*colunas[IDX_PHONE])
+        return NULL;
+    if (!colunas[IDX_ADDR] || !*colunas[IDX_ADDR])
+        return NULL;
+
+    return passageiro_criar(colunas[IDX_DOC], colunas[IDX_FIRST], colunas[IDX_LAST],
+                            colunas[IDX_DOB], colunas[IDX_NAT], colunas[IDX_GEN],
+                            colunas[IDX_EMAIL], colunas[IDX_PHONE], colunas[IDX_ADDR],
+                            colunas[IDX_PHOTO]);
+}

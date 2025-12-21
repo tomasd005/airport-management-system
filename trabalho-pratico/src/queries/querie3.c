@@ -1,0 +1,156 @@
+#include "../../include/queries/querie3.h"
+#include "../../include/gestores/gestor_voos.h"
+#include "../../include/gestores/gestor_aeroportos.h"
+#include "../../include/entidades/voos.h"
+#include "../../include/entidades/aeroportos.h"
+#include <glib.h>
+#include <string.h>
+#include <stdio.h>
+
+typedef struct
+{
+    char *code;
+    guint count;
+} ContadorPartidas;
+
+static gint comparar_contadores(gconstpointer a, gconstpointer b)
+{
+    const ContadorPartidas *ca = a;
+    const ContadorPartidas *cb = b;
+
+    if (ca->count != cb->count)
+        return (gint)(cb->count - ca->count);
+
+    return strcmp(ca->code, cb->code);
+}
+
+typedef struct
+{
+    const char *data_inicio;
+    const char *data_fim;
+    GHashTable *contagens;
+} FiltroDatas;
+
+static void contar_voos_validos(gpointer key, gpointer value, gpointer user_data)
+{
+    (void)key;
+    const voo_t *voo = (const voo_t *)value;
+    FiltroDatas *filtro = (FiltroDatas *)user_data;
+
+    if (!voo || !filtro)
+        return;
+
+    const char *status = voo_obter_status(voo);
+    if (!status || strcmp(status, "Cancelled") == 0)
+        return;
+
+    const char *actual_dep = voo_obter_actual_departure(voo);
+    if (!actual_dep || strlen(actual_dep) < 10)
+        return;
+
+    char data_voo[11];
+    strncpy(data_voo, actual_dep, 10);
+    data_voo[10] = '\0';
+
+    if (strcmp(data_voo, filtro->data_inicio) < 0)
+        return;
+    if (strcmp(data_voo, filtro->data_fim) > 0)
+        return;
+
+    const char *origem = voo_obter_origin(voo);
+    if (!origem || !*origem)
+        return;
+
+    guint *contador = g_hash_table_lookup(filtro->contagens, origem);
+    if (contador)
+    {
+        (*contador)++;
+    }
+    else
+    {
+        guint *novo = g_new(guint, 1);
+        *novo = 1;
+        g_hash_table_insert(filtro->contagens, g_strdup(origem), novo);
+    }
+}
+
+void query3(gestor_aeroportos_t *gestor_aeroportos,
+            gestor_voos_t *gestor_voos,
+            const char *data_inicio,
+            const char *data_fim,
+            FILE *output)
+{
+    if (!gestor_aeroportos || !gestor_voos || !data_inicio || !data_fim || !output)
+    {
+        fprintf(output, "\n");
+        return;
+    }
+
+    GHashTable *tabela_voos = gestor_voos_obter_tabela(gestor_voos);
+    if (!tabela_voos)
+    {
+        fprintf(output, "\n");
+        return;
+    }
+
+    GHashTable *contagens = g_hash_table_new_full(
+        g_str_hash,
+        g_str_equal,
+        g_free,
+        g_free);
+
+    FiltroDatas filtro = {
+        .data_inicio = data_inicio,
+        .data_fim = data_fim,
+        .contagens = contagens};
+
+    g_hash_table_foreach(tabela_voos, contar_voos_validos, &filtro);
+
+    if (g_hash_table_size(contagens) == 0)
+    {
+        fprintf(output, "\n");
+        g_hash_table_destroy(contagens);
+        return;
+    }
+
+    GArray *lista = g_array_new(FALSE, FALSE, sizeof(ContadorPartidas));
+
+    GHashTableIter iter;
+    gpointer key, value;
+    g_hash_table_iter_init(&iter, contagens);
+
+    while (g_hash_table_iter_next(&iter, &key, &value))
+    {
+        ContadorPartidas c;
+        c.code = g_strdup((char *)key);
+        c.count = *(guint *)value;
+        g_array_append_val(lista, c);
+    }
+
+    g_array_sort(lista, (GCompareFunc)comparar_contadores);
+
+    ContadorPartidas *melhor = &g_array_index(lista, ContadorPartidas, 0);
+
+    aeroporto_t *aero = gestor_aeroportos_obter_por_codigo(gestor_aeroportos, melhor->code);
+
+    if (!aero)
+    {
+        fprintf(output, "%s,,,,%u\n", melhor->code, melhor->count);
+    }
+    else
+    {
+        fprintf(output, "%s,%s,%s,%s,%u\n",
+                aeroporto_obter_codigo(aero),
+                aeroporto_obter_nome(aero),
+                aeroporto_obter_cidade(aero),
+                aeroporto_obter_pais(aero),
+                melhor->count);
+    }
+
+    for (guint i = 0; i < lista->len; i++)
+    {
+        g_free(g_array_index(lista, ContadorPartidas, i).code);
+    }
+    g_array_free(lista, TRUE);
+    g_hash_table_destroy(contagens);
+}

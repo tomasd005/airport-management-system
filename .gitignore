@@ -1,0 +1,11 @@
+# Ignorar apenas os datasets locais
+com_erros/
+sem_erros/
+
+# Ficheiros compilados
+*.o
+main
+*.out
+
+# Ficheiros de logs
+*.log

@@ -1,0 +1,1 @@
+KOJ,Kagoshima Airport,Kagoshima,JP,large_airport
