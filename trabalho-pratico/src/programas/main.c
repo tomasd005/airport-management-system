@@ -6,6 +6,8 @@
 #include "../../include/gestores/gestor_aeroportos.h"
 #include "../../include/gestores/gestor_avioes.h"
 #include "../../include/gestores/gestor_voos.h"
+#include "../../include/gestores/gestor_passageiros.h"
+#include "../../include/gestores/gestor_reservas.h"
 #include "../../include/queries/querie1.h"
 #include "../../include/queries/querie2.h"
 #include "../../include/queries/querie3.h"
@@ -44,18 +46,26 @@ int main(int argc, char *argv[])
     gestor_aeroportos_t *gestor_aeroportos = gestor_aeroportos_criar();
     gestor_avioes_t *gestor_avioes = gestor_avioes_criar();
     gestor_voos_t *gestor_voos = gestor_voos_criar();
+    gestor_passageiros_t *gestor_passageiros = gestor_passageiros_criar();
+    gestor_reservas_t *gestor_reservas = gestor_reservas_criar();
 
     char caminho_aeroportos[512];
     char caminho_avioes[512];
     char caminho_voos[512];
+    char caminho_passageiros[512];
+    char caminho_reservas[512];
 
     snprintf(caminho_aeroportos, sizeof(caminho_aeroportos), "%s/airports.csv", pasta);
     snprintf(caminho_avioes, sizeof(caminho_avioes), "%s/aircrafts.csv", pasta);
     snprintf(caminho_voos, sizeof(caminho_voos), "%s/flights.csv", pasta);
+    snprintf(caminho_passageiros, sizeof(caminho_passageiros), "%s/passengers.csv", pasta);
+    snprintf(caminho_reservas, sizeof(caminho_reservas), "%s/reservations.csv", pasta);
 
     gestor_aeroportos_carregar(gestor_aeroportos, caminho_aeroportos);
     gestor_avioes_carregar(gestor_avioes, caminho_avioes);
     gestor_voos_carregar(gestor_voos, caminho_voos);
+    gestor_passageiros_carregar(gestor_passageiros, caminho_passageiros);
+    gestor_reservas_carregar(gestor_reservas, caminho_reservas);
 
     FILE *input = fopen(ficheiro_input, "r");
     if (!input)
@@ -64,6 +74,9 @@ int main(int argc, char *argv[])
         gestor_aeroportos_destruir(gestor_aeroportos);
         gestor_avioes_destruir(gestor_avioes);
         gestor_voos_destruir(gestor_voos);
+        gestor_passageiros_destruir(gestor_passageiros);
+        gestor_reservas_destruir(gestor_reservas);
+
         return 1;
     }
 
