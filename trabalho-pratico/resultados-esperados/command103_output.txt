@@ -1,1 +1,1 @@
-ARQ,El Troncal Airport,Arauquita,CO,91
+LAE=Nadzab Airport=Lae=PG=25

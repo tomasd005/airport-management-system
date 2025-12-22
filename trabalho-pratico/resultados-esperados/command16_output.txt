@@ -1,1 +1,1 @@
-QRA,Rand Airport,Johannesburg,ZA,medium_airport
+ARY=Ararat Airport=Ararat=AU=medium_airport=1=5

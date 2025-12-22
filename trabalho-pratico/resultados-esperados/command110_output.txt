@@ -1,1 +1,1 @@
-BFT,Beaufort Executive Airport,Beaufort,US,49
+WPC;Pincher Creek Airport;Pincher Creek;CA;18

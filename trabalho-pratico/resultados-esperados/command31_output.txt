@@ -1,1 +1,1 @@
-DGT,Sibulan Airport,Dumaguete City,PH,medium_airport
+LCC;Lecce Galatina Air Base / Galatina Fortunato Cesari Airport;Galatina (LE);IT;medium_airport;1;3

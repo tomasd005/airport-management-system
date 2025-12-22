@@ -1,1 +1,1 @@
-PAM,Tyndall Air Force Base,Panama City,US,medium_airport
+YQY=Sydney / J.A. Douglas McCurdy Airport=Sydney=CA=medium_airport=2=4

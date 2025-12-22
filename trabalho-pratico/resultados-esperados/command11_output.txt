@@ -1,1 +1,1 @@
-PUR,Puerto Rico Airport,Puerto Rico/Manuripi,BO,small_airport
+PTH;Port Heiden Airport;Port Heiden;US;medium_airport;2;4

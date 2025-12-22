@@ -1,1 +1,1 @@
-FKN,Franklin Regional Airport,Franklin,US,small_airport
+TCS;Truth or Consequences Municipal Airport;Truth or Consequences;US;medium_airport;3;4

@@ -1,1 +1,1 @@
-ONI,Moanamani Airport,Moanamani,ID,small_airport
+JSJ=Jiansanjiang Shidi Airport=Jiansanjiang=CN=medium_airport=6=4

@@ -1,1 +1,1 @@
-CEK,Chelyabinsk Balandino Airport,Chelyabinsk,RU,medium_airport
+EGI;Duke Field;Crestview;US;medium_airport;2;3

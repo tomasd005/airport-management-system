@@ -1,1 +1,1 @@
-PWN,Pitts Town Airport,Pitts Town,BS,small_airport
+IGB;Ingeniero Jacobacci - Captain H R Bordón Airport;Ingeniero Jacobacci;AR;small_airport;2;6

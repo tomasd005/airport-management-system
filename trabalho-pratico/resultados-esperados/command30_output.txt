@@ -1,1 +1,1 @@
-BCL,Barra del Colorado Airport,Pococi,CR,medium_airport
+WNU;Wanuma Airport;Wanuma;PG;small_airport;3;3

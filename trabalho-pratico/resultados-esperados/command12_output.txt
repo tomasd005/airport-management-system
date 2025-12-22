@@ -1,1 +1,1 @@
-CAM,Camiri Airport,Camiri,BO,small_airport
+JBB;Notohadinegoro Airport;Jember;ID;small_airport;1;4

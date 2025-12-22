@@ -1,1 +1,1 @@
-GES,General Santos International Airport,General Santos,PH,medium_airport
+BNT=Bundi Airport=Bundi=PG=small_airport=2=4

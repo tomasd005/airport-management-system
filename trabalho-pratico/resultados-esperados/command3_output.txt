@@ -1,1 +1,1 @@
-SPG,Albert Whitted Airport,St Petersburg,US,small_airport
+SBA;Santa Barbara Municipal Airport;Santa Barbara;US;medium_airport;3;2

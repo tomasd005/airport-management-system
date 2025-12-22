@@ -1,1 +1,1 @@
-GWO,Greenwood–Leflore Airport,Greenwood,US,medium_airport
+EHM;Cape Newenham LRRS Airport;Cape Newenham;US;medium_airport;2;3
