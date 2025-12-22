@@ -199,6 +199,7 @@ int main(int argc, char *argv[])
     gestor_aeroportos_destruir(gestor_aeroportos);
     gestor_avioes_destruir(gestor_avioes);
     gestor_voos_destruir(gestor_voos);
-
+    gestor_passageiros_destruir(gestor_passageiros);
+    gestor_reservas_destruir(gestor_reservas);
     return 0;
 }
