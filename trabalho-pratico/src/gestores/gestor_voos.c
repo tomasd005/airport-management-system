@@ -8,17 +8,34 @@
 
 struct gestor_voos
 {
-    GHashTable *tabela;
+    GHashTable *tabela;          // flight_id -> voo_t*
+    GHashTable *por_origin;      // origin -> GPtrArray de voo_t*
+    GHashTable *por_destination; // destination -> GPtrArray de voo_t*
 };
 
 gestor_voos_t *gestor_voos_criar(void)
 {
     gestor_voos_t *g = malloc(sizeof(gestor_voos_t));
+
     g->tabela = g_hash_table_new_full(
         g_str_hash,
         g_str_equal,
         g_free,
         (GDestroyNotify)voo_destruir);
+
+    // Hash tables para indexação rápida
+    g->por_origin = g_hash_table_new_full(
+        g_str_hash,
+        g_str_equal,
+        g_free,
+        (GDestroyNotify)g_ptr_array_unref);
+
+    g->por_destination = g_hash_table_new_full(
+        g_str_hash,
+        g_str_equal,
+        g_free,
+        (GDestroyNotify)g_ptr_array_unref);
+
     return g;
 }
 
@@ -27,6 +44,8 @@ void gestor_voos_destruir(gestor_voos_t *gestor)
     if (!gestor)
         return;
     g_hash_table_destroy(gestor->tabela);
+    g_hash_table_destroy(gestor->por_origin);
+    g_hash_table_destroy(gestor->por_destination);
     free(gestor);
 }
 
@@ -34,10 +53,34 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
 {
     if (!gestor || !voo)
         return;
+
     const char *id = voo_obter_id(voo);
-    if (!id)
+    const char *origin = voo_obter_origin(voo);
+    const char *destination = voo_obter_destination(voo);
+
+    if (!id || !origin || !destination)
         return;
+
+    // Adiciona à tabela principal
     g_hash_table_insert(gestor->tabela, g_strdup(id), voo);
+
+    // Indexa por origin
+    GPtrArray *voos_origin = g_hash_table_lookup(gestor->por_origin, origin);
+    if (!voos_origin)
+    {
+        voos_origin = g_ptr_array_new();
+        g_hash_table_insert(gestor->por_origin, g_strdup(origin), voos_origin);
+    }
+    g_ptr_array_add(voos_origin, voo);
+
+    // Indexa por destination
+    GPtrArray *voos_dest = g_hash_table_lookup(gestor->por_destination, destination);
+    if (!voos_dest)
+    {
+        voos_dest = g_ptr_array_new();
+        g_hash_table_insert(gestor->por_destination, g_strdup(destination), voos_dest);
+    }
+    g_ptr_array_add(voos_dest, voo);
 }
 
 voo_t *gestor_voos_obter_por_id(gestor_voos_t *gestor, const char *flight_id)
@@ -45,6 +88,20 @@ voo_t *gestor_voos_obter_por_id(gestor_voos_t *gestor, const char *flight_id)
     if (!gestor || !flight_id)
         return NULL;
     return g_hash_table_lookup(gestor->tabela, flight_id);
+}
+
+GPtrArray *gestor_voos_obter_por_origin(gestor_voos_t *gestor, const char *origin)
+{
+    if (!gestor || !origin)
+        return NULL;
+    return g_hash_table_lookup(gestor->por_origin, origin);
+}
+
+GPtrArray *gestor_voos_obter_por_destination(gestor_voos_t *gestor, const char *destination)
+{
+    if (!gestor || !destination)
+        return NULL;
+    return g_hash_table_lookup(gestor->por_destination, destination);
 }
 
 GHashTable *gestor_voos_obter_tabela(gestor_voos_t *gestor)

@@ -16,5 +16,7 @@ void gestor_voos_para_cada(gestor_voos_t *gestor, void (*func)(const char *, voo
 
 // Função de carregamento (antes em _parser.h)
 void gestor_voos_carregar(gestor_voos_t *gestor, const char *ficheiro_csv);
-
+// Adiciona estas declarações:
+GPtrArray *gestor_voos_obter_por_origin(gestor_voos_t *gestor, const char *origin);
+GPtrArray *gestor_voos_obter_por_destination(gestor_voos_t *gestor, const char *destination);
 #endif

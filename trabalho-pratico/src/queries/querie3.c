@@ -6,6 +6,7 @@
 #include <glib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 typedef struct
 {
@@ -74,10 +75,33 @@ static void contar_voos_validos(gpointer key, gpointer value, gpointer user_data
     }
 }
 
+/**
+ * @brief Verifica se o comando usa formato alternativo (termina com 'S')
+ * @param comando String do comando completo (ex: "3S 2023-01-01 2023-12-31" ou "3 2023-01-01 2023-12-31")
+ * @return 1 se usa formato 'S', 0 caso contrário
+ */
+static int usa_formato_alternativo(const char *comando)
+{
+    if (!comando)
+        return 0;
+
+    // Pula espaços iniciais
+    while (*comando && isspace(*comando))
+        comando++;
+
+    // Pula os dígitos do número da query
+    while (*comando && isdigit(*comando))
+        comando++;
+
+    // Verifica se há um 'S' logo após o número
+    return (*comando == 'S');
+}
+
 void query3(gestor_aeroportos_t *gestor_aeroportos,
             gestor_voos_t *gestor_voos,
             const char *data_inicio,
             const char *data_fim,
+            const char *comando_completo,
             FILE *output)
 {
     if (!gestor_aeroportos || !gestor_voos || !data_inicio || !data_fim || !output)
@@ -85,6 +109,10 @@ void query3(gestor_aeroportos_t *gestor_aeroportos,
         fprintf(output, "\n");
         return;
     }
+
+    // Determina o separador baseado no formato do comando
+    int formato_alternativo = usa_formato_alternativo(comando_completo);
+    const char *separador = formato_alternativo ? "=" : ";";
 
     GHashTable *tabela_voos = gestor_voos_obter_tabela(gestor_voos);
     if (!tabela_voos)
@@ -135,15 +163,20 @@ void query3(gestor_aeroportos_t *gestor_aeroportos,
 
     if (!aero)
     {
-        fprintf(output, "%s,,,,%u\n", melhor->code, melhor->count);
+        fprintf(output, "%s%s%s%s%s%s%s%s%u\n",
+                melhor->code, separador,
+                "", separador,
+                "", separador,
+                "", separador,
+                melhor->count);
     }
     else
     {
-        fprintf(output, "%s,%s,%s,%s,%u\n",
-                aeroporto_obter_codigo(aero),
-                aeroporto_obter_nome(aero),
-                aeroporto_obter_cidade(aero),
-                aeroporto_obter_pais(aero),
+        fprintf(output, "%s%s%s%s%s%s%s%s%u\n",
+                aeroporto_obter_codigo(aero), separador,
+                aeroporto_obter_nome(aero), separador,
+                aeroporto_obter_cidade(aero), separador,
+                aeroporto_obter_pais(aero), separador,
                 melhor->count);
     }
 

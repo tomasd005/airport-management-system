@@ -14,5 +14,6 @@ unsigned int gestor_reservas_numero(gestor_reservas_t *gestor);
 
 // Função de carregamento (antes em _parser.h)
 void gestor_reservas_carregar(gestor_reservas_t *gestor, const char *ficheiro_csv);
-
+// Adiciona esta declaração:
+int gestor_reservas_contar_passageiros_voo(gestor_reservas_t *gestor, const char *flight_id);
 #endif

@@ -75,23 +75,23 @@ TIME = /usr/bin/time -v
 
 run-erros: $(EXEC_PRINCIPAL)
 	@echo " Executando com dataset COM_ERROS (Valgrind + Tempo)..."
-	$(TIME) $(VALGRIND) ./$(EXEC_PRINCIPAL) com_erros/ inputs_fase1.txt
+	$(TIME) $(VALGRIND) ./$(EXEC_PRINCIPAL) com_erros/ inputs_fase2.txt
 
 run-sem-erros: $(EXEC_PRINCIPAL)
 	@echo "  Executando com dataset SEM_ERROS (Valgrind + Tempo)..."
-	$(TIME) $(VALGRIND) ./$(EXEC_PRINCIPAL) sem_erros/ inputs_fase1.txt
+	$(TIME) $(VALGRIND) ./$(EXEC_PRINCIPAL) sem_erros/ inputs_fase2.txt
 
 run-testes: $(EXEC_TESTES)
 	@echo "  Executando programa de TESTES (Valgrind + Tempo)..."
-	$(TIME) $(VALGRIND) ./$(EXEC_TESTES) sem_erros/ inputs_fase1.txt resultados-esperados/
+	$(TIME) $(VALGRIND) ./$(EXEC_TESTES) sem_erros/ inputs_fase2.txt resultados-esperados/
 
 run-fast: $(EXEC_PRINCIPAL)
 	@echo " Execução rápida SEM Valgrind..."
-	$(TIME) ./$(EXEC_PRINCIPAL) sem_erros/ inputs_fase1.txt
+	$(TIME) ./$(EXEC_PRINCIPAL) sem_erros/ inputs_fase2.txt
 
 test-fast: $(EXEC_TESTES)
 	@echo " Testes rápidos SEM Valgrind..."
-	./$(EXEC_TESTES) sem_erros/ inputs_fase1.txt resultados-esperados/
+	./$(EXEC_TESTES) sem_erros/ inputs_fase2.txt resultados-esperados/
 
 # Novo target para testes de validação
 test-validacoes: $(EXEC_VALIDACOES)
@@ -107,43 +107,6 @@ build-validacoes: $(EXEC_VALIDACOES)
 test-validacoes-valgrind: $(EXEC_VALIDACOES)
 	@echo " Executando testes de validação com Valgrind..."
 	$(VALGRIND) ./$(EXEC_VALIDACOES)
-
-# ===== NOVOS TARGETS PARA VERIFICADOR =====
-
-# Compilar apenas o verificador
-verificador: $(EXEC_VERIFICADOR)
-	@echo " Verificador CSV compilado!"
-
-# Verificar validações com dataset COM erros
-verificar-erros: $(EXEC_PRINCIPAL) $(EXEC_VERIFICADOR)
-	@echo "A executar programa com dataset COM_ERROS..."
-	@./$(EXEC_PRINCIPAL) com_erros/ inputs_fase1.txt
-	@echo ""
-	@echo " A verificar ficheiros de erros gerados..."
-	@./$(EXEC_VERIFICADOR) resultados/ com_erros/
-
-# Verificar validações com dataset SEM erros
-verificar-sem-erros: $(EXEC_PRINCIPAL) $(EXEC_VERIFICADOR)
-	@echo " A executar programa com dataset SEM_ERROS..."
-	@./$(EXEC_PRINCIPAL) sem_erros/ inputs_fase1.txt
-	@echo ""
-	@echo "A verificar resultados..."
-	@./$(EXEC_VERIFICADOR) resultados/ sem_erros/
-
-# Verificação completa (COM e SEM erros)
-verificar-tudo: $(EXEC_PRINCIPAL) $(EXEC_VERIFICADOR)
-	@echo "════════════════════════════════════════"
-	@echo " VERIFICAÇÃO COM ERROS"
-	@echo "════════════════════════════════════════"
-	@./$(EXEC_PRINCIPAL) com_erros/ inputs_fase1.txt
-	@./$(EXEC_VERIFICADOR) resultados/ com_erros/
-	@echo ""
-	@echo "════════════════════════════════════════"
-	@echo " VERIFICAÇÃO SEM ERROS"
-	@echo "════════════════════════════════════════"
-	@rm -f resultados/*
-	@./$(EXEC_PRINCIPAL) sem_erros/ inputs_fase1.txt
-	@./$(EXEC_VERIFICADOR) resultados/ sem_erros/
 
 # Workflow completo: compilar, executar e verificar
 workflow: clean all verificar-erros

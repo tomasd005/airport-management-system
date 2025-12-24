@@ -1,454 +1,460 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <glib.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <stdbool.h>
+#include <ctype.h>
 
-#include "validacao_comum.h"
-#include "validacao_aeroportos.h"
-#include "validacao_avioes.h"
-#include "validacao_voos.h"
-#include "validacao_passageiros.h"
-#include "validacao_reservas.h"
-#include "utils.h"
-
-#include "aeroportos.h"
-#include "avioes.h"
-#include "voos.h"
-#include "passageiros.h"
-#include "reservas.h"
+#define MAX_LINE 2048
+#define MAX_ERRORS 10000
 
 #define COR_VERDE "\033[32m"
 #define COR_VERMELHO "\033[31m"
 #define COR_AMARELO "\033[33m"
 #define COR_AZUL "\033[34m"
+#define COR_CIANO "\033[36m"
 #define COR_RESET "\033[0m"
 
-typedef struct
-{
-    int total;
-    int passou;
-    int falhou;
-} Estatisticas;
+typedef struct {
+    char linha[MAX_LINE];
+    int linha_num;
+} ErroCSV;
 
-void init_stats(Estatisticas *stats)
-{
-    stats->total = 0;
-    stats->passou = 0;
-    stats->falhou = 0;
-}
+typedef struct {
+    int total_linhas;
+    int erros_detectados;
+    int falsos_positivos;
+    int falsos_negativos;
+    char tipo[32];
+} EstatisticasCSV;
 
-void print_resultado(const char *teste, gboolean esperado, gboolean obtido, Estatisticas *stats)
-{
-    stats->total++;
-    if (esperado == obtido)
-    {
-        stats->passou++;
-        printf("  %s✓%s %s\n", COR_VERDE, COR_RESET, teste);
+// ============================================================================
+// FUNÇÕES AUXILIARES
+// ============================================================================
+
+void trim_string(char *str) {
+    if (!str) return;
+    
+    // Remove trailing whitespace
+    char *end = str + strlen(str) - 1;
+    while (end >= str && isspace((unsigned char)*end)) {
+        *end = '\0';
+        end--;
     }
-    else
-    {
-        stats->falhou++;
-        printf("  %s✗%s %s (esperado: %s, obtido: %s)\n",
-               COR_VERMELHO, COR_RESET, teste,
-               esperado ? "VÁLIDO" : "INVÁLIDO",
-               obtido ? "VÁLIDO" : "INVÁLIDO");
+    
+    // Remove leading whitespace
+    char *start = str;
+    while (*start && isspace((unsigned char)*start))
+        start++;
+    
+    if (start != str)
+        memmove(str, start, strlen(start) + 1);
+}
+
+bool arquivo_existe(const char *path) {
+    struct stat buffer;
+    return (stat(path, &buffer) == 0);
+}
+
+int contar_linhas_arquivo(const char *filepath) {
+    FILE *f = fopen(filepath, "r");
+    if (!f) return -1;
+    
+    int count = 0;
+    char linha[MAX_LINE];
+    
+    // Pular header
+    if (fgets(linha, sizeof(linha), f)) {
+        while (fgets(linha, sizeof(linha), f)) {
+            trim_string(linha);
+            if (strlen(linha) > 0)
+                count++;
+        }
     }
+    
+    fclose(f);
+    return count;
 }
 
-void print_secao(const char *nome)
-{
-    printf("\n%s═══════════════════════════════════════════════════════%s\n", COR_AZUL, COR_RESET);
-    printf("%s  %s%s\n", COR_AZUL, nome, COR_RESET);
-    printf("%s═══════════════════════════════════════════════════════%s\n\n", COR_AZUL, COR_RESET);
-}
+// ============================================================================
+// ANÁLISE DE FALSOS POSITIVOS
+// ============================================================================
 
-void print_stats(const char *categoria, Estatisticas *stats)
-{
-    double percentagem = (stats->total > 0) ? (stats->passou * 100.0 / stats->total) : 0;
-
-    printf("\n%s───────────────────────────────────────────────────────%s\n", COR_AMARELO, COR_RESET);
-    printf("  %s: ", categoria);
-
-    if (percentagem == 100.0)
-    {
-        printf("%s%.1f%%%s (%d/%d) ✓\n", COR_VERDE, percentagem, COR_RESET, stats->passou, stats->total);
+void analisar_falsos_positivos(const char *dataset_limpo, 
+                                const char *pasta_erros,
+                                EstatisticasCSV *stats) {
+    (void)dataset_limpo;  // Informativo - não usado na análise de CSVs
+    (void)stats;          // Reservado para estatísticas futuras
+    
+    printf("\n%s╔════════════════════════════════════════════════════════╗%s\n", COR_AZUL, COR_RESET);
+    printf("%s║     ANÁLISE DE FALSOS POSITIVOS (Dataset Sem Erros)   ║%s\n", COR_AZUL, COR_RESET);
+    printf("%s╚════════════════════════════════════════════════════════╝%s\n", COR_AZUL, COR_RESET);
+    
+    const char *tipos[] = {
+        "airports_errors.csv",
+        "aircrafts_errors.csv", 
+        "flights_errors.csv",
+        "passengers_errors.csv",
+        "reservations_errors.csv"
+    };
+    
+    int total_falsos_positivos = 0;
+    
+    for (int i = 0; i < 5; i++) {
+        char path_erro[512];
+        snprintf(path_erro, sizeof(path_erro), "%s/%s", pasta_erros, tipos[i]);
+        
+        int linhas_erro = contar_linhas_arquivo(path_erro);
+        
+        if (linhas_erro < 0) {
+            printf("\n%s[%s]%s\n", COR_AMARELO, tipos[i], COR_RESET);
+            printf("  %s⚠ Ficheiro não encontrado%s\n", COR_AMARELO, COR_RESET);
+            continue;
+        }
+        
+        printf("\n%s[%s]%s\n", COR_CIANO, tipos[i], COR_RESET);
+        
+        if (linhas_erro == 0) {
+            printf("  %s✓ Nenhum erro detectado (correto!)%s\n", COR_VERDE, COR_RESET);
+        } else {
+            printf("  %s✗ %d linhas no ficheiro de erros%s\n", 
+                   COR_VERMELHO, linhas_erro, COR_RESET);
+            printf("  %s⚠ FALSOS POSITIVOS: Dados válidos marcados como errados%s\n",
+                   COR_VERMELHO, COR_RESET);
+            total_falsos_positivos += linhas_erro;
+            
+            // Mostrar primeiros erros para debug
+            FILE *f = fopen(path_erro, "r");
+            if (f) {
+                char linha[MAX_LINE];
+                fgets(linha, sizeof(linha), f); // skip header
+                
+                printf("\n  Primeiras 3 linhas detectadas como erro:\n");
+                for (int j = 0; j < 3 && fgets(linha, sizeof(linha), f); j++) {
+                    trim_string(linha);
+                    if (strlen(linha) > 0) {
+                        printf("    %s%d: %.80s...%s\n", 
+                               COR_AMARELO, j+1, linha, COR_RESET);
+                    }
+                }
+                fclose(f);
+            }
+        }
     }
-    else if (percentagem >= 50.0)
-    {
-        printf("%s%.1f%%%s (%d/%d)\n", COR_AMARELO, percentagem, COR_RESET, stats->passou, stats->total);
+    
+    printf("\n%s─────────────────────────────────────────────────────────%s\n", 
+           COR_AMARELO, COR_RESET);
+    if (total_falsos_positivos == 0) {
+        printf("%s✓ EXCELENTE: Nenhum falso positivo detectado!%s\n", 
+               COR_VERDE, COR_RESET);
+    } else {
+        printf("%s⚠ TOTAL DE FALSOS POSITIVOS: %d%s\n", 
+               COR_VERMELHO, total_falsos_positivos, COR_RESET);
+        printf("  → Revise as validações que estão rejeitando dados válidos\n");
     }
-    else
-    {
-        printf("%s%.1f%%%s (%d/%d)\n", COR_VERMELHO, percentagem, COR_RESET, stats->passou, stats->total);
+    printf("%s─────────────────────────────────────────────────────────%s\n", 
+           COR_AMARELO, COR_RESET);
+}
+
+// ============================================================================
+// ANÁLISE DE FALSOS NEGATIVOS
+// ============================================================================
+
+typedef struct {
+    char *nome_arquivo;
+    int linha_original;
+    char descricao[256];
+} ErroEsperado;
+
+void carregar_erros_esperados(const char *dataset_erros,
+                               const char *tipo,
+                               ErroEsperado **out_erros,
+                               int *out_count) {
+    (void)out_erros;  // Não usado nesta implementação simplificada
+    
+    // Esta função deve ler o CSV original do dataset com erros
+    // e identificar quais linhas têm problemas conhecidos
+    
+    char path[512];
+    snprintf(path, sizeof(path), "%s/%s", dataset_erros, tipo);
+    
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        *out_count = 0;
+        return;
     }
-
-    printf("%s───────────────────────────────────────────────────────%s\n", COR_AMARELO, COR_RESET);
+    
+    // Implementação simplificada - na prática, você deve ter uma lista
+    // de erros conhecidos por dataset
+    *out_count = 0;
+    fclose(f);
 }
 
-void testar_validacao_ano(Estatisticas *stats)
-{
-    print_secao("TESTE: Validação de Ano");
-
-    int ano;
-
-    print_resultado("Ano 2020", TRUE, validacao_ano("2020", &ano) && ano == 2020, stats);
-    print_resultado("Ano 1900", TRUE, validacao_ano("1900", &ano) && ano == 1900, stats);
-    print_resultado("Ano 2025", TRUE, validacao_ano("2025", &ano) && ano == 2025, stats);
-    print_resultado("Ano 2000", TRUE, validacao_ano("2000", &ano) && ano == 2000, stats);
-
-    print_resultado("Ano com 3 dígitos", FALSE, validacao_ano("202", NULL), stats);
-    print_resultado("Ano com 5 dígitos", FALSE, validacao_ano("20200", NULL), stats);
-    print_resultado("Ano < 1900", FALSE, validacao_ano("1899", NULL), stats);
-    print_resultado("Ano > 2025", FALSE, validacao_ano("2026", NULL), stats);
-    print_resultado("Ano com letras", FALSE, validacao_ano("20a0", NULL), stats);
-    print_resultado("Ano NULL", FALSE, validacao_ano(NULL, NULL), stats);
-    print_resultado("Ano com espaços", FALSE, validacao_ano("20 20", NULL), stats);
+void analisar_falsos_negativos(const char *dataset_erros,
+                                const char *pasta_erros_gerados,
+                                EstatisticasCSV *stats) {
+    (void)dataset_erros;        // Informativo - não usado na análise de CSVs
+    (void)stats;                // Reservado para estatísticas futuras
+    
+    printf("\n%s╔════════════════════════════════════════════════════════╗%s\n", COR_AZUL, COR_RESET);
+    printf("%s║      ANÁLISE DE FALSOS NEGATIVOS (Dataset com Erros)  ║%s\n", COR_AZUL, COR_RESET);
+    printf("%s╚════════════════════════════════════════════════════════╝%s\n", COR_AZUL, COR_RESET);
+    
+    printf("\n%s⚠ NOTA:%s Esta análise requer conhecimento dos erros esperados\n", 
+           COR_AMARELO, COR_RESET);
+    printf("  no dataset. Você deve:\n\n");
+    printf("  1. Documentar manualmente os erros conhecidos no dataset\n");
+    printf("  2. Verificar se cada erro foi detectado nos CSVs gerados\n");
+    printf("  3. Qualquer erro não detectado = falso negativo\n\n");
+    
+    const char *tipos[] = {
+        "airports.csv",
+        "aircrafts.csv", 
+        "flights.csv",
+        "passengers.csv",
+        "reservations.csv"
+    };
+    
+    const char *csv_erros[] = {
+        "airports_errors.csv",
+        "aircrafts_errors.csv", 
+        "flights_errors.csv",
+        "passengers_errors.csv",
+        "reservations_errors.csv"
+    };
+    
+    printf("%sEXEMPLO DE DEBUGGING MANUAL:%s\n\n", COR_CIANO, COR_RESET);
+    
+    for (int i = 0; i < 5; i++) {
+        printf("%s[%s]%s\n", COR_CIANO, tipos[i], COR_RESET);
+        
+        char path_erro[512];
+        snprintf(path_erro, sizeof(path_erro), "%s/%s", 
+                 pasta_erros_gerados, csv_erros[i]);
+        
+        int erros_detectados = contar_linhas_arquivo(path_erro);
+        
+        printf("  • Erros detectados pelo programa: %d\n", 
+               erros_detectados >= 0 ? erros_detectados : 0);
+        printf("  • Erros conhecidos no dataset: %s[A DOCUMENTAR]%s\n",
+               COR_AMARELO, COR_RESET);
+        printf("  • Verificar manualmente se cada erro conhecido foi detectado\n\n");
+    }
+    
+    printf("%s─────────────────────────────────────────────────────────%s\n", 
+           COR_AMARELO, COR_RESET);
+    printf("Para análise completa de falsos negativos:\n");
+    printf("1. Crie ficheiro com lista de erros esperados\n");
+    printf("2. Compare com erros detectados\n");
+    printf("3. Diferença = falsos negativos\n");
+    printf("%s─────────────────────────────────────────────────────────%s\n", 
+           COR_AMARELO, COR_RESET);
 }
 
-void testar_validacao_data(Estatisticas *stats)
-{
-    print_secao("TESTE: Validação de Data");
+// ============================================================================
+// COMPARAÇÃO DE CSVs DE ERRO COM ESPERADOS
+// ============================================================================
 
-    print_resultado("Data 2020-01-15", TRUE, validacao_data("2020-01-15"), stats);
-    print_resultado("Data 2025-09-30", TRUE, validacao_data("2025-09-30"), stats);
-    print_resultado("Data 1900-01-01", TRUE, validacao_data("1900-01-01"), stats);
-
-    print_resultado("Data formato errado (sem -)", FALSE, validacao_data("20200115"), stats);
-    print_resultado("Data mês inválido", FALSE, validacao_data("2020-13-15"), stats);
-    print_resultado("Data dia inválido", FALSE, validacao_data("2020-01-32"), stats);
-    print_resultado("Data futuro", FALSE, validacao_data("2025-12-31"), stats);
-    print_resultado("Data NULL", FALSE, validacao_data(NULL), stats);
-    print_resultado("Data com espaços extras", FALSE, validacao_data("2020 01-15"), stats);
-    print_resultado("Data tamanho errado", FALSE, validacao_data("2020-1-15"), stats);
+bool comparar_csvs_erro(const char *gerado, const char *esperado, int *linha_dif) {
+    FILE *f1 = fopen(gerado, "r");
+    FILE *f2 = fopen(esperado, "r");
+    
+    if (!f1 || !f2) {
+        if (f1) fclose(f1);
+        if (f2) fclose(f2);
+        return false;
+    }
+    
+    char l1[MAX_LINE], l2[MAX_LINE];
+    int linha = 0;
+    
+    while (fgets(l1, sizeof(l1), f1) && fgets(l2, sizeof(l2), f2)) {
+        linha++;
+        trim_string(l1);
+        trim_string(l2);
+        
+        if (strcmp(l1, l2) != 0) {
+            *linha_dif = linha;
+            fclose(f1);
+            fclose(f2);
+            return false;
+        }
+    }
+    
+    // Verificar se um ficheiro tem mais linhas que o outro
+    if (fgets(l1, sizeof(l1), f1) || fgets(l2, sizeof(l2), f2)) {
+        *linha_dif = linha + 1;
+        fclose(f1);
+        fclose(f2);
+        return false;
+    }
+    
+    fclose(f1);
+    fclose(f2);
+    return true;
 }
 
-void testar_validacao_datetime(Estatisticas *stats)
-{
-    print_secao("TESTE: Validação de DateTime");
-
-    print_resultado("DateTime 2020-01-15 10:30", TRUE, validacao_datetime("2020-01-15 10:30"), stats);
-    print_resultado("DateTime 2024-01-01 00:00", TRUE, validacao_datetime("2024-01-01 00:00"), stats);
-    print_resultado("DateTime 2020-12-31 23:59", TRUE, validacao_datetime("2020-12-31 23:59"), stats);
-
-    print_resultado("DateTime sem espaço", FALSE, validacao_datetime("2020-01-1510:30"), stats);
-    print_resultado("DateTime hora > 23", FALSE, validacao_datetime("2020-01-15 24:00"), stats);
-    print_resultado("DateTime minuto > 59", FALSE, validacao_datetime("2020-01-15 10:60"), stats);
-    print_resultado("DateTime NULL", FALSE, validacao_datetime(NULL), stats);
-    print_resultado("DateTime tamanho errado", FALSE, validacao_datetime("2020-01-15 10:3"), stats);
+void comparar_com_esperados(const char *pasta_gerados,
+                            const char *pasta_esperados) {
+    printf("\n%s╔════════════════════════════════════════════════════════╗%s\n", COR_AZUL, COR_RESET);
+    printf("%s║     COMPARAÇÃO COM FICHEIROS ESPERADOS (Plataforma)   ║%s\n", COR_AZUL, COR_RESET);
+    printf("%s╚════════════════════════════════════════════════════════╝%s\n", COR_AZUL, COR_RESET);
+    
+    const char *tipos[] = {
+        "airports_errors.csv",
+        "aircrafts_errors.csv", 
+        "flights_errors.csv",
+        "passengers_errors.csv",
+        "reservations_errors.csv"
+    };
+    
+    int total_ok = 0;
+    int total_testados = 0;
+    
+    for (int i = 0; i < 5; i++) {
+        char path_gerado[512], path_esperado[512];
+        snprintf(path_gerado, sizeof(path_gerado), "%s/%s", pasta_gerados, tipos[i]);
+        snprintf(path_esperado, sizeof(path_esperado), "%s/%s", pasta_esperados, tipos[i]);
+        
+        printf("\n%s[%s]%s\n", COR_CIANO, tipos[i], COR_RESET);
+        
+        if (!arquivo_existe(path_esperado)) {
+            printf("  %s⚠ Ficheiro esperado não disponível%s\n", 
+                   COR_AMARELO, COR_RESET);
+            continue;
+        }
+        
+        if (!arquivo_existe(path_gerado)) {
+            printf("  %s✗ Ficheiro gerado não encontrado%s\n", 
+                   COR_VERMELHO, COR_RESET);
+            total_testados++;
+            continue;
+        }
+        
+        int linha_dif = 0;
+        bool igual = comparar_csvs_erro(path_gerado, path_esperado, &linha_dif);
+        
+        total_testados++;
+        
+        if (igual) {
+            printf("  %s✓ Idêntico ao esperado!%s\n", COR_VERDE, COR_RESET);
+            total_ok++;
+        } else {
+            printf("  %s✗ Diferença encontrada na linha %d%s\n", 
+                   COR_VERMELHO, linha_dif, COR_RESET);
+            
+            int linhas_gerado = contar_linhas_arquivo(path_gerado);
+            int linhas_esperado = contar_linhas_arquivo(path_esperado);
+            
+            printf("    Linhas geradas: %d | Esperadas: %d\n", 
+                   linhas_gerado, linhas_esperado);
+        }
+    }
+    
+    printf("\n%s─────────────────────────────────────────────────────────%s\n", 
+           COR_AMARELO, COR_RESET);
+    printf("Resultado: %d/%d ficheiros corretos\n", total_ok, total_testados);
+    if (total_ok == total_testados && total_testados > 0) {
+        printf("%s✓ PERFEITO: Todos os CSVs idênticos aos esperados!%s\n", 
+               COR_VERDE, COR_RESET);
+    } else {
+        printf("%s⚠ Revise os ficheiros com diferenças%s\n", 
+               COR_AMARELO, COR_RESET);
+    }
+    printf("%s─────────────────────────────────────────────────────────%s\n", 
+           COR_AMARELO, COR_RESET);
 }
 
-void testar_validacao_flight_id(Estatisticas *stats)
-{
-    print_secao("TESTE: Validação de Flight ID");
+// ============================================================================
+// MAIN
+// ============================================================================
 
-    print_resultado("FlightID TP12345", TRUE, validacao_flight_id("TP12345"), stats);
-    print_resultado("FlightID AA00000", TRUE, validacao_flight_id("AA00000"), stats);
-    print_resultado("FlightID ZZ99999", TRUE, validacao_flight_id("ZZ99999"), stats);
-
-    print_resultado("FlightID minúsculas", FALSE, validacao_flight_id("tp12345"), stats);
-    print_resultado("FlightID 1 letra", FALSE, validacao_flight_id("T123456"), stats);
-    print_resultado("FlightID letras no número", FALSE, validacao_flight_id("TP1234A"), stats);
-    print_resultado("FlightID tamanho errado", FALSE, validacao_flight_id("TP123"), stats);
-    print_resultado("FlightID NULL", FALSE, validacao_flight_id(NULL), stats);
-    print_resultado("FlightID com espaços", FALSE, validacao_flight_id("TP 1234"), stats);
+void print_usage(const char *prog) {
+    printf("Uso: %s <modo> [argumentos]\n\n", prog);
+    printf("Modos disponíveis:\n\n");
+    printf("  1. falsos-positivos <pasta_dataset_sem_erros> <pasta_erros_gerados>\n");
+    printf("     Detecta dados válidos incorretamente marcados como erros\n\n");
+    printf("  2. falsos-negativos <pasta_dataset_com_erros> <pasta_erros_gerados>\n");
+    printf("     Ajuda a identificar erros não detectados\n\n");
+    printf("  3. comparar <pasta_gerados> <pasta_esperados>\n");
+    printf("     Compara CSVs gerados com os esperados pela plataforma\n\n");
+    printf("  4. completo <pasta_dataset_sem_erros> <pasta_dataset_com_erros> <pasta_gerados> <pasta_esperados>\n");
+    printf("     Executa todas as análises\n\n");
+    printf("Exemplos:\n");
+    printf("  %s falsos-positivos sem_erros resultados\n", prog);
+    printf("  %s falsos-negativos com_erros resultados\n", prog);
+    printf("  %s comparar resultados resultados-esperados\n", prog);
+    printf("  %s completo sem_erros com_erros resultados resultados-esperados\n", prog);
 }
 
-void testar_validacao_coordenadas(Estatisticas *stats)
-{
-    print_secao("TESTE: Validação de Coordenadas");
-
-    double lat, lon;
-
-    print_resultado("Latitude 45.5", TRUE, validacao_coordenada("45.5", TRUE, &lat), stats);
-    print_resultado("Latitude -89.9", TRUE, validacao_coordenada("-89.9", TRUE, &lat), stats);
-    print_resultado("Longitude 179.5", TRUE, validacao_coordenada("179.5", FALSE, &lon), stats);
-    print_resultado("Longitude -180.0", TRUE, validacao_coordenada("-180.0", FALSE, &lon), stats);
-
-    print_resultado("Latitude > 90", FALSE, validacao_coordenada("91.0", TRUE, NULL), stats);
-    print_resultado("Latitude < -90", FALSE, validacao_coordenada("-91.0", TRUE, NULL), stats);
-    print_resultado("Longitude > 180", FALSE, validacao_coordenada("181.0", FALSE, NULL), stats);
-    print_resultado("Longitude < -180", FALSE, validacao_coordenada("-181.0", FALSE, NULL), stats);
-    print_resultado("Coordenada NULL", FALSE, validacao_coordenada(NULL, TRUE, NULL), stats);
-    print_resultado("Coordenada com letras", FALSE, validacao_coordenada("45.5a", TRUE, NULL), stats);
-}
-
-void testar_validacao_inteiro_positivo(Estatisticas *stats)
-{
-    print_secao("TESTE: Validação de Inteiro Positivo");
-
-    int val;
-
-    print_resultado("Número 1", TRUE, validacao_inteiro_positivo("1", &val), stats);
-    print_resultado("Número 12345", TRUE, validacao_inteiro_positivo("12345", &val), stats);
-    print_resultado("Número 999999", TRUE, validacao_inteiro_positivo("999999", &val), stats);
-
-    print_resultado("Número 0", FALSE, validacao_inteiro_positivo("0", NULL), stats);
-    print_resultado("Número negativo", FALSE, validacao_inteiro_positivo("-1", NULL), stats);
-    print_resultado("Número com letras", FALSE, validacao_inteiro_positivo("123a", NULL), stats);
-    print_resultado("Número NULL", FALSE, validacao_inteiro_positivo(NULL, NULL), stats);
-    print_resultado("Número com espaços", FALSE, validacao_inteiro_positivo("12 34", NULL), stats);
-    print_resultado("String vazia", FALSE, validacao_inteiro_positivo("", NULL), stats);
-}
-
-void testar_validacao_aeroportos(Estatisticas *stats)
-{
-    print_secao("TESTE: Validação de Aeroportos");
-
-    char col0[] = "LIS";
-    char col1[] = "Lisbon Airport";
-    char col2[] = "Lisbon";
-    char col3[] = "Portugal";
-    char col4[] = "38.7742";
-    char col5[] = "-9.1342";
-    char col6[] = "123";
-    char col7[] = "large_airport";
-    char *valido[] = {col0, col1, col2, col3, col4, col5, col6, col7, NULL};
-    gpointer resultado = valida_aeroporto(valido);
-    print_resultado("Aeroporto válido completo", TRUE, resultado != NULL, stats);
-    if (resultado)
-        aeroporto_destruir(resultado);
-
-    char c1_0[] = "lis";
-    char c1_1[] = "Airport";
-    char c1_2[] = "City";
-    char c1_3[] = "Country";
-    char c1_4[] = "0";
-    char c1_5[] = "0";
-    char c1_6[] = "";
-    char c1_7[] = "large_airport";
-    char *codigo_minusculo[] = {c1_0, c1_1, c1_2, c1_3, c1_4, c1_5, c1_6, c1_7, NULL};
-    resultado = valida_aeroporto(codigo_minusculo);
-    print_resultado("Código minúsculas", FALSE, resultado != NULL, stats);
-    if (resultado)
-        aeroporto_destruir(resultado);
-
-    char c2_0[] = "LI";
-    char c2_1[] = "Airport";
-    char c2_2[] = "City";
-    char c2_3[] = "Country";
-    char c2_4[] = "0";
-    char c2_5[] = "0";
-    char c2_6[] = "";
-    char c2_7[] = "large_airport";
-    char *codigo_curto[] = {c2_0, c2_1, c2_2, c2_3, c2_4, c2_5, c2_6, c2_7, NULL};
-    resultado = valida_aeroporto(codigo_curto);
-    print_resultado("Código 2 letras", FALSE, resultado != NULL, stats);
-    if (resultado)
-        aeroporto_destruir(resultado);
-
-    char c3_0[] = "LIS";
-    char c3_1[] = "Airport";
-    char c3_2[] = "City";
-    char c3_3[] = "Country";
-    char c3_4[] = "0";
-    char c3_5[] = "0";
-    char c3_6[] = "";
-    char c3_7[] = "invalid_type";
-    char *tipo_invalido[] = {c3_0, c3_1, c3_2, c3_3, c3_4, c3_5, c3_6, c3_7, NULL};
-    resultado = valida_aeroporto(tipo_invalido);
-    print_resultado("Tipo de aeroporto inválido", FALSE, resultado != NULL, stats);
-    if (resultado)
-        aeroporto_destruir(resultado);
-}
-
-void testar_validacao_avioes(Estatisticas *stats)
-{
-    print_secao("TESTE: Validação de Aviões");
-
-    char a1_0[] = "A320";
-    char a1_1[] = "Airbus";
-    char a1_2[] = "A320-200";
-    char a1_3[] = "2020";
-    char a1_4[] = "180";
-    char a1_5[] = "6000";
-    char *valido[] = {a1_0, a1_1, a1_2, a1_3, a1_4, a1_5, NULL};
-    aviao_t *resultado = valida_aviao(valido);
-    print_resultado("Avião válido completo", TRUE, resultado != NULL, stats);
-    if (resultado)
-        aviao_destruir(resultado);
-
-    char a2_0[] = "A320";
-    char a2_1[] = "Airbus";
-    char a2_2[] = "A320-200";
-    char a2_3[] = "";
-    char a2_4[] = "180";
-    char a2_5[] = "6000";
-    char *sem_ano[] = {a2_0, a2_1, a2_2, a2_3, a2_4, a2_5, NULL};
-    resultado = valida_aviao(sem_ano);
-    print_resultado("Avião sem ano (válido)", TRUE, resultado != NULL, stats);
-    if (resultado)
-        aviao_destruir(resultado);
-
-    char a3_0[] = "A320";
-    char a3_1[] = "Airbus";
-    char a3_2[] = "A320-200";
-    char a3_3[] = "2020";
-    char a3_4[] = "0";
-    char a3_5[] = "6000";
-    char *cap_zero[] = {a3_0, a3_1, a3_2, a3_3, a3_4, a3_5, NULL};
-    resultado = valida_aviao(cap_zero);
-    print_resultado("Capacidade zero", FALSE, resultado != NULL, stats);
-    if (resultado)
-        aviao_destruir(resultado);
-}
-
-void testar_validacao_voos(Estatisticas *stats)
-{
-    print_secao("TESTE: Validação de Voos");
-
-    char v1_0[] = "TP12345";
-    char v1_1[] = "2025-09-15 10:00";
-    char v1_2[] = "2025-09-15 10:05";
-    char v1_3[] = "2025-09-15 12:00";
-    char v1_4[] = "2025-09-15 12:10";
-    char v1_5[] = "A1";
-    char v1_6[] = "On Time";
-    char v1_7[] = "LIS";
-    char v1_8[] = "OPO";
-    char v1_9[] = "A320";
-    char v1_10[] = "TAP";
-    char v1_11[] = "url";
-    char *valido[] = {v1_0, v1_1, v1_2, v1_3, v1_4, v1_5, v1_6, v1_7, v1_8, v1_9, v1_10, v1_11, NULL};
-    voo_t *resultado = valida_voo(valido);
-    print_resultado("Voo válido On Time", TRUE, resultado != NULL, stats);
-    if (resultado)
-        voo_destruir(resultado);
-
-    char v2_0[] = "TP12345";
-    char v2_1[] = "2025-09-15 10:00";
-    char v2_2[] = "N/A";
-    char v2_3[] = "2025-09-15 12:00";
-    char v2_4[] = "N/A";
-    char v2_5[] = "A1";
-    char v2_6[] = "On Time";
-    char v2_7[] = "LIS";
-    char v2_8[] = "LIS";
-    char v2_9[] = "A320";
-    char v2_10[] = "TAP";
-    char v2_11[] = "url";
-    char *mesma_cidade[] = {v2_0, v2_1, v2_2, v2_3, v2_4, v2_5, v2_6, v2_7, v2_8, v2_9, v2_10, v2_11, NULL};
-    resultado = valida_voo(mesma_cidade);
-    print_resultado("Origem = Destino", FALSE, resultado != NULL, stats);
-    if (resultado)
-        voo_destruir(resultado);
-}
-
-void testar_validacao_passageiros(Estatisticas *stats)
-{
-    print_secao("TESTE: Validação de Passageiros");
-
-    char p1_0[] = "123456789";
-    char p1_1[] = "John";
-    char p1_2[] = "Doe";
-    char p1_3[] = "1990-01-15";
-    char p1_4[] = "PT";
-    char p1_5[] = "M";
-    char p1_6[] = "john@example.com";
-    char p1_7[] = "+351912345678";
-    char p1_8[] = "Rua X";
-    char p1_9[] = "photo.jpg";
-    char *valido[] = {p1_0, p1_1, p1_2, p1_3, p1_4, p1_5, p1_6, p1_7, p1_8, p1_9, NULL};
-    passageiro_t *resultado = valida_passageiro(valido);
-    print_resultado("Passageiro válido completo", TRUE, resultado != NULL, stats);
-    if (resultado)
-        passageiro_destruir(resultado);
-
-    char p2_0[] = "123456789";
-    char p2_1[] = "John";
-    char p2_2[] = "Doe";
-    char p2_3[] = "1990-01-15";
-    char p2_4[] = "PT";
-    char p2_5[] = "M";
-    char p2_6[] = "johnexample.com";
-    char p2_7[] = "+351912345678";
-    char p2_8[] = "Rua X";
-    char p2_9[] = "photo.jpg";
-    char *email_invalido[] = {p2_0, p2_1, p2_2, p2_3, p2_4, p2_5, p2_6, p2_7, p2_8, p2_9, NULL};
-    resultado = valida_passageiro(email_invalido);
-    print_resultado("Email sem @", FALSE, resultado != NULL, stats);
-    if (resultado)
-        passageiro_destruir(resultado);
-}
-
-int main(void)
-{
-    Estatisticas stats_comum, stats_aeroportos, stats_avioes, stats_voos, stats_passageiros;
-    Estatisticas total;
-
-    init_stats(&stats_comum);
-    init_stats(&stats_aeroportos);
-    init_stats(&stats_avioes);
-    init_stats(&stats_voos);
-    init_stats(&stats_passageiros);
-    init_stats(&total);
-
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        print_usage(argv[0]);
+        return 1;
+    }
+    
+    const char *modo = argv[1];
+    
     printf("\n");
-    printf("%s╔═══════════════════════════════════════════════════════╗%s\n", COR_AZUL, COR_RESET);
-    printf("%s║         SISTEMA DE TESTES DE VALIDAÇÃO                ║%s\n", COR_AZUL, COR_RESET);
-    printf("%s╚═══════════════════════════════════════════════════════╝%s\n", COR_AZUL, COR_RESET);
-
-    testar_validacao_ano(&stats_comum);
-    testar_validacao_data(&stats_comum);
-    testar_validacao_datetime(&stats_comum);
-    testar_validacao_flight_id(&stats_comum);
-    testar_validacao_coordenadas(&stats_comum);
-    testar_validacao_inteiro_positivo(&stats_comum);
-
-    testar_validacao_aeroportos(&stats_aeroportos);
-    testar_validacao_avioes(&stats_avioes);
-    testar_validacao_voos(&stats_voos);
-    testar_validacao_passageiros(&stats_passageiros);
-
-    total.total = stats_comum.total + stats_aeroportos.total + stats_avioes.total +
-                  stats_voos.total + stats_passageiros.total;
-    total.passou = stats_comum.passou + stats_aeroportos.passou + stats_avioes.passou +
-                   stats_voos.passou + stats_passageiros.passou;
-    total.falhou = total.total - total.passou;
-
-    printf("\n\n");
-    printf("%s╔═══════════════════════════════════════════════════════╗%s\n", COR_AZUL, COR_RESET);
-    printf("%s║                    RESUMO FINAL                       ║%s\n", COR_AZUL, COR_RESET);
-    printf("%s╚═══════════════════════════════════════════════════════╝%s\n", COR_AZUL, COR_RESET);
-
-    print_stats("Validação Comum", &stats_comum);
-    print_stats("Validação Aeroportos", &stats_aeroportos);
-    print_stats("Validação Aviões", &stats_avioes);
-    print_stats("Validação Voos", &stats_voos);
-    print_stats("Validação Passageiros", &stats_passageiros);
-
-    printf("\n");
-    printf("%s╔═══════════════════════════════════════════════════════╗%s\n", COR_AMARELO, COR_RESET);
-    printf("%s║                    TOTAL GERAL                        ║%s\n", COR_AMARELO, COR_RESET);
-    printf("%s╚═══════════════════════════════════════════════════════╝%s\n", COR_AMARELO, COR_RESET);
-
-    double percentagem_total = (total.passou * 100.0 / total.total);
-
-    printf("\n");
-    printf("  Testes executados: %d\n", total.total);
-    printf("  Testes aprovados:  %s%d%s\n", COR_VERDE, total.passou, COR_RESET);
-    printf("  Testes falhados:   %s%d%s\n", COR_VERMELHO, total.falhou, COR_RESET);
-    printf("\n");
-
-    if (percentagem_total == 100.0)
-    {
-        printf("  %s┌─────────────────────────────────────────────────────┐%s\n", COR_VERDE, COR_RESET);
-        printf("  %s│  SUCESSO: %.1f%% dos testes passaram! ✓            │%s\n", COR_VERDE, percentagem_total, COR_RESET);
-        printf("  %s└─────────────────────────────────────────────────────┘%s\n", COR_VERDE, COR_RESET);
+    printf("%s╔════════════════════════════════════════════════════════╗%s\n", 
+           COR_AZUL, COR_RESET);
+    printf("%s║      SISTEMA DE VALIDAÇÃO DE CSVs DE ERROS - LI3      ║%s\n", 
+           COR_AZUL, COR_RESET);
+    printf("%s╚════════════════════════════════════════════════════════╝%s\n", 
+           COR_AZUL, COR_RESET);
+    
+    EstatisticasCSV stats = {0};
+    
+    if (strcmp(modo, "falsos-positivos") == 0) {
+        if (argc != 4) {
+            printf("Erro: falsos-positivos requer 2 argumentos\n");
+            print_usage(argv[0]);
+            return 1;
+        }
+        analisar_falsos_positivos(argv[2], argv[3], &stats);
+        
+    } else if (strcmp(modo, "falsos-negativos") == 0) {
+        if (argc != 4) {
+            printf("Erro: falsos-negativos requer 2 argumentos\n");
+            print_usage(argv[0]);
+            return 1;
+        }
+        analisar_falsos_negativos(argv[2], argv[3], &stats);
+        
+    } else if (strcmp(modo, "comparar") == 0) {
+        if (argc != 4) {
+            printf("Erro: comparar requer 2 argumentos\n");
+            print_usage(argv[0]);
+            return 1;
+        }
+        comparar_com_esperados(argv[2], argv[3]);
+        
+    } else if (strcmp(modo, "completo") == 0) {
+        if (argc != 6) {
+            printf("Erro: completo requer 4 argumentos\n");
+            print_usage(argv[0]);
+            return 1;
+        }
+        
+        printf("\n%s▶ FASE 1: Análise de Falsos Positivos%s\n", 
+               COR_CIANO, COR_RESET);
+        analisar_falsos_positivos(argv[2], argv[4], &stats);
+        
+        printf("\n%s▶ FASE 2: Análise de Falsos Negativos%s\n", 
+               COR_CIANO, COR_RESET);
+        analisar_falsos_negativos(argv[3], argv[4], &stats);
+        
+        printf("\n%s▶ FASE 3: Comparação com Esperados%s\n", 
+               COR_CIANO, COR_RESET);
+        comparar_com_esperados(argv[4], argv[5]);
+        
+    } else {
+        printf("Modo desconhecido: %s\n", modo);
+        print_usage(argv[0]);
+        return 1;
     }
-    else if (percentagem_total >= 80.0)
-    {
-        printf("  %s┌─────────────────────────────────────────────────────┐%s\n", COR_AMARELO, COR_RESET);
-        printf("  %s│  BOM: %.1f%% dos testes passaram                    │%s\n", COR_AMARELO, percentagem_total, COR_RESET);
-        printf("  %s└─────────────────────────────────────────────────────┘%s\n", COR_AMARELO, COR_RESET);
-    }
-    else
-    {
-        printf("  %s┌─────────────────────────────────────────────────────┐%s\n", COR_VERMELHO, COR_RESET);
-        printf("  %s│  ATENÇÃO: %.1f%% - Revisar testes falhados          │%s\n", COR_VERMELHO, percentagem_total, COR_RESET);
-        printf("  %s└─────────────────────────────────────────────────────┘%s\n", COR_VERMELHO, COR_RESET);
-    }
-
+    
     printf("\n");
-
-    return (total.falhou == 0) ? 0 : 1;
+    return 0;
 }

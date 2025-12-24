@@ -66,14 +66,14 @@ static char *normalizar_string(const char *str)
 {
     if (!str)
         return g_strdup("");
-    
+
     char *resultado = g_strdup(str);
-    g_strstrip(resultado); // Remove espaços no início/fim
-    
+    g_strstrip(resultado);
+
     // Converte para lowercase
     for (char *p = resultado; *p; p++)
         *p = g_ascii_tolower(*p);
-    
+
     return resultado;
 }
 
@@ -83,19 +83,19 @@ static gboolean fabricante_match(const char *fab_aviao, const char *fab_filtro)
     // Se não há filtro, aceita todos
     if (!fab_filtro || strlen(fab_filtro) == 0)
         return TRUE;
-    
+
     if (!fab_aviao)
         return FALSE;
 
     // Normalizar ambas as strings para comparação
     char *fab_aviao_norm = normalizar_string(fab_aviao);
     char *fab_filtro_norm = normalizar_string(fab_filtro);
-    
+
     gboolean match = (strcmp(fab_aviao_norm, fab_filtro_norm) == 0);
-    
+
     g_free(fab_aviao_norm);
     g_free(fab_filtro_norm);
-    
+
     return match;
 }
 
@@ -118,7 +118,7 @@ static void processar_aviao(const char *key, aviao_t *aviao, gpointer user_data)
     // Validações básicas
     if (!id || strlen(id) == 0)
         return;
-    
+
     // Aplicar filtro de fabricante
     if (!fabricante_match(fabricante, fabricante_filtro))
         return;
@@ -136,14 +136,40 @@ static void processar_aviao(const char *key, aviao_t *aviao, gpointer user_data)
     g_array_append_val(resultados, c);
 }
 
+/**
+ * @brief Verifica se o comando usa formato alternativo (termina com 'S')
+ * @param comando String do comando completo (ex: "2S 10" ou "2 10")
+ * @return 1 se usa formato 'S', 0 caso contrário
+ */
+static int usa_formato_alternativo(const char *comando)
+{
+    if (!comando)
+        return 0;
+
+    // Pula espaços iniciais
+    while (*comando && isspace(*comando))
+        comando++;
+
+    // Pula os dígitos do número da query
+    while (*comando && isdigit(*comando))
+        comando++;
+
+    // Verifica se há um 'S' logo após o número
+    return (*comando == 'S');
+}
+
 void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
-            int N, const char *fabricante, FILE *output)
+            int N, const char *fabricante, const char *comando_completo, FILE *output)
 {
     if (!gestor_avioes || !gestor_voos || !output || N <= 0)
     {
         fprintf(output, "\n");
         return;
     }
+
+    // Determina o separador baseado no formato do comando
+    int formato_alternativo = usa_formato_alternativo(comando_completo);
+    const char *separador = formato_alternativo ? "=" : ";";
 
     // 1. Contar voos não cancelados por avião
     GHashTable *contagens = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
@@ -159,7 +185,7 @@ void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
 
     // 4. Imprimir top N
     guint n_imprimir = (guint)N < resultados->len ? (guint)N : resultados->len;
-    
+
     if (n_imprimir == 0)
     {
         fprintf(output, "\n");
@@ -169,7 +195,11 @@ void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
         for (guint i = 0; i < n_imprimir; i++)
         {
             ContadorVoos *c = &g_array_index(resultados, ContadorVoos, i);
-            fprintf(output, "%s,%s,%s,%u\n", c->id, c->fabricante, c->modelo, c->count);
+            fprintf(output, "%s%s%s%s%s%s%u\n",
+                    c->id, separador,
+                    c->fabricante, separador,
+                    c->modelo, separador,
+                    c->count);
         }
     }
 

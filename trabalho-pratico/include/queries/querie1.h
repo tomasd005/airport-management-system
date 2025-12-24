@@ -4,6 +4,10 @@
 #include "../gestores/gestor_aeroportos.h"
 #include <stdio.h>
 
-void query1(gestor_aeroportos_t *gestor_aeroportos, const char *airport_code, FILE *output);
-
+void query1(gestor_aeroportos_t *gestor_aeroportos,
+            gestor_voos_t *gestor_voos,
+            gestor_reservas_t *gestor_reservas,
+            const char *comando_completo,
+            const char *airport_code,
+            FILE *output);
 #endif

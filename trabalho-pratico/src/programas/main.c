@@ -131,7 +131,8 @@ int main(int argc, char *argv[])
             char *aeroporto = p;
             trim_string(aeroporto);
 
-            query1(gestor_aeroportos, aeroporto, out);
+            query1(gestor_aeroportos, gestor_voos, gestor_reservas,
+                   linha, aeroporto, out);
         }
         else if (tipo == 2)
         {
@@ -156,7 +157,8 @@ int main(int argc, char *argv[])
             if (strlen(fabricante) == 0)
                 fabricante = NULL;
 
-            query2(gestor_avioes, gestor_voos, N, fabricante, out);
+            // Passa o comando completo (linha) como novo parâmetro
+            query2(gestor_avioes, gestor_voos, N, fabricante, linha, out);
         }
         else if (tipo == 3)
         {
@@ -178,7 +180,8 @@ int main(int argc, char *argv[])
 
             if (strlen(data_inicio) > 0 && strlen(data_fim) > 0)
             {
-                query3(gestor_aeroportos, gestor_voos, data_inicio, data_fim, out);
+                // Passa o comando completo (linha) como novo parâmetro
+                query3(gestor_aeroportos, gestor_voos, data_inicio, data_fim, linha, out);
             }
             else
             {
