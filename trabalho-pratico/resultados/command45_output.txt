@@ -1,1 +1,0 @@
-AFL=Piloto Osvaldo Marques Dias Airport=Alta Floresta=BR=medium_airport=2=1
