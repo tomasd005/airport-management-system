@@ -20,7 +20,13 @@ struct voo
     char *aircraft;
     char *airline;
     char *tracking_url;
+    /* Cached parsed times to avoid repeated mktime/sscanf overhead */
+    time_t departure_t;
+    time_t actual_departure_t;
 };
+
+/* forward declaration for internal parser helper */
+static time_t datetime_para_time(const char *datetime);
 
 voo_t *voo_criar(const char *flight_id, const char *departure,
                  const char *actual_departure, const char *arrival,
@@ -58,6 +64,12 @@ voo_t *voo_criar(const char *flight_id, const char *departure,
         voo_destruir(v);
         return NULL;
     }
+    /* Precompute time_t values for departure and actual_departure to speed up queries */
+    v->departure_t = datetime_para_time(v->departure);
+    if (v->actual_departure && strcmp(v->actual_departure, "N/A") != 0)
+        v->actual_departure_t = datetime_para_time(v->actual_departure);
+    else
+        v->actual_departure_t = (time_t)-1;
 
     return v;
 }
@@ -173,12 +185,8 @@ double voo_calcular_atraso_minutos(const voo_t *v)
 
     if (strcmp(v->actual_departure, "N/A") == 0)
         return -1;
-
-    time_t t_dep = datetime_para_time(v->departure);
-    time_t t_act = datetime_para_time(v->actual_departure);
-
-    if (t_dep == (time_t)-1 || t_act == (time_t)-1)
+    if (v->departure_t == (time_t)-1 || v->actual_departure_t == (time_t)-1)
         return -1;
 
-    return difftime(t_act, t_dep) / 60.0;
+    return difftime(v->actual_departure_t, v->departure_t) / 60.0;
 }

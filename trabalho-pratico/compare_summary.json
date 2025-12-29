@@ -1,0 +1,618 @@
+{
+  "total_commands": 300,
+  "mismatches": [
+    {
+      "command": 3,
+      "line": 1,
+      "got": "SBA;Santa Barbara Municipal Airport;Santa Barbara;US;medium_airport;4;2",
+      "expected": "SBA;Santa Barbara Municipal Airport;Santa Barbara;US;medium_airport;3;2"
+    },
+    {
+      "command": 6,
+      "line": 1,
+      "got": "RBW=Lowcountry Regional Airport=Walterboro=US=small_airport=2=2",
+      "expected": "RBW=Lowcountry Regional Airport=Walterboro=US=small_airport=2=1"
+    },
+    {
+      "command": 12,
+      "line": 1,
+      "got": "JBB;Notohadinegoro Airport;Jember;ID;small_airport;2;4",
+      "expected": "JBB;Notohadinegoro Airport;Jember;ID;small_airport;1;4"
+    },
+    {
+      "command": 23,
+      "line": 1,
+      "got": "LHE=Allama Iqbal International Airport=Lahore=PK=large_airport=5=4",
+      "expected": "LHE=Allama Iqbal International Airport=Lahore=PK=large_airport=4=4"
+    },
+    {
+      "command": 25,
+      "line": 1,
+      "got": "NYG;Quantico Marine Corps Airfield / Turner Field;Quantico;US;medium_airport;1;6",
+      "expected": "NYG;Quantico Marine Corps Airfield / Turner Field;Quantico;US;medium_airport;1;5"
+    },
+    {
+      "command": 26,
+      "line": 1,
+      "got": "YQY=Sydney / J.A. Douglas McCurdy Airport=Sydney=CA=medium_airport=3=4",
+      "expected": "YQY=Sydney / J.A. Douglas McCurdy Airport=Sydney=CA=medium_airport=2=4"
+    },
+    {
+      "command": 40,
+      "line": 1,
+      "got": "TEI=Tezu Airport=Tezu=IN=small_airport=4=3",
+      "expected": "TEI=Tezu Airport=Tezu=IN=small_airport=3=2"
+    },
+    {
+      "command": 42,
+      "line": 1,
+      "got": "HIM;Hingurakgoda Air Force Base;Polonnaruwa Town;LK;medium_airport;2;3",
+      "expected": "HIM;Hingurakgoda Air Force Base;Polonnaruwa Town;LK;medium_airport;2;2"
+    },
+    {
+      "command": 45,
+      "line": 1,
+      "got": "AFL=Piloto Osvaldo Marques Dias Airport=Alta Floresta=BR=medium_airport=2=2",
+      "expected": "AFL=Piloto Osvaldo Marques Dias Airport=Alta Floresta=BR=medium_airport=2=1"
+    },
+    {
+      "command": 49,
+      "line": 1,
+      "got": "RFD=Chicago Rockford International Airport=Chicago/Rockford=US=medium_airport=3=6",
+      "expected": "RFD=Chicago Rockford International Airport=Chicago/Rockford=US=medium_airport=3=5"
+    },
+    {
+      "command": 50,
+      "line": 1,
+      "got": "AFZ;Sabzevar National Airport;Sabzevar;IR;medium_airport;3;1",
+      "expected": "AFZ;Sabzevar National Airport;Sabzevar;IR;medium_airport;2;1"
+    },
+    {
+      "command": 51,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 52,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 53,
+      "line": 1,
+      "got": "GB-MX780=Boeing=717-200=1540",
+      "expected": "GB-MX780=Boeing=717-200=1571"
+    },
+    {
+      "command": 54,
+      "line": 1,
+      "got": "VH-SBMR0=Airbus=A320=1545",
+      "expected": "VH-SBMR0=Airbus=A320=1572"
+    },
+    {
+      "command": 55,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 56,
+      "line": 1,
+      "got": "VH-SBMR0=Airbus=A320=1545",
+      "expected": "VH-SBMR0=Airbus=A320=1572"
+    },
+    {
+      "command": 58,
+      "line": 1,
+      "got": "VH-SBMR0=Airbus=A320=1545",
+      "expected": "VH-SBMR0=Airbus=A320=1572"
+    },
+    {
+      "command": 59,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 61,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 62,
+      "line": 1,
+      "got": "VH-SBMR0=Airbus=A320=1545",
+      "expected": "VH-SBMR0=Airbus=A320=1572"
+    },
+    {
+      "command": 64,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 65,
+      "line": 1,
+      "got": "GB-MX780;Boeing;717-200;1540",
+      "expected": "GB-MX780;Boeing;717-200;1571"
+    },
+    {
+      "command": 66,
+      "line": 1,
+      "got": "VH-SBMR0=Airbus=A320=1545",
+      "expected": "VH-SBMR0=Airbus=A320=1572"
+    },
+    {
+      "command": 67,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 68,
+      "line": 1,
+      "got": "VH-SBMR0=Airbus=A320=1545",
+      "expected": "VH-SBMR0=Airbus=A320=1572"
+    },
+    {
+      "command": 69,
+      "line": 1,
+      "got": "VH-SBMR0=Airbus=A320=1545",
+      "expected": "VH-SBMR0=Airbus=A320=1572"
+    },
+    {
+      "command": 72,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 73,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 74,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 75,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 76,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 77,
+      "line": 1,
+      "got": "VH-SBMR0=Airbus=A320=1545",
+      "expected": "VH-SBMR0=Airbus=A320=1572"
+    },
+    {
+      "command": 78,
+      "line": 1,
+      "got": "VH-SBMR0=Airbus=A320=1545",
+      "expected": "VH-SBMR0=Airbus=A320=1572"
+    },
+    {
+      "command": 79,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 81,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 82,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 83,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 84,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 85,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 86,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 88,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 90,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 91,
+      "line": 1,
+      "got": "VH-SBMR0=Airbus=A320=1545",
+      "expected": "VH-SBMR0=Airbus=A320=1572"
+    },
+    {
+      "command": 92,
+      "line": 1,
+      "got": "VH-SBMR0=Airbus=A320=1545",
+      "expected": "VH-SBMR0=Airbus=A320=1572"
+    },
+    {
+      "command": 93,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 95,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 96,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 98,
+      "line": 1,
+      "got": "VH-SBMR0;Airbus;A320;1545",
+      "expected": "VH-SBMR0;Airbus;A320;1572"
+    },
+    {
+      "command": 100,
+      "line": 1,
+      "got": "VH-SBMR0=Airbus=A320=1545",
+      "expected": "VH-SBMR0=Airbus=A320=1572"
+    },
+    {
+      "command": 118,
+      "line": 1,
+      "got": "JEF;Jefferson City Memorial Airport;Jefferson City;US;173",
+      "expected": "JEF;Jefferson City Memorial Airport;Jefferson City;US;172"
+    },
+    {
+      "command": 126,
+      "line": 1,
+      "got": "BEK;Bareilly Air Force Station;Bareilly;IN;66",
+      "expected": "BEK;Bareilly Air Force Station;Bareilly;IN;65"
+    },
+    {
+      "command": 201,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 202,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 203,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 204,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 205,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 206,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 207,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 208,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 209,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 210,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 211,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 212,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 213,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 214,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 215,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 216,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 217,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 218,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 219,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 220,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 221,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 222,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 223,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 224,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 225,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 226,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 227,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 228,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 229,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 230,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 231,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 232,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 233,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 234,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 235,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 236,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 237,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 238,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 239,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 240,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 241,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 242,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 243,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 244,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 245,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 246,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 247,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 248,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    },
+    {
+      "command": 249,
+      "line": 1,
+      "got": "JetVenture Airlines=5397=53.068",
+      "expected": "JetVenture Airlines=5389=53.060"
+    },
+    {
+      "command": 250,
+      "line": 1,
+      "got": "JetVenture Airlines;5397;53.068",
+      "expected": "JetVenture Airlines;5389;53.060"
+    }
+  ],
+  "missing": []
+}
