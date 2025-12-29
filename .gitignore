@@ -9,3 +9,10 @@ main
 
 # Ficheiros de logs
 *.log
+
+
+
+last_test_report.txt
+out_after_debug_removal.txt
+out_after_fix.txt
+out.txt

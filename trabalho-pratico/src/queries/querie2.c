@@ -59,23 +59,7 @@ static void contar_voos_por_aviao(const char *key, voo_t *voo, void *user_data)
     }
 }
 
-// Normaliza string para comparação (lowercase, sem espaços extras)
-static char *normalizar_string(const char *str)
-{
-    if (!str)
-        return g_strdup("");
-
-    char *resultado = g_strdup(str);
-    g_strstrip(resultado);
-
-    // Converte para lowercase
-    for (char *p = resultado; *p; p++)
-        *p = g_ascii_tolower(*p);
-
-    return resultado;
-}
-
-// Verifica se o fabricante do avião corresponde ao filtro
+// CORREÇÃO: Comparação direta SEM normalização
 static gboolean fabricante_match(const char *fab_aviao, const char *fab_filtro)
 {
     // Se não há filtro, aceita todos
@@ -85,16 +69,8 @@ static gboolean fabricante_match(const char *fab_aviao, const char *fab_filtro)
     if (!fab_aviao)
         return FALSE;
 
-    // Normalizar ambas as strings para comparação
-    char *fab_aviao_norm = normalizar_string(fab_aviao);
-    char *fab_filtro_norm = normalizar_string(fab_filtro);
-
-    gboolean match = (strcmp(fab_aviao_norm, fab_filtro_norm) == 0);
-
-    g_free(fab_aviao_norm);
-    g_free(fab_filtro_norm);
-
-    return match;
+    // Comparação DIRETA (case-sensitive, sem normalização)
+    return strcmp(fab_aviao, fab_filtro) == 0;
 }
 
 // Processa cada avião e adiciona à lista de resultados
@@ -126,7 +102,6 @@ static void processar_aviao(const char *key, aviao_t *aviao, gpointer user_data)
     guint count = cnt ? *cnt : 0;
 
     // CORREÇÃO CRÍTICA: Não incluir aviões com 0 voos
-    // (aviões que nunca voaram ou só têm voos cancelados)
     if (count == 0)
         return;
 

@@ -33,10 +33,12 @@ static void acumular_atraso(voo_t *voo, void *user_data)
     if (!airline || airline[0] == '\0')
         return;
 
+    // CORREÇÃO CRÍTICA: calcular atraso corretamente
     double atraso = voo_calcular_atraso_minutos(voo);
 
-    // CORREÇÃO: Aceitar apenas atrasos >= 0 (voos atrasados)
-    if (atraso < 0.0)
+    // Aceitar apenas atrasos > 0 (voos com atraso positivo)
+    // NOTA: Se atraso == 0, tecnicamente não há atraso
+    if (atraso <= 0.0)
         return;
 
     InfoCompanhia *info = g_hash_table_lookup(mapa, airline);
@@ -91,7 +93,7 @@ void query5(
     GHashTable *mapa = g_hash_table_new_full(
         g_str_hash, g_str_equal, g_free, g_free);
 
-    // IMPORTANTE: Itera apenas sobre voos com status "Delayed"
+    // Itera apenas sobre voos com status "Delayed"
     gestor_voos_para_cada_atrasado(
         gestor_voos,
         acumular_atraso,

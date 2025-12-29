@@ -65,8 +65,18 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
     if (!id || !origin || !destination)
         return;
 
+    voo_t *existente = g_hash_table_lookup(gestor->tabela, id);
+    if (existente)
+    {
+        // Já existe - destruir o novo e não adicionar NADA
+        voo_destruir(voo);
+        return; // ← SAI AQUI, não adiciona a NADA
+    }
+
+    // Adicionar à tabela principal
     g_hash_table_insert(gestor->tabela, g_strdup(id), voo);
 
+    // Adicionar ao índice por origem
     GPtrArray *voos_origin = g_hash_table_lookup(gestor->por_origin, origin);
     if (!voos_origin)
     {
@@ -75,6 +85,7 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
     }
     g_ptr_array_add(voos_origin, voo);
 
+    // Adicionar ao índice por destino
     GPtrArray *voos_dest = g_hash_table_lookup(gestor->por_destination, destination);
     if (!voos_dest)
     {
@@ -83,7 +94,7 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
     }
     g_ptr_array_add(voos_dest, voo);
 
-    /* Se o voo estiver atrasado, mantemos uma lista direta para iteração rápida */
+    // Se atrasado, adicionar ao array de atrasados
     if (voo_obter_status(voo) && strcmp(voo_obter_status(voo), "Delayed") == 0)
         g_ptr_array_add(gestor->atrasados, voo);
 }

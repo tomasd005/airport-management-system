@@ -9,6 +9,24 @@
 
 #define MAX_COLUNAS 100
 
+// ═══════════════════════════════════════════════════
+// FUNÇÃO PARA REMOVER ASPAS DOS CAMPOS CSV
+// ═══════════════════════════════════════════════════
+static void remove_aspas(char *str)
+{
+    if (!str)
+        return;
+
+    size_t len = strlen(str);
+
+    // Se string começa e termina com aspas, remove-as
+    if (len >= 2 && str[0] == '"' && str[len - 1] == '"')
+    {
+        str[len - 1] = '\0';            // Remove aspa do fim
+        memmove(str, str + 1, len - 1); // Move tudo 1 posição à esquerda
+    }
+}
+
 void parser_carrega(void *contexto,
                     const char *ficheiro_csv,
                     AdicionaObjeto adiciona_objeto,
@@ -74,9 +92,15 @@ void parser_carrega(void *contexto,
         }
         colunas[numColunas] = NULL;
 
+        // ═══════════════════════════════════════════════════
+        // CORREÇÃO CRÍTICA: Remover aspas de TODOS os campos
+        // ═══════════════════════════════════════════════════
         char *colunas_copia[MAX_COLUNAS + 1];
         for (int i = 0; i < numColunas; i++)
+        {
+            remove_aspas(colunas[i]); // ← NOVA LINHA
             colunas_copia[i] = g_strdup(colunas[i]);
+        }
         colunas_copia[numColunas] = NULL;
 
         gpointer objeto = linha_para_objeto(colunas_copia);
@@ -108,7 +132,6 @@ void parser_carrega(void *contexto,
     if (ficheiro_erros)
         fclose(ficheiro_erros);
 }
-
 time_t parser_datetime_para_time(const char *datetime)
 {
     if (!datetime)
@@ -116,8 +139,18 @@ time_t parser_datetime_para_time(const char *datetime)
 
     int y, m, d, hh, mm;
 
-    if (sscanf(datetime, "%d-%d-%d %d:%d",
-               &y, &m, &d, &hh, &mm) != 5)
+    // APENAS hífens (REMOVER suporte a barras!)
+    if (sscanf(datetime, "%d-%d-%d %d:%d", &y, &m, &d, &hh, &mm) != 5)
+        return (time_t)-1;
+
+    // Validações
+    if (m < 1 || m > 12)
+        return (time_t)-1;
+    if (d < 1 || d > 31)
+        return (time_t)-1;
+    if (hh < 0 || hh > 23)
+        return (time_t)-1;
+    if (mm < 0 || mm > 59)
         return (time_t)-1;
 
     struct tm tm = {0};
@@ -126,6 +159,7 @@ time_t parser_datetime_para_time(const char *datetime)
     tm.tm_mday = d;
     tm.tm_hour = hh;
     tm.tm_min = mm;
+    tm.tm_sec = 0;
     tm.tm_isdst = -1;
 
     return mktime(&tm);

@@ -249,12 +249,6 @@ void validar_reserva_imprimir_erros(GPtrArray *erros)
     if (!erros)
         return;
 
-    for (guint i = 0; i < erros->len; i++)
-    {
-        const char *msg = g_ptr_array_index(erros, i);
-        if (msg)
-            g_printerr("[ERRO RESERVA] %s\n", msg);
-    }
-
     g_ptr_array_free(erros, TRUE);
 }
+

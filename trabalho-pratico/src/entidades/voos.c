@@ -72,9 +72,25 @@ voo_t *voo_criar(const char *flight_id, const char *departure,
 
     if (v->departure_t == (time_t)-1 || v->actual_departure_t == (time_t)-1)
         v->delay_minutes = -1.0;
+    else if (strcmp(v->status, "Delayed") != 0) // Só calcular se Delayed
+        v->delay_minutes = -1.0;
     else
+    {
         v->delay_minutes = difftime(v->actual_departure_t, v->departure_t) / 60.0;
 
+        // DEBUG temporário
+        static int debug_count = 0;
+        if (debug_count < 3 && strcmp(v->status, "Delayed") == 0)
+        {
+            fprintf(stderr, "DEBUG: Voo %s, status=%s, delay=%.2f\n",
+                    v->flight_id, v->status, v->delay_minutes);
+            debug_count++;
+        }
+
+        // Rejeitar se <= 0.5 minutos (30 segundos)
+        if (v->delay_minutes <= 0.5)
+            v->delay_minutes = -1.0;
+    }
     return v;
 }
 
