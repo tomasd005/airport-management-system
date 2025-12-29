@@ -56,7 +56,7 @@ void gestor_reservas_adicionar(gestor_reservas_t *gestor, reserva_t *r)
 
     g_array_append_val(gestor->reservas, r);
 
-    // Atualizar índices por flight_id
+    /* Atualizar índices por flight_id */
     const char **flight_ids = reserva_obter_flight_ids(r);
     size_t num_voos = reserva_obter_num_voos(r);
     const char *doc = reserva_obter_document_number(r);
@@ -67,7 +67,7 @@ void gestor_reservas_adicionar(gestor_reservas_t *gestor, reserva_t *r)
         if (!flight_id)
             continue;
 
-        // Índice por flight_id -> lista de reservas
+        /* Índice por flight_id -> lista de reservas */
         GPtrArray *lista = g_hash_table_lookup(gestor->por_flight_id, flight_id);
         if (!lista)
         {
@@ -76,16 +76,19 @@ void gestor_reservas_adicionar(gestor_reservas_t *gestor, reserva_t *r)
         }
         g_ptr_array_add(lista, r);
 
-        // Índice otimizado: flight_id -> set de document_numbers
+        /* Índice otimizado: flight_id -> set de document_numbers */
         GHashTable *passageiros_set = g_hash_table_lookup(gestor->passageiros_por_voo, flight_id);
         if (!passageiros_set)
         {
-            passageiros_set = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, NULL);
+            /* criar set com free para as chaves (as chaves serão cópias dos docs) */
+            passageiros_set = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
             g_hash_table_insert(gestor->passageiros_por_voo, g_strdup(flight_id), passageiros_set);
         }
-        // Adiciona o document_number ao set (chave é o próprio doc do passageiro)
-        if (doc)
-            g_hash_table_add(passageiros_set, (gpointer)doc);
+
+        if (doc && *doc)
+        {
+            g_hash_table_add(passageiros_set, g_strdup(doc));
+        }
     }
 }
 
