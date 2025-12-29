@@ -93,7 +93,8 @@ passageiro_t *valida_passageiro(char **colunas)
         if (colunas[i])
             utils_trim(colunas[i]);
 
-    if (!validacao_data(colunas[IDX_DOB]))
+    /* CORRIGIDO: Usar validacao_data_passado() para data de nascimento */
+    if (!validacao_data_passado(colunas[IDX_DOB]))
         return NULL;
 
     if (!valida_genero(colunas[IDX_GEN]))

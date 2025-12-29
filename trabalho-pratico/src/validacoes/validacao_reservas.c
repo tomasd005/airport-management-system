@@ -119,13 +119,23 @@ reserva_t *valida_reserva_from_csv(char **colunas)
     if (!valida_document_number(colunas[IDX_DOC]))
         return NULL;
 
+    /* flight_ids TEM de começar por [ e acabar por ] */
+    size_t len = strlen(colunas[IDX_FLIGHT_IDS]);
+    if (len < 2 ||
+        colunas[IDX_FLIGHT_IDS][0] != '[' ||
+        colunas[IDX_FLIGHT_IDS][len - 1] != ']')
+        return NULL;
+
     size_t num_flights = 0;
     char **flight_ids = processar_flight_ids(colunas[IDX_FLIGHT_IDS], &num_flights);
 
-    if (!flight_ids || num_flights == 0)
+    if (!flight_ids)
+        return NULL;
+
+    /* Uma reserva tem 1 ou 2 voos */
+    if (num_flights < 1 || num_flights > 2)
     {
-        if (flight_ids)
-            g_strfreev(flight_ids);
+        g_strfreev(flight_ids);
         return NULL;
     }
 
@@ -138,6 +148,22 @@ reserva_t *valida_reserva_from_csv(char **colunas)
     char *end;
     double price = strtod(colunas[IDX_PRICE], &end);
     if (*end != '\0' || price < 0.0)
+    {
+        g_strfreev(flight_ids);
+        return NULL;
+    }
+
+    /* extra_bag: apenas true ou false */
+    if (strcmp(colunas[IDX_EXTRA_BAG], "true") != 0 &&
+        strcmp(colunas[IDX_EXTRA_BAG], "false") != 0)
+    {
+        g_strfreev(flight_ids);
+        return NULL;
+    }
+
+    /* priority: apenas true ou false */
+    if (strcmp(colunas[IDX_PRIORITY], "true") != 0 &&
+        strcmp(colunas[IDX_PRIORITY], "false") != 0)
     {
         g_strfreev(flight_ids);
         return NULL;
@@ -167,6 +193,7 @@ reserva_t *valida_reserva_from_csv(char **colunas)
     return r;
 }
 
+/* Validação lógica — continua vazia nesta fase (como no teu código) */
 GPtrArray *validar_reserva(const reserva_t *r,
                            gestor_voos_t *gestor_voos,
                            gestor_passageiros_t *gestor_passageiros)

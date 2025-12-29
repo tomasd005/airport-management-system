@@ -8,7 +8,7 @@
 struct gestor_reservas
 {
     GArray *reservas;          // Array de todas as reservas
-    GHashTable *por_flight_id; // flight_id -> contagem de passageiros
+    GHashTable *por_flight_id; // Mantido por compatibilidade mas não usado
 };
 
 gestor_reservas_t *gestor_reservas_criar(void)
@@ -16,7 +16,7 @@ gestor_reservas_t *gestor_reservas_criar(void)
     gestor_reservas_t *g = malloc(sizeof(gestor_reservas_t));
     g->reservas = g_array_new(FALSE, FALSE, sizeof(reserva_t *));
 
-    // Hash table: flight_id -> número de passageiros (int)
+    // Mant ido por compatibilidade
     g->por_flight_id = g_hash_table_new_full(
         g_str_hash,
         g_str_equal,
@@ -43,27 +43,6 @@ void gestor_reservas_adicionar(gestor_reservas_t *gestor, reserva_t *r)
         return;
 
     g_array_append_val(gestor->reservas, r);
-
-    // Atualiza índice por flight_id
-    const char **flight_ids = reserva_obter_flight_ids(r);
-    size_t num_voos = reserva_obter_num_voos(r);
-
-    for (size_t i = 0; i < num_voos; i++)
-    {
-        const char *fid = flight_ids[i];
-
-        int *count = g_hash_table_lookup(gestor->por_flight_id, fid);
-        if (count)
-        {
-            (*count)++;
-        }
-        else
-        {
-            int *new_count = g_new(int, 1);
-            *new_count = 1;
-            g_hash_table_insert(gestor->por_flight_id, g_strdup(fid), new_count);
-        }
-    }
 }
 
 reserva_t *gestor_reservas_obter_por_id(gestor_reservas_t *gestor, const char *reservation_id)
@@ -80,13 +59,52 @@ reserva_t *gestor_reservas_obter_por_id(gestor_reservas_t *gestor, const char *r
     return NULL;
 }
 
+/**
+ * Conta passageiros ÚNICOS num voo específico
+ * - Itera todas as reservas
+ * - Para cada reserva, verifica se contém o flight_id
+ * - Usa um set de reservation_ids para garantir contagem única
+ */
 int gestor_reservas_contar_passageiros_voo(gestor_reservas_t *gestor, const char *flight_id)
 {
     if (!gestor || !flight_id)
         return 0;
 
-    int *count = g_hash_table_lookup(gestor->por_flight_id, flight_id);
-    return count ? *count : 0;
+    // Set para garantir que cada reserva é contada apenas uma vez
+    GHashTable *reservas_unicas = g_hash_table_new_full(
+        g_str_hash,
+        g_str_equal,
+        g_free,
+        NULL);
+
+    // Itera todas as reservas
+    for (guint i = 0; i < gestor->reservas->len; i++)
+    {
+        reserva_t *r = g_array_index(gestor->reservas, reserva_t *, i);
+
+        const char **flight_ids = reserva_obter_flight_ids(r);
+        size_t num_voos = reserva_obter_num_voos(r);
+
+        // Verifica se esta reserva contém o flight_id procurado
+        for (size_t j = 0; j < num_voos; j++)
+        {
+            if (strcmp(flight_ids[j], flight_id) == 0)
+            {
+                // Adiciona ao set (não duplica se já existir)
+                const char *reservation_id = reserva_obter_id(r);
+                if (reservation_id && !g_hash_table_contains(reservas_unicas, reservation_id))
+                {
+                    g_hash_table_insert(reservas_unicas, g_strdup(reservation_id), GINT_TO_POINTER(1));
+                }
+                break; // Não precisa verificar outros voos desta reserva
+            }
+        }
+    }
+
+    int count = g_hash_table_size(reservas_unicas);
+    g_hash_table_destroy(reservas_unicas);
+
+    return count;
 }
 
 unsigned int gestor_reservas_numero(gestor_reservas_t *gestor)

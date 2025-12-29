@@ -1,5 +1,3 @@
-
-
 #include "validacao_comum.h"
 #include <stdlib.h>
 #include <string.h>
@@ -35,6 +33,7 @@ gboolean validacao_ano(const char *str, int *out_ano)
     return TRUE;
 }
 
+/* Validação de data BASE - não verifica se está no futuro */
 gboolean validacao_data(const char *str)
 {
     if (!str || strlen(str) != 10 || contem_espacos(str))
@@ -54,8 +53,28 @@ gboolean validacao_data(const char *str)
     if (ano < 1900 || ano > 2100 || mes < 1 || mes > 12 || dia < 1 || dia > 31)
         return FALSE;
 
-    if (ano > ANO_ATUAL || (ano == ANO_ATUAL && mes > MES_ATUAL) ||
-        (ano == ANO_ATUAL && mes == MES_ATUAL && dia > DIA_ATUAL))
+    /* REMOVIDO: Validação de data futura
+     * Essa validação deve ser feita apenas para datas de nascimento,
+     * não para datas de voos (que podem ser futuras) */
+
+    return TRUE;
+}
+
+/* Nova função para validar datas que devem estar no passado */
+gboolean validacao_data_passado(const char *str)
+{
+    if (!validacao_data(str))
+        return FALSE;
+
+    int ano = (str[0] - '0') * 1000 + (str[1] - '0') * 100 + (str[2] - '0') * 10 + (str[3] - '0');
+    int mes = (str[5] - '0') * 10 + (str[6] - '0');
+    int dia = (str[8] - '0') * 10 + (str[9] - '0');
+
+    if (ano > ANO_ATUAL)
+        return FALSE;
+    if (ano == ANO_ATUAL && mes > MES_ATUAL)
+        return FALSE;
+    if (ano == ANO_ATUAL && mes == MES_ATUAL && dia > DIA_ATUAL)
         return FALSE;
 
     return TRUE;
@@ -116,14 +135,14 @@ gboolean validacao_coordenada(const char *str, gboolean lat_mode, double *out_va
         {
             tem_ponto++;
             if (tem_ponto > 1)
-                return FALSE; 
+                return FALSE;
             depois_ponto = TRUE;
         }
         else if (str[i] == '-')
         {
             tem_sinal++;
             if (i != 0 || tem_sinal > 1)
-                return FALSE; 
+                return FALSE;
         }
         else if (isdigit((unsigned char)str[i]))
         {
