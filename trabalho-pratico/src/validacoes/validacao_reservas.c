@@ -6,11 +6,6 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#ifdef DEBUG
-#define LOG_DEBUG(fmt, ...) fprintf(stderr, "[DEBUG] %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
-#else
-#define LOG_DEBUG(fmt, ...)
-#endif
 
 #define IDX_RES_ID 0
 #define IDX_FLIGHT_IDS 1
@@ -254,12 +249,6 @@ void validar_reserva_imprimir_erros(GPtrArray *erros)
     if (!erros)
         return;
 
-    for (guint i = 0; i < erros->len; i++)
-    {
-        const char *msg = g_ptr_array_index(erros, i);
-        if (msg)
-            g_printerr("[ERRO RESERVA] %s\n", msg);
-    }
-
     g_ptr_array_free(erros, TRUE);
 }
+
