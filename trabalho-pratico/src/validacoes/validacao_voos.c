@@ -52,13 +52,7 @@ voo_t *valida_voo(char **colunas)
         return NULL;
     }
 
-    /* flight id: ccdddddd ou ccddddddd */
-    size_t len = strlen(colunas[IDX_ID]);
-    if (len != 7 && len != 8)
-    {
-        LOG_DEBUG("IDX_ID '%s' tamanho inválido: %zu", colunas[IDX_ID], len);
-        return NULL;
-    }
+    /* flight id: ccdddddd ou ccddddddd (7 ou 8 caracteres) */
     if (!validacao_flight_id(colunas[IDX_ID]))
     {
         LOG_DEBUG("IDX_ID '%s' falhou validacao_flight_id", colunas[IDX_ID]);

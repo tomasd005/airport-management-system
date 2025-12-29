@@ -15,6 +15,7 @@ static int usa_formato_alternativo(const char *cmd)
 typedef struct
 {
     GHashTable *semanas;
+    GHashTable *semanas_relevantes; // Set de semanas que devem ser processadas
 } ContextoQ4;
 
 typedef struct
@@ -29,13 +30,63 @@ typedef struct
     guint count;
 } Resultado;
 
-static void acumular_reserva(
-    int semana,
-    const reserva_t *r,
-    void *user_data)
+static gint cmp_gastos(gconstpointer a, gconstpointer b)
 {
-    ContextoQ4 *ctx = user_data;
+    const Gasto *ga = a;
+    const Gasto *gb = b;
 
+    // Comparação de doubles com tolerância para evitar problemas de precisão
+    double diff = ga->total - gb->total;
+    const double EPSILON = 1e-9;
+    
+    if (diff > EPSILON)
+        return -1; // ga->total > gb->total
+    if (diff < -EPSILON)
+        return 1;  // ga->total < gb->total
+
+    // Em caso de empate, ordenar por document_number crescente (menor primeiro)
+    return strcmp(ga->doc, gb->doc);
+}
+
+static gint cmp_resultado(gconstpointer a, gconstpointer b)
+{
+    const Resultado *ra = a;
+    const Resultado *rb = b;
+
+    if (ra->count != rb->count)
+        return (gint)(rb->count - ra->count);
+
+    return strcmp(ra->doc, rb->doc);
+}
+
+// Contexto para identificar semanas relevantes
+typedef struct
+{
+    const char *data_inicio;
+    const char *data_fim;
+    GHashTable *semanas_relevantes; // Set de semanas que têm reservas no intervalo
+} ContextoIdentificacao;
+
+// Primeira passagem: identificar semanas que têm reservas no intervalo
+static void identificar_semana_relevante(int semana, const reserva_t *r, void *user_data)
+{
+    (void)r; // Não precisamos da reserva aqui
+    ContextoIdentificacao *ctx = user_data;
+    
+    int *k = g_new(int, 1);
+    *k = semana;
+    g_hash_table_add(ctx->semanas_relevantes, k);
+}
+
+// Segunda passagem: acumular TODAS as reservas de semanas relevantes
+static void acumular_reserva_semana_completa(int semana, const reserva_t *r, void *user_data)
+{
+    ContextoQ4 *ctx = (ContextoQ4 *)user_data;
+    
+    // Verificar se esta semana é relevante
+    if (!g_hash_table_contains(ctx->semanas_relevantes, &semana))
+        return;
+    
     GHashTable *gastos = g_hash_table_lookup(ctx->semanas, &semana);
     if (!gastos)
     {
@@ -61,28 +112,6 @@ static void acumular_reserva(
     }
 }
 
-static gint cmp_gastos(gconstpointer a, gconstpointer b)
-{
-    const Gasto *ga = a;
-    const Gasto *gb = b;
-
-    if (ga->total != gb->total)
-        return (ga->total < gb->total) ? 1 : -1;
-
-    return strcmp(ga->doc, gb->doc);
-}
-
-static gint cmp_resultado(gconstpointer a, gconstpointer b)
-{
-    const Resultado *ra = a;
-    const Resultado *rb = b;
-
-    if (ra->count != rb->count)
-        return (gint)(rb->count - ra->count);
-
-    return strcmp(ra->doc, rb->doc);
-}
-
 void query4(gestor_reservas_t *gestor_reservas,
             gestor_voos_t *gestor_voos,
             gestor_passageiros_t *gestor_passageiros,
@@ -99,17 +128,35 @@ void query4(gestor_reservas_t *gestor_reservas,
 
     const char *sep = usa_formato_alternativo(comando_completo) ? "=" : ";";
 
-    ContextoQ4 ctx;
-    ctx.semanas = g_hash_table_new_full(
-        g_int_hash, g_int_equal, g_free,
-        (GDestroyNotify)g_hash_table_destroy);
+    // FASE 1: Identificar semanas que têm pelo menos uma reserva no intervalo
+    ContextoIdentificacao ctx_id = {
+        .data_inicio = data_inicio,
+        .data_fim = data_fim,
+        .semanas_relevantes = g_hash_table_new_full(
+            g_int_hash, g_int_equal, g_free, NULL)
+    };
 
     gestor_reservas_para_cada_semana(
         gestor_reservas,
         gestor_voos,
         data_inicio,
         data_fim,
-        acumular_reserva,
+        identificar_semana_relevante,
+        &ctx_id);
+
+    // FASE 2: Processar TODAS as reservas das semanas relevantes (não apenas as do intervalo)
+    ContextoQ4 ctx;
+    ctx.semanas = g_hash_table_new_full(
+        g_int_hash, g_int_equal, g_free,
+        (GDestroyNotify)g_hash_table_destroy);
+    ctx.semanas_relevantes = ctx_id.semanas_relevantes;
+
+    // Agora processar TODAS as reservas, mas só acumular as de semanas relevantes
+    // Usa a nova função que itera todas as reservas calculando a semana
+    gestor_reservas_para_cada_com_semana(
+        gestor_reservas,
+        gestor_voos,
+        acumular_reserva_semana_completa,
         &ctx);
 
     GHashTable *contador = g_hash_table_new_full(
@@ -161,6 +208,7 @@ void query4(gestor_reservas_t *gestor_reservas,
     }
 
     g_hash_table_destroy(ctx.semanas);
+    g_hash_table_destroy(ctx_id.semanas_relevantes);
 
     if (g_hash_table_size(contador) == 0)
     {
