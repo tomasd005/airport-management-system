@@ -121,6 +121,19 @@ void gestor_voos_para_cada(gestor_voos_t *gestor, void (*func)(const char *, voo
     g_hash_table_foreach(gestor->tabela, (GHFunc)func, user_data);
 }
 
+const char *gestor_voos_obter_departure(
+    gestor_voos_t *gestor,
+    const char *flight_id)
+{
+    if (!gestor || !flight_id)
+        return NULL;
+
+    voo_t *v = gestor_voos_obter_por_id(gestor, flight_id);
+    if (!v)
+        return NULL;
+
+    return voo_obter_departure(v);
+}
 // Callback interno para o parser
 static gboolean adiciona_voo_callback(void *contexto, void *objeto)
 {
