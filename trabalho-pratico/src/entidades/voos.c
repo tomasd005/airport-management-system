@@ -23,6 +23,8 @@ struct voo
     /* Cached parsed times to avoid repeated mktime/sscanf overhead */
     time_t departure_t;
     time_t actual_departure_t;
+    /* Precomputed delay in minutes (or -1 if not available) */
+    double delay_minutes;
 };
 
 /* forward declaration for internal parser helper */
@@ -70,6 +72,11 @@ voo_t *voo_criar(const char *flight_id, const char *departure,
         v->actual_departure_t = datetime_para_time(v->actual_departure);
     else
         v->actual_departure_t = (time_t)-1;
+
+    if (v->departure_t == (time_t)-1 || v->actual_departure_t == (time_t)-1)
+        v->delay_minutes = -1.0;
+    else
+        v->delay_minutes = difftime(v->actual_departure_t, v->departure_t) / 60.0;
 
     return v;
 }
@@ -185,8 +192,5 @@ double voo_calcular_atraso_minutos(const voo_t *v)
 
     if (strcmp(v->actual_departure, "N/A") == 0)
         return -1;
-    if (v->departure_t == (time_t)-1 || v->actual_departure_t == (time_t)-1)
-        return -1;
-
-    return difftime(v->actual_departure_t, v->departure_t) / 60.0;
+    return (v->delay_minutes < 0) ? -1 : v->delay_minutes;
 }

@@ -11,6 +11,7 @@ struct gestor_voos
     GHashTable *tabela;
     GHashTable *por_origin;
     GHashTable *por_destination;
+    GPtrArray *atrasados; /* lista direta de voos com status "Delayed" */
 };
 
 gestor_voos_t *gestor_voos_criar(void)
@@ -35,6 +36,8 @@ gestor_voos_t *gestor_voos_criar(void)
         g_free,
         (GDestroyNotify)g_ptr_array_unref);
 
+    g->atrasados = g_ptr_array_new();
+
     return g;
 }
 
@@ -45,6 +48,8 @@ void gestor_voos_destruir(gestor_voos_t *gestor)
     g_hash_table_destroy(gestor->tabela);
     g_hash_table_destroy(gestor->por_origin);
     g_hash_table_destroy(gestor->por_destination);
+    if (gestor->atrasados)
+        g_ptr_array_free(gestor->atrasados, TRUE);
     free(gestor);
 }
 
@@ -77,6 +82,10 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
         g_hash_table_insert(gestor->por_destination, g_strdup(destination), voos_dest);
     }
     g_ptr_array_add(voos_dest, voo);
+
+    /* Se o voo estiver atrasado, mantemos uma lista direta para iteração rápida */
+    if (voo_obter_status(voo) && strcmp(voo_obter_status(voo), "Delayed") == 0)
+        g_ptr_array_add(gestor->atrasados, voo);
 }
 
 voo_t *gestor_voos_obter_por_id(gestor_voos_t *gestor, const char *flight_id)
@@ -129,20 +138,6 @@ const char *gestor_voos_obter_departure(gestor_voos_t *gestor, const char *fligh
     return voo_obter_departure(v);
 }
 
-static void filtrar_atrasados(const char *flight_id, voo_t *voo, void *user_data)
-{
-    (void)flight_id; /* Parâmetro não usado - requerido pela assinatura GHFunc */
-
-    struct
-    {
-        void (*func)(voo_t *, void *);
-        void *user_data;
-    } *ctx = user_data;
-
-    if (strcmp(voo_obter_status(voo), "Delayed") == 0)
-        ctx->func(voo, ctx->user_data);
-}
-
 void gestor_voos_para_cada_atrasado(
     gestor_voos_t *gestor,
     void (*func)(voo_t *, void *),
@@ -151,13 +146,13 @@ void gestor_voos_para_cada_atrasado(
     if (!gestor || !func)
         return;
 
-    struct
+    /* Itera diretamente sobre a lista de atrasados, evitando varrer toda a tabela */
+    for (guint i = 0; i < gestor->atrasados->len; i++)
     {
-        void (*func)(voo_t *, void *);
-        void *user_data;
-    } ctx = {func, user_data};
-
-    gestor_voos_para_cada(gestor, filtrar_atrasados, &ctx);
+        voo_t *v = g_ptr_array_index(gestor->atrasados, i);
+        if (v)
+            func(v, user_data);
+    }
 }
 
 static gboolean adiciona_voo_callback(void *contexto, void *objeto)
