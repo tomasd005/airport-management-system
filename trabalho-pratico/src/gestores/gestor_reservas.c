@@ -7,8 +7,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <stdio.h>
-
 
 struct gestor_reservas
 {
@@ -178,5 +176,20 @@ void gestor_reservas_para_cada_semana(
 
         int semana = calcular_semana(data);
         callback(semana, r, user_data);
+    }
+}
+
+void gestor_reservas_para_cada(
+    gestor_reservas_t *gestor,
+    void (*callback)(const reserva_t *, void *),
+    void *user_data)
+{
+    if (!gestor || !callback)
+        return;
+
+    for (guint i = 0; i < gestor->reservas->len; i++)
+    {
+        reserva_t *r = g_array_index(gestor->reservas, reserva_t *, i);
+        callback(r, user_data);
     }
 }
