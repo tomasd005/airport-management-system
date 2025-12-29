@@ -145,6 +145,7 @@ void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
     gestor_voos_para_cada(gestor_voos, contar_voos_por_aviao, contagens);
 
     // 2. Processar todos os aviões (aplicando filtro de fabricante)
+    // Só inclui aviões que tenham pelo menos 1 voo
     GArray *resultados = g_array_new(FALSE, FALSE, sizeof(ContadorVoos));
     gpointer dados[3] = {resultados, contagens, (gpointer)fabricante};
     gestor_avioes_para_cada(gestor_avioes, processar_aviao, dados);
