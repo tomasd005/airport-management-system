@@ -1,9 +1,11 @@
 #include "gestores/gestor_reservas.h"
 #include "parsers/parser.h"
 #include "validacoes/validacao_reservas.h"
+#include "gestores/gestor_voos.h"
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 struct gestor_reservas
 {
@@ -137,3 +139,55 @@ void gestor_reservas_carregar(gestor_reservas_t *gestor, const char *ficheiro_cs
         (LinhaParaObjeto)valida_reserva_from_csv,
         (DestroiObjeto)reserva_destruir);
 }
+
+static int calcular_semana(const char *data)
+{
+    int y, m, d;
+    sscanf(data, "%d-%d-%d", &y, &m, &d);
+
+    struct tm t = {0};
+    t.tm_year = y - 1900;
+    t.tm_mon = m - 1;
+    t.tm_mday = d;
+    mktime(&t);
+
+    return (y * 1000) + (t.tm_yday - t.tm_wday); // domingo
+}
+
+void gestor_reservas_para_cada_semana(
+    gestor_reservas_t *gestor,
+    gestor_voos_t *gestor_voos,
+    const char *data_inicio,
+    const char *data_fim,
+    void (*callback)(int, const reserva_t *, void *),
+    void *user_data)
+{
+    if (!gestor || !gestor_voos || !callback)
+        return;
+
+    for (guint i = 0; i < gestor->reservas->len; i++)
+    {
+        reserva_t *r = g_array_index(gestor->reservas, reserva_t *, i);
+
+        const char **flight_ids = reserva_obter_flight_ids(r);
+        const char *dep = gestor_voos_obter_departure(
+            gestor_voos, flight_ids[0]);
+
+        if (!dep || strlen(dep) < 10)
+            continue;
+
+        char data[11];
+        strncpy(data, dep, 10);
+        data[10] = '\0';
+
+        if (data_inicio && strcmp(data, data_inicio) < 0)
+            continue;
+        if (data_fim && strcmp(data, data_fim) > 0)
+            continue;
+
+        int semana = calcular_semana(data);
+        callback(semana, r, user_data);
+    }
+}
+
+

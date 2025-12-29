@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <glib.h>
+#include <time.h>
+#include "parsers/parser.h"
 
 struct voo
 {
@@ -137,4 +139,24 @@ const char *voo_obter_airline(const voo_t *v)
 const char *voo_obter_tracking_url(const voo_t *v)
 {
     return v ? v->tracking_url : NULL;
+}
+
+double voo_calcular_atraso_minutos(const voo_t *v)
+{
+    if (!v)
+        return -1;
+
+    if (!v->departure || !v->actual_departure)
+        return -1;
+
+    if (strcmp(v->actual_departure, "N/A") == 0)
+        return -1;
+
+    time_t t_dep = parser_datetime_para_time(v->departure);
+    time_t t_act = parser_datetime_para_time(v->actual_departure);
+
+    if (t_dep == (time_t)-1 || t_act == (time_t)-1)
+        return -1;
+
+    return difftime(t_act, t_dep) / 60.0;
 }
