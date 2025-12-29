@@ -112,10 +112,10 @@ test-validacoes-valgrind: $(EXEC_VALIDACOES)
 workflow: clean all verificar-erros
 	@echo " Workflow completo executado!"
 
-debug: CFLAGS += -g -O0
-debug: clean all
-	@echo " Compilação em modo DEBUG concluída."
-
+debug-logs: CFLAGS += -DDEBUG -g -O0
+debug-logs: clean all
+	@echo "Compilação com logs de debug ativados concluída."
+	
 .PHONY: all clean run-erros run-sem-erros run-testes run-fast test-fast debug \
         test-validacoes build-validacoes test-validacoes-valgrind \
         verificador verificar-erros verificar-sem-erros verificar-tudo workflow

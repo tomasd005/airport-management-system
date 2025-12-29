@@ -1,9 +1,10 @@
 #include "voos.h"
+#include "parsers/parser.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <glib.h>
 #include <time.h>
-#include "parsers/parser.h"
 
 struct voo
 {
@@ -141,6 +142,27 @@ const char *voo_obter_tracking_url(const voo_t *v)
     return v ? v->tracking_url : NULL;
 }
 
+/* Converte string "AAAA-MM-DD HH:MM" para time_t */
+static time_t datetime_para_time(const char *datetime)
+{
+    if (!datetime || strlen(datetime) < 16)
+        return (time_t)-1;
+
+    struct tm t = {0};
+
+    /* Parse: "AAAA-MM-DD HH:MM" */
+    if (sscanf(datetime, "%d-%d-%d %d:%d",
+               &t.tm_year, &t.tm_mon, &t.tm_mday,
+               &t.tm_hour, &t.tm_min) != 5)
+        return (time_t)-1;
+
+    t.tm_year -= 1900; /* anos desde 1900 */
+    t.tm_mon -= 1;     /* meses de 0-11 */
+    t.tm_isdst = -1;   /* deixar mktime determinar DST */
+
+    return mktime(&t);
+}
+
 double voo_calcular_atraso_minutos(const voo_t *v)
 {
     if (!v)
@@ -152,8 +174,8 @@ double voo_calcular_atraso_minutos(const voo_t *v)
     if (strcmp(v->actual_departure, "N/A") == 0)
         return -1;
 
-    time_t t_dep = parser_datetime_para_time(v->departure);
-    time_t t_act = parser_datetime_para_time(v->actual_departure);
+    time_t t_dep = datetime_para_time(v->departure);
+    time_t t_act = datetime_para_time(v->actual_departure);
 
     if (t_dep == (time_t)-1 || t_act == (time_t)-1)
         return -1;
