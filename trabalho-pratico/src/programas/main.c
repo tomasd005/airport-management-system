@@ -11,6 +11,8 @@
 #include "../../include/queries/querie1.h"
 #include "../../include/queries/querie2.h"
 #include "../../include/queries/querie3.h"
+#include "../../include/queries/querie4.h"
+#include "../../include/queries/querie5.h"
 
 static void trim_string(char *str)
 {
@@ -76,7 +78,6 @@ int main(int argc, char *argv[])
         gestor_voos_destruir(gestor_voos);
         gestor_passageiros_destruir(gestor_passageiros);
         gestor_reservas_destruir(gestor_reservas);
-
         return 1;
     }
 
@@ -157,7 +158,6 @@ int main(int argc, char *argv[])
             if (strlen(fabricante) == 0)
                 fabricante = NULL;
 
-            // Passa o comando completo (linha) como novo parâmetro
             query2(gestor_avioes, gestor_voos, N, fabricante, linha, out);
         }
         else if (tipo == 3)
@@ -180,13 +180,54 @@ int main(int argc, char *argv[])
 
             if (strlen(data_inicio) > 0 && strlen(data_fim) > 0)
             {
-                // Passa o comando completo (linha) como novo parâmetro
                 query3(gestor_aeroportos, gestor_voos, data_inicio, data_fim, linha, out);
             }
             else
             {
                 fprintf(out, "\n");
             }
+        }
+        else if (tipo == 4)
+        {
+            while (*p && isspace((unsigned char)*p))
+                p++;
+
+            char *data_inicio = NULL;
+            char *data_fim = NULL;
+
+            if (*p && !isspace((unsigned char)*p))
+            {
+                data_inicio = p;
+                while (*p && !isspace((unsigned char)*p))
+                    p++;
+
+                if (*p)
+                    *p++ = '\0';
+
+                while (*p && isspace((unsigned char)*p))
+                    p++;
+
+                if (*p)
+                {
+                    data_fim = p;
+                    trim_string(data_fim);
+                }
+            }
+
+            query4(gestor_reservas, gestor_voos, gestor_passageiros,
+                   data_inicio, data_fim, linha, out);
+        }
+        else if (tipo == 5)
+        {
+            while (*p && isspace((unsigned char)*p))
+                p++;
+
+            char *n_str = p;
+            trim_string(n_str);
+
+            int N = atoi(n_str);
+
+            query5(gestor_voos, N, linha, out);
         }
         else
         {
@@ -204,5 +245,6 @@ int main(int argc, char *argv[])
     gestor_voos_destruir(gestor_voos);
     gestor_passageiros_destruir(gestor_passageiros);
     gestor_reservas_destruir(gestor_reservas);
+
     return 0;
 }
