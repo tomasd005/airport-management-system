@@ -188,66 +188,43 @@ int main(int argc, char *argv[])
                 fprintf(out, "\n");
             }
         }
+        
         else if (tipo == 4)
+    {
+        while (*p && isspace((unsigned char)*p))
+            p++;
+
+        char *data_inicio = p;
+        while (*p && !isspace((unsigned char)*p))
+            p++;
+
+        if (*p)
+            *p++ = '\0';
+
+        while (*p && isspace((unsigned char)*p))
+            p++;
+
+        char *data_fim = p;
+        trim_string(data_fim);
+
+        if (strlen(data_inicio) > 0 && strlen(data_fim) > 0)
         {
-            while (*p && isspace((unsigned char)*p))
-                p++;
-
-            char *data_inicio = NULL;
-            char *data_fim = NULL;
-
-            if (*p && !isspace((unsigned char)*p))
-            {
-                data_inicio = p;
-                while (*p && !isspace((unsigned char)*p))
-                    p++;
-
-                if (*p)
-                    *p++ = '\0';
-
-                while (*p && isspace((unsigned char)*p))
-                    p++;
-
-                if (*p)
-                {
-                    data_fim = p;
-                    trim_string(data_fim);
-                }
-            }
-
-            query4(gestor_reservas, gestor_voos, gestor_passageiros,
-                   data_inicio, data_fim, linha, out);
+            query4(
+                gestor_reservas,
+                gestor_voos,
+                gestor_passageiros,  
+                data_inicio,
+                data_fim,
+                linha,
+                out);
         }
-        else if (tipo == 5)
+        else
         {
-            while (*p && isspace((unsigned char)*p))
-                p++;
-
-            char *n_str = p;
-            trim_string(n_str);
-
-            int N = atoi(n_str);
-
-            query5(gestor_voos, N, linha, out);
+            fprintf(out, "\n");
         }
-        else if (tipo == 6)
-        {
-            while (*p && isspace((unsigned char)*p))
-                p++;
+    }
 
-            char *nacionalidade = p;
-            trim_string(nacionalidade);
 
-            if (strlen(nacionalidade) > 0)
-            {
-                query6(gestor_reservas, gestor_voos, gestor_passageiros,
-                       nacionalidade, linha, out);
-            }
-            else
-            {
-                fprintf(out, "\n");
-            }
-        }
         else
         {
             fprintf(out, "\n");
