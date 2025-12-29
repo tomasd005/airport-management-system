@@ -190,40 +190,67 @@ int main(int argc, char *argv[])
         }
         
         else if (tipo == 4)
-    {
-        while (*p && isspace((unsigned char)*p))
-            p++;
-
-        char *data_inicio = p;
-        while (*p && !isspace((unsigned char)*p))
-            p++;
-
-        if (*p)
-            *p++ = '\0';
-
-        while (*p && isspace((unsigned char)*p))
-            p++;
-
-        char *data_fim = p;
-        trim_string(data_fim);
-
-        if (strlen(data_inicio) > 0 && strlen(data_fim) > 0)
         {
-            query4(
-                gestor_reservas,
-                gestor_voos,
-                gestor_passageiros,  
-                data_inicio,
-                data_fim,
-                linha,
-                out);
-        }
-        else
-        {
-            fprintf(out, "\n");
-        }
-    }
+            while (*p && isspace((unsigned char)*p))
+                p++;
 
+            char *data_inicio = p;
+            while (*p && !isspace((unsigned char)*p))
+                p++;
+
+            if (*p)
+                *p++ = '\0';
+
+            while (*p && isspace((unsigned char)*p))
+                p++;
+
+            char *data_fim = p;
+            trim_string(data_fim);
+
+            if (strlen(data_inicio) > 0 && strlen(data_fim) > 0)
+            {
+                query4(
+                    gestor_reservas,
+                    gestor_voos,
+                    gestor_passageiros,  
+                    data_inicio,
+                    data_fim,
+                    linha,
+                    out);
+            }
+            else
+            {
+                fprintf(out, "\n");
+            }
+        }
+
+        else if (tipo == 5)
+        {
+            while (*p && isspace((unsigned char)*p))
+                p++;
+
+            char *n_str = p;
+            while (*p && !isspace((unsigned char)*p))
+                p++;
+
+            if (*p)
+                *p++ = '\0';
+
+            int N = atoi(n_str);
+
+            if (N > 0)
+            {
+                query5(
+                    gestor_voos,
+                    N,
+                    linha,
+                    out);
+            }
+            else
+            {
+                fprintf(out, "\n");
+            }
+        }
 
         else
         {
