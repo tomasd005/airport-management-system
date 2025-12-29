@@ -197,34 +197,70 @@ reserva_t *valida_reserva_from_csv(char **colunas)
     return r;
 }
 
-/* validação lógica permanece igual */
+/* Validação lógica conforme enunciado */
 GPtrArray *validar_reserva(const reserva_t *r,
                            gestor_voos_t *gestor_voos,
                            gestor_passageiros_t *gestor_passageiros)
 {
-    (void)gestor_voos;
-    (void)gestor_passageiros;
-
-    const char *mode = getenv("VALIDATION_MODE");
-
-    if (mode && strcmp(mode, "OFF") == 0)
-        return NULL;
     if (!r)
         return NULL;
 
     GPtrArray *erros = g_ptr_array_new_with_free_func(g_free);
 
+    const char **flight_ids = reserva_obter_flight_ids(r);
+    size_t num_voos = reserva_obter_num_voos(r);
+    const char *doc = reserva_obter_document_number(r);
+
+    // Validação: flight_ids devem corresponder a voos existentes
+    if (gestor_voos)
+    {
+        for (size_t i = 0; i < num_voos; i++)
+        {
+            if (!gestor_voos_obter_por_id(gestor_voos, flight_ids[i]))
+            {
+                char *msg = g_strdup_printf("Flight ID '%s' não existe", flight_ids[i]);
+                g_ptr_array_add(erros, msg);
+            }
+        }
+    }
+
+    // Validação: document_number deve corresponder a passageiro existente
+    if (gestor_passageiros && doc)
+    {
+        if (!gestor_passageiros_obter_por_documento(gestor_passageiros, doc))
+        {
+            char *msg = g_strdup_printf("Document number '%s' não existe", doc);
+            g_ptr_array_add(erros, msg);
+        }
+    }
+
+    // Validação: se há dois voos, destination do primeiro = origin do segundo
+    if (num_voos == 2 && gestor_voos)
+    {
+        voo_t *voo1 = gestor_voos_obter_por_id(gestor_voos, flight_ids[0]);
+        voo_t *voo2 = gestor_voos_obter_por_id(gestor_voos, flight_ids[1]);
+
+        if (voo1 && voo2)
+        {
+            const char *dest1 = voo_obter_destination(voo1);
+            const char *orig2 = voo_obter_origin(voo2);
+
+            if (!dest1 || !orig2 || strcmp(dest1, orig2) != 0)
+            {
+                char *msg = g_strdup("Destination do primeiro voo deve ser igual ao origin do segundo");
+                g_ptr_array_add(erros, msg);
+            }
+        }
+    }
+
+    // Se não há erros, retorna NULL (sucesso)
     if (erros->len == 0)
     {
         g_ptr_array_free(erros, TRUE);
         return NULL;
     }
 
-    if (mode && strcmp(mode, "STRICT") == 0)
-        return erros;
-
-    g_ptr_array_free(erros, TRUE);
-    return NULL;
+    return erros;
 }
 
 void validar_reserva_imprimir_erros(GPtrArray *erros)

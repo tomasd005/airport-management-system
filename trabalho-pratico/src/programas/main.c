@@ -68,7 +68,8 @@ int main(int argc, char *argv[])
     gestor_avioes_carregar(gestor_avioes, caminho_avioes);
     gestor_voos_carregar(gestor_voos, caminho_voos);
     gestor_passageiros_carregar(gestor_passageiros, caminho_passageiros);
-    gestor_reservas_carregar(gestor_reservas, caminho_reservas);
+    // Carregar reservas com validações lógicas (precisa dos gestores já carregados)
+    gestor_reservas_carregar_com_validacao(gestor_reservas, caminho_reservas, gestor_voos, gestor_passageiros);
 
     FILE *input = fopen(ficheiro_input, "r");
     if (!input)

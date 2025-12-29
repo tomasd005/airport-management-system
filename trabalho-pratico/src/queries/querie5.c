@@ -59,9 +59,16 @@ static gint cmp_q5(gconstpointer a, gconstpointer b)
     const ResultadoQ5 *ra = a;
     const ResultadoQ5 *rb = b;
 
-    if (ra->avg_delay != rb->avg_delay)
-        return (ra->avg_delay < rb->avg_delay) ? 1 : -1;
+    // Comparação de doubles com tolerância para evitar problemas de precisão
+    double diff = ra->avg_delay - rb->avg_delay;
+    const double EPSILON = 1e-6; // Tolerância para comparação de médias
+    
+    if (diff > EPSILON)
+        return -1; // ra->avg_delay > rb->avg_delay (ordem decrescente)
+    if (diff < -EPSILON)
+        return 1;  // ra->avg_delay < rb->avg_delay
 
+    // Em caso de empate, ordenar por nome da companhia alfabeticamente
     return strcmp(ra->airline, rb->airline);
 }
 
