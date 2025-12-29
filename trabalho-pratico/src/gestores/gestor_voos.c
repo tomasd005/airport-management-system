@@ -117,9 +117,7 @@ void gestor_voos_para_cada(gestor_voos_t *gestor, void (*func)(const char *, voo
     g_hash_table_foreach(gestor->tabela, (GHFunc)func, user_data);
 }
 
-const char *gestor_voos_obter_departure(
-    gestor_voos_t *gestor,
-    const char *flight_id)
+const char *gestor_voos_obter_departure(gestor_voos_t *gestor, const char *flight_id)
 {
     if (!gestor || !flight_id)
         return NULL;
@@ -131,10 +129,7 @@ const char *gestor_voos_obter_departure(
     return voo_obter_departure(v);
 }
 
-static void filtrar_atrasados(
-    const char *flight_id,
-    voo_t *voo,
-    void *user_data)
+static void filtrar_atrasados(const char *flight_id, voo_t *voo, void *user_data)
 {
     (void)flight_id; /* Parâmetro não usado - requerido pela assinatura GHFunc */
 

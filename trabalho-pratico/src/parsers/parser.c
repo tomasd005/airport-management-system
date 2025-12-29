@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <glib.h>
+#include <time.h>
 
 #define MAX_COLUNAS 100
 
@@ -106,4 +107,26 @@ void parser_carrega(void *contexto,
     fclose(ficheiro);
     if (ficheiro_erros)
         fclose(ficheiro_erros);
+}
+
+time_t parser_datetime_para_time(const char *datetime)
+{
+    if (!datetime)
+        return (time_t)-1;
+
+    int y, m, d, hh, mm;
+
+    if (sscanf(datetime, "%d-%d-%d %d:%d",
+               &y, &m, &d, &hh, &mm) != 5)
+        return (time_t)-1;
+
+    struct tm tm = {0};
+    tm.tm_year = y - 1900;
+    tm.tm_mon = m - 1;
+    tm.tm_mday = d;
+    tm.tm_hour = hh;
+    tm.tm_min = mm;
+    tm.tm_isdst = -1;
+
+    return mktime(&tm);
 }

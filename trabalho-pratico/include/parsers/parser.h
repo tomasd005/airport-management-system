@@ -2,6 +2,7 @@
 #define PARSER_H
 
 #include <glib.h>
+#include <time.h>
 
 typedef gpointer (*LinhaParaObjeto)(char **colunas);
 
@@ -14,5 +15,8 @@ void parser_carrega(void *contexto,
                     AdicionaObjeto adiciona_objeto,
                     LinhaParaObjeto linha_para_objeto,
                     DestroiObjeto destroi_objeto);
+
+
+time_t parser_datetime_para_time(const char *datetime);
 
 #endif
