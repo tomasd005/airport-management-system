@@ -3,18 +3,18 @@
 #include <string.h>
 #include <ctype.h>
 
-
 static int usa_formato_alternativo(const char *cmd)
 {
-    while (*cmd && isspace(*cmd)) cmd++;
-    while (*cmd && isdigit(*cmd)) cmd++;
+    while (*cmd && isspace(*cmd))
+        cmd++;
+    while (*cmd && isdigit(*cmd))
+        cmd++;
     return (*cmd == 'S');
 }
 
-
 typedef struct
 {
-    GHashTable *semanas; // semana -> (doc -> total)
+    GHashTable *semanas;
 } ContextoQ4;
 
 typedef struct
@@ -28,7 +28,6 @@ typedef struct
     char *doc;
     guint count;
 } Resultado;
-
 
 static void acumular_reserva(
     int semana,
@@ -53,16 +52,14 @@ static void acumular_reserva(
     double *total = g_hash_table_lookup(gastos, doc);
 
     if (total)
-        *total += reserva_obter_price(r);
+        *total += reserva_obter_preco(r);
     else
     {
         double *novo = g_new(double, 1);
-        *novo = reserva_obter_price(r);
+        *novo = reserva_obter_preco(r);
         g_hash_table_insert(gastos, g_strdup(doc), novo);
     }
 }
-
-
 
 static gint cmp_gastos(gconstpointer a, gconstpointer b)
 {
@@ -85,8 +82,6 @@ static gint cmp_resultado(gconstpointer a, gconstpointer b)
 
     return strcmp(ra->doc, rb->doc);
 }
-
-
 
 void query4(gestor_reservas_t *gestor_reservas,
             gestor_voos_t *gestor_voos,
@@ -198,10 +193,10 @@ void query4(gestor_reservas_t *gestor_reservas,
     {
         fprintf(output, "%s%s%s%s%s%s%s%s%s%s%u\n",
                 passageiro_obter_document_number(p), sep,
-                passageiro_obter_first_name(p), sep,
-                passageiro_obter_last_name(p), sep,
+                passageiro_obter_primeiro_nome(p), sep,
+                passageiro_obter_ultimo_nome(p), sep,
                 passageiro_obter_dob(p), sep,
-                passageiro_obter_nationality(p), sep,
+                passageiro_obter_nacionalidade(p), sep,
                 best->count);
     }
     else

@@ -1,0 +1,19 @@
+JetVenture Airlines;5390;53.058
+Sunrise Networks;7859;52.957
+Cloud Nine;5575;52.907
+Keen Skyways;6561;52.800
+Global Way;5802;52.792
+Liberty Plane;5716;52.772
+BlueDawn Aviation;4713;52.770
+Rivet Transport;5821;52.767
+SkyGate Airlines;5622;52.751
+Moonlight Airways;7680;52.674
+Rocket Shuttle;8151;52.640
+Omega Wings;6463;52.605
+Polar Lines;6928;52.592
+Zebra Regional Airways;6730;52.570
+Horizon Blue;7688;52.534
+Lighthouse Air;8829;52.496
+Vertex Airlines;5420;52.496
+Bravo Voyages;7085;52.496
+AirRover;8283;52.454
