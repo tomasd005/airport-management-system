@@ -193,58 +193,48 @@ int main(int argc, char *argv[])
         {
             while (*p && isspace((unsigned char)*p))
                 p++;
-
-            char *data_inicio = p;
-            while (*p && !isspace((unsigned char)*p))
-                p++;
-
-            if (*p)
-                *p++ = '\0';
-
-            while (*p && isspace((unsigned char)*p))
-                p++;
-
-            char *data_fim = p;
-            trim_string(data_fim);
-
-            if (strlen(data_inicio) > 0 && strlen(data_fim) > 0)
+            char *data_inicio = NULL;
+            char *data_fim = NULL;
+            if (*p && !isspace((unsigned char)*p))
             {
-                query4(
-                    gestor_reservas,
-                    gestor_voos,
-                    gestor_passageiros,  
-                    data_inicio,
-                    data_fim,
-                    linha,
-                    out);
+                data_inicio = p;
+                while (*p && !isspace((unsigned char)*p))
+                    p++;
+                if (*p)
+                    *p++ = '\0';
+                while (*p && isspace((unsigned char)*p))
+                    p++;
+                if (*p)
+                {
+                    data_fim = p;
+                    trim_string(data_fim);
+                }
             }
-            else
-            {
-                fprintf(out, "\n");
-            }
+            query4(gestor_reservas, gestor_voos, gestor_passageiros,
+                   data_inicio, data_fim, linha, out);
         }
-
         else if (tipo == 5)
         {
             while (*p && isspace((unsigned char)*p))
                 p++;
-
             char *n_str = p;
-            while (*p && !isspace((unsigned char)*p))
-                p++;
-
-            if (*p)
-                *p++ = '\0';
-
+            trim_string(n_str);
             int N = atoi(n_str);
 
-            if (N > 0)
+            query5(gestor_voos, N, linha, out);
+        }
+        else if (tipo == 6)
+        {
+            while (*p && isspace((unsigned char)*p))
+                p++;
+
+            char *nacionalidade = p;
+            trim_string(nacionalidade);
+
+            if (strlen(nacionalidade) > 0)
             {
-                query5(
-                    gestor_voos,
-                    N,
-                    linha,
-                    out);
+                query6(gestor_reservas, gestor_voos, gestor_passageiros,
+                       nacionalidade, linha, out);
             }
             else
             {
