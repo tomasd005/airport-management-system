@@ -8,9 +8,9 @@
 
 struct gestor_voos
 {
-    GHashTable *tabela;          // flight_id -> voo_t*
-    GHashTable *por_origin;      // origin -> GPtrArray de voo_t*
-    GHashTable *por_destination; // destination -> GPtrArray de voo_t*
+    GHashTable *tabela;
+    GHashTable *por_origin;
+    GHashTable *por_destination;
 };
 
 gestor_voos_t *gestor_voos_criar(void)
@@ -23,7 +23,6 @@ gestor_voos_t *gestor_voos_criar(void)
         g_free,
         (GDestroyNotify)voo_destruir);
 
-    // Hash tables para indexação rápida
     g->por_origin = g_hash_table_new_full(
         g_str_hash,
         g_str_equal,
@@ -61,10 +60,8 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
     if (!id || !origin || !destination)
         return;
 
-    // Adiciona à tabela principal
     g_hash_table_insert(gestor->tabela, g_strdup(id), voo);
 
-    // Indexa por origin
     GPtrArray *voos_origin = g_hash_table_lookup(gestor->por_origin, origin);
     if (!voos_origin)
     {
@@ -73,7 +70,6 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
     }
     g_ptr_array_add(voos_origin, voo);
 
-    // Indexa por destination
     GPtrArray *voos_dest = g_hash_table_lookup(gestor->por_destination, destination);
     if (!voos_dest)
     {
@@ -140,6 +136,8 @@ static void filtrar_atrasados(
     voo_t *voo,
     void *user_data)
 {
+    (void)flight_id; /* Parâmetro não usado - requerido pela assinatura GHFunc */
+
     struct
     {
         void (*func)(voo_t *, void *);
@@ -167,7 +165,6 @@ void gestor_voos_para_cada_atrasado(
     gestor_voos_para_cada(gestor, filtrar_atrasados, &ctx);
 }
 
-// Callback interno para o parser
 static gboolean adiciona_voo_callback(void *contexto, void *objeto)
 {
     gestor_voos_t *gestor = (gestor_voos_t *)contexto;
