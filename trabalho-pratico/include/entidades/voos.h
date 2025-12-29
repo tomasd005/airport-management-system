@@ -21,5 +21,6 @@ const char *voo_obter_destination(const voo_t *v);
 const char *voo_obter_aircraft(const voo_t *v);
 const char *voo_obter_airline(const voo_t *v);
 const char *voo_obter_tracking_url(const voo_t *v);
+double voo_calcular_atraso_minutos(const voo_t *v);
 
 #endif

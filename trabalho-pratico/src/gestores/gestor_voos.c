@@ -134,6 +134,39 @@ const char *gestor_voos_obter_departure(
 
     return voo_obter_departure(v);
 }
+
+static void filtrar_atrasados(
+    const char *flight_id,
+    voo_t *voo,
+    void *user_data)
+{
+    struct
+    {
+        void (*func)(voo_t *, void *);
+        void *user_data;
+    } *ctx = user_data;
+
+    if (strcmp(voo_obter_status(voo), "Delayed") == 0)
+        ctx->func(voo, ctx->user_data);
+}
+
+void gestor_voos_para_cada_atrasado(
+    gestor_voos_t *gestor,
+    void (*func)(voo_t *, void *),
+    void *user_data)
+{
+    if (!gestor || !func)
+        return;
+
+    struct
+    {
+        void (*func)(voo_t *, void *);
+        void *user_data;
+    } ctx = {func, user_data};
+
+    gestor_voos_para_cada(gestor, filtrar_atrasados, &ctx);
+}
+
 // Callback interno para o parser
 static gboolean adiciona_voo_callback(void *contexto, void *objeto)
 {

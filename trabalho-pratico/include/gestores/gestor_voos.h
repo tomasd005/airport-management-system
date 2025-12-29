@@ -14,6 +14,7 @@ unsigned gestor_voos_contar(const gestor_voos_t *gestor);
 GHashTable *gestor_voos_obter_tabela(gestor_voos_t *gestor);
 void gestor_voos_para_cada(gestor_voos_t *gestor, void (*func)(const char *, voo_t *, void *), void *user_data);
 const char *gestor_voos_obter_departure(gestor_voos_t *gestor, const char *flight_id);
+void gestor_voos_para_cada_atrasado(gestor_voos_t *gestor, void (*func)(voo_t *, void *), void *user_data);
 
 // Função de carregamento (antes em _parser.h)
 void gestor_voos_carregar(gestor_voos_t *gestor, const char *ficheiro_csv);
