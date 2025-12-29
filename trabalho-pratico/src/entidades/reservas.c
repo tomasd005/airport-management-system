@@ -143,3 +143,17 @@ const char *reserva_obter_qr_code(const reserva_t *r)
 {
     return r ? r->qr_code : NULL;
 }
+size_t reserva_obter_num_passageiros(const reserva_t *r)
+{
+    return r ? 1 : 0; // cada reserva tem 1 passageiro
+}
+
+const char **reserva_obter_documentos(const reserva_t *r)
+{
+    if (!r)
+        return NULL;
+
+    static const char *docs[1]; // usamos static para simplificar
+    docs[0] = r->document_number;
+    return docs;
+}

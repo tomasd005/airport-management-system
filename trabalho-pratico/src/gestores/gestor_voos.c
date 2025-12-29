@@ -184,3 +184,45 @@ void gestor_voos_carregar(gestor_voos_t *gestor, const char *ficheiro_csv)
         (LinhaParaObjeto)valida_voo,
         (DestroiObjeto)voo_destruir);
 }
+void gestor_voos_para_cada_origem(
+    gestor_voos_t *gestor,
+    const char *origin,
+    void (*func)(voo_t *voo, void *user_data),
+    void *user_data)
+{
+    if (!gestor || !origin || !func)
+        return;
+
+    GPtrArray *voos = g_hash_table_lookup(gestor->por_origin, origin);
+    if (!voos)
+        return;
+
+    for (guint i = 0; i < voos->len; i++)
+    {
+        voo_t *voo = g_ptr_array_index(voos, i);
+        func(voo, user_data);
+    }
+}
+
+/**
+ * @brief Itera sobre voos que chegam a um aeroporto
+ */
+void gestor_voos_para_cada_destino(
+    gestor_voos_t *gestor,
+    const char *destination,
+    void (*func)(voo_t *voo, void *user_data),
+    void *user_data)
+{
+    if (!gestor || !destination || !func)
+        return;
+
+    GPtrArray *voos = g_hash_table_lookup(gestor->por_destination, destination);
+    if (!voos)
+        return;
+
+    for (guint i = 0; i < voos->len; i++)
+    {
+        voo_t *voo = g_ptr_array_index(voos, i);
+        func(voo, user_data);
+    }
+}

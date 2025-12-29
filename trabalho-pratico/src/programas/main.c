@@ -13,6 +13,7 @@
 #include "../../include/queries/querie3.h"
 #include "../../include/queries/querie4.h"
 #include "../../include/queries/querie5.h"
+#include "../../include/queries/querie6.h"
 
 static void trim_string(char *str)
 {
@@ -228,6 +229,24 @@ int main(int argc, char *argv[])
             int N = atoi(n_str);
 
             query5(gestor_voos, N, linha, out);
+        }
+        else if (tipo == 6)
+        {
+            while (*p && isspace((unsigned char)*p))
+                p++;
+
+            char *nacionalidade = p;
+            trim_string(nacionalidade);
+
+            if (strlen(nacionalidade) > 0)
+            {
+                query6(gestor_reservas, gestor_voos, gestor_passageiros,
+                       nacionalidade, linha, out);
+            }
+            else
+            {
+                fprintf(out, "\n");
+            }
         }
         else
         {

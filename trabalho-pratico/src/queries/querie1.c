@@ -8,95 +8,78 @@
 #include "../../include/entidades/voos.h"
 #include "../../include/queries/querie1.h"
 
-/**
- * @brief Verifica se o comando usa formato alternativo (termina com 'S')
- * @param comando String do comando completo (ex: "1S OPO" ou "1 OPO")
- * @return 1 se usa formato 'S', 0 caso contrário
- */
 static int usa_formato_alternativo(const char *comando)
 {
     if (!comando)
         return 0;
 
-    // Pula espaços iniciais
     while (*comando && isspace(*comando))
         comando++;
-
-    // Pula os dígitos do número da query
     while (*comando && isdigit(*comando))
         comando++;
 
-    // Verifica se há um 'S' logo após o número
     return (*comando == 'S');
 }
 
-/**
- * @brief Conta passageiros que ATERRARAM no aeroporto (destination)
- * @param gestor_voos Gestor de voos
- * @param gestor_reservas Gestor de reservas
- * @param airport_code Código do aeroporto
- * @return Número de passageiros que aterraram (voos não cancelados)
- */
-static int conta_passageiros_chegada(gestor_voos_t *gestor_voos,
-                                     gestor_reservas_t *gestor_reservas,
-                                     const char *airport_code)
+/* Contexto para contagem de passageiros */
+typedef struct
 {
-    if (!gestor_voos || !gestor_reservas || !airport_code)
-        return 0;
+    gestor_reservas_t *gestor_reservas;
+    int total;
+} ContextoContagem;
 
-    int total = 0;
+/* Callback para contar passageiros em voos de chegada */
+static void contar_passageiros_voo(voo_t *voo, void *user_data)
+{
+    ContextoContagem *ctx = user_data;
 
-    // Obtém todos os voos com este destination
-    GPtrArray *voos = gestor_voos_obter_por_destination(gestor_voos, airport_code);
-
-    if (!voos)
-        return 0;
-
-    for (guint i = 0; i < voos->len; i++)
+    // Só conta se NÃO estiver cancelado
+    if (strcmp(voo_obter_status(voo), "Cancelled") != 0)
     {
-        voo_t *voo = g_ptr_array_index(voos, i);
-
-        // Só conta se NÃO estiver cancelado
-        if (strcmp(voo_obter_status(voo), "Cancelled") != 0)
-        {
-            // Conta quantos passageiros têm reserva neste voo
-            total += gestor_reservas_contar_passageiros_voo(gestor_reservas,
-                                                            voo_obter_id(voo));
-        }
+        ctx->total += gestor_reservas_contar_passageiros_voo(
+            ctx->gestor_reservas,
+            voo_obter_id(voo));
     }
-
-    return total;
 }
 
-static int conta_passageiros_partida(gestor_voos_t *gestor_voos,
-                                     gestor_reservas_t *gestor_reservas,
-                                     const char *airport_code)
+/* Conta passageiros que ATERRARAM no aeroporto (destination) */
+static int conta_passageiros_chegada(
+    gestor_voos_t *gestor_voos,
+    gestor_reservas_t *gestor_reservas,
+    const char *airport_code)
 {
     if (!gestor_voos || !gestor_reservas || !airport_code)
         return 0;
 
-    int total = 0;
+    ContextoContagem ctx = {
+        .gestor_reservas = gestor_reservas,
+        .total = 0};
 
-    // Obtém todos os voos com este origin
-    GPtrArray *voos = gestor_voos_obter_por_origin(gestor_voos, airport_code);
+    // USA ITERADOR em vez de obter GPtrArray diretamente
+    gestor_voos_para_cada_destino(gestor_voos, airport_code,
+                                  contar_passageiros_voo, &ctx);
 
-    if (!voos)
+    return ctx.total;
+}
+
+/* Conta passageiros que PARTIRAM do aeroporto (origin) */
+static int conta_passageiros_partida(
+    gestor_voos_t *gestor_voos,
+    gestor_reservas_t *gestor_reservas,
+    const char *airport_code)
+{
+    if (!gestor_voos || !gestor_reservas || !airport_code)
         return 0;
 
-    for (guint i = 0; i < voos->len; i++)
-    {
-        voo_t *voo = g_ptr_array_index(voos, i);
+    ContextoContagem ctx = {
+        .gestor_reservas = gestor_reservas,
+        .total = 0};
 
-        // Só conta se NÃO estiver cancelado
-        if (strcmp(voo_obter_status(voo), "Cancelled") != 0)
-        {
-            // Conta quantos passageiros têm reserva neste voo
-            total += gestor_reservas_contar_passageiros_voo(gestor_reservas,
-                                                            voo_obter_id(voo));
-        }
-    }
+    // USA ITERADOR em vez de obter GPtrArray diretamente
+    gestor_voos_para_cada_origem(gestor_voos, airport_code,
+                                 contar_passageiros_voo, &ctx);
 
-    return total;
+    return ctx.total;
 }
 
 void query1(gestor_aeroportos_t *gestor_aeroportos,
@@ -112,17 +95,15 @@ void query1(gestor_aeroportos_t *gestor_aeroportos,
         return;
     }
 
-    // Limpa o código do aeroporto
     char clean_code[16];
     snprintf(clean_code, sizeof(clean_code), "%s", airport_code);
     clean_code[strcspn(clean_code, "\r\n ")] = '\0';
 
-    // Verifica formato de output (com ou sem 'S')
     int formato_alternativo = usa_formato_alternativo(comando_completo);
     const char *separador = formato_alternativo ? "=" : ";";
 
-    // Busca o aeroporto
-    aeroporto_t *aeroporto = gestor_aeroportos_obter_por_codigo(gestor_aeroportos, clean_code);
+    aeroporto_t *aeroporto = gestor_aeroportos_obter_por_codigo(
+        gestor_aeroportos, clean_code);
 
     if (!aeroporto)
     {
@@ -130,11 +111,12 @@ void query1(gestor_aeroportos_t *gestor_aeroportos,
         return;
     }
 
-    // Conta passageiros (NOVO na Fase 2)
-    int arrival_count = conta_passageiros_chegada(gestor_voos, gestor_reservas, clean_code);
-    int departure_count = conta_passageiros_partida(gestor_voos, gestor_reservas, clean_code);
+    // Conta passageiros usando funções encapsuladas
+    int arrival_count = conta_passageiros_chegada(
+        gestor_voos, gestor_reservas, clean_code);
+    int departure_count = conta_passageiros_partida(
+        gestor_voos, gestor_reservas, clean_code);
 
-    // Output com novo formato: code;name;city;country;type;arrival_count;departure_count
     fprintf(output, "%s%s%s%s%s%s%s%s%s%s%d%s%d\n",
             aeroporto_obter_codigo(aeroporto), separador,
             aeroporto_obter_nome(aeroporto), separador,

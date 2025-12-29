@@ -33,8 +33,8 @@ SRC_QUERIES = \
     src/queries/querie2.c \
     src/queries/querie3.c \
 	src/queries/querie4.c \
-	src/queries/querie5.c
-
+	src/queries/querie5.c \
+	src/queries/querie6.c
 SRC_UTILS = src/utils.c
 
 MAIN_PRINCIPAL = src/programas/main.c
