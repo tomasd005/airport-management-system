@@ -15,7 +15,6 @@ typedef struct
     guint count;
 } ContadorVoos;
 
-// Compara contadores: primeiro por count (desc), depois por ID (asc)
 static gint compara_contadores(gconstpointer a, gconstpointer b, gpointer user_data)
 {
     (void)user_data;
@@ -28,11 +27,10 @@ static gint compara_contadores(gconstpointer a, gconstpointer b, gpointer user_d
     if (ca->count < cb->count)
         return 1;
 
-    // Se count igual, ordenar por ID crescente
+    // Se count igual, ordenar por ID crescente (LEXICOGRÁFICO)
     return strcmp(ca->id, cb->id);
 }
 
-// Função para contar voos por avião (apenas voos não cancelados)
 static void contar_voos_por_aviao(const char *key, voo_t *voo, void *user_data)
 {
     (void)key;
@@ -123,38 +121,35 @@ static void processar_aviao(const char *key, aviao_t *aviao, gpointer user_data)
     if (!fabricante_match(fabricante, fabricante_filtro))
         return;
 
+    // Obter contagem de voos (0 se não houver)
+    guint *cnt = g_hash_table_lookup(contagens, id);
+    guint count = cnt ? *cnt : 0;
+
+    // CORREÇÃO CRÍTICA: Não incluir aviões com 0 voos
+    // (aviões que nunca voaram ou só têm voos cancelados)
+    if (count == 0)
+        return;
+
     // Criar contador
     ContadorVoos c;
     c.id = g_strdup(id);
     c.fabricante = fabricante ? g_strdup(fabricante) : g_strdup("");
     c.modelo = modelo ? g_strdup(modelo) : g_strdup("");
-
-    // Obter contagem de voos (0 se não houver)
-    guint *cnt = g_hash_table_lookup(contagens, id);
-    c.count = cnt ? *cnt : 0;
+    c.count = count;
 
     g_array_append_val(resultados, c);
 }
 
-/**
- * @brief Verifica se o comando usa formato alternativo (termina com 'S')
- * @param comando String do comando completo (ex: "2S 10" ou "2 10")
- * @return 1 se usa formato 'S', 0 caso contrário
- */
 static int usa_formato_alternativo(const char *comando)
 {
     if (!comando)
         return 0;
 
-    // Pula espaços iniciais
     while (*comando && isspace(*comando))
         comando++;
-
-    // Pula os dígitos do número da query
     while (*comando && isdigit(*comando))
         comando++;
 
-    // Verifica se há um 'S' logo após o número
     return (*comando == 'S');
 }
 
@@ -167,7 +162,6 @@ void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
         return;
     }
 
-    // Determina o separador baseado no formato do comando
     int formato_alternativo = usa_formato_alternativo(comando_completo);
     const char *separador = formato_alternativo ? "=" : ";";
 
@@ -176,6 +170,7 @@ void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
     gestor_voos_para_cada(gestor_voos, contar_voos_por_aviao, contagens);
 
     // 2. Processar todos os aviões (aplicando filtro de fabricante)
+    // Só inclui aviões que tenham pelo menos 1 voo
     GArray *resultados = g_array_new(FALSE, FALSE, sizeof(ContadorVoos));
     gpointer dados[3] = {resultados, contagens, (gpointer)fabricante};
     gestor_avioes_para_cada(gestor_avioes, processar_aviao, dados);

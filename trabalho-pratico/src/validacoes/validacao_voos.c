@@ -5,12 +5,6 @@
 #include <ctype.h>
 #include <stdio.h>
 
-#ifdef DEBUG
-#define LOG_DEBUG(fmt, ...) fprintf(stderr, "[DEBUG] %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
-#else
-#define LOG_DEBUG(fmt, ...)
-#endif
-
 #define IDX_ID 0
 #define IDX_DEP 1
 #define IDX_ACT_DEP 2

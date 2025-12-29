@@ -3,11 +3,12 @@
 #include <string.h>
 #include <ctype.h>
 
-
 static int usa_formato_alternativo(const char *cmd)
 {
-    while (*cmd && isspace(*cmd)) cmd++;
-    while (*cmd && isdigit(*cmd)) cmd++;
+    while (*cmd && isspace(*cmd))
+        cmd++;
+    while (*cmd && isdigit(*cmd))
+        cmd++;
     return (*cmd == 'S');
 }
 
@@ -24,7 +25,6 @@ typedef struct
     double avg_delay;
 } ResultadoQ5;
 
-
 static void acumular_atraso(voo_t *voo, void *user_data)
 {
     GHashTable *mapa = user_data;
@@ -34,7 +34,9 @@ static void acumular_atraso(voo_t *voo, void *user_data)
         return;
 
     double atraso = voo_calcular_atraso_minutos(voo);
-    if (atraso < 0)
+
+    // CORREÇÃO: Aceitar apenas atrasos >= 0 (voos atrasados)
+    if (atraso < 0.0)
         return;
 
     InfoCompanhia *info = g_hash_table_lookup(mapa, airline);
@@ -59,19 +61,18 @@ static gint cmp_q5(gconstpointer a, gconstpointer b)
     const ResultadoQ5 *ra = a;
     const ResultadoQ5 *rb = b;
 
-    // Comparação de doubles com tolerância para evitar problemas de precisão
+    // Comparação de doubles: diferença maior que EPSILON
+    const double EPSILON = 1e-9;
     double diff = ra->avg_delay - rb->avg_delay;
-    const double EPSILON = 1e-6; // Tolerância para comparação de médias
-    
-    if (diff > EPSILON)
-        return -1; // ra->avg_delay > rb->avg_delay (ordem decrescente)
-    if (diff < -EPSILON)
-        return 1;  // ra->avg_delay < rb->avg_delay
 
-    // Em caso de empate, ordenar por nome da companhia alfabeticamente
+    if (diff > EPSILON)
+        return -1; // ra > rb → ordem decrescente (maior primeiro)
+    if (diff < -EPSILON)
+        return 1; // ra < rb
+
+    // Empate: ordenar alfabeticamente
     return strcmp(ra->airline, rb->airline);
 }
-
 
 void query5(
     gestor_voos_t *gestor_voos,
@@ -85,12 +86,12 @@ void query5(
         return;
     }
 
-    const char *sep =
-        usa_formato_alternativo(comando_completo) ? "=" : ";";
+    const char *sep = usa_formato_alternativo(comando_completo) ? "=" : ";";
 
     GHashTable *mapa = g_hash_table_new_full(
         g_str_hash, g_str_equal, g_free, g_free);
 
+    // IMPORTANTE: Itera apenas sobre voos com status "Delayed"
     gestor_voos_para_cada_atrasado(
         gestor_voos,
         acumular_atraso,

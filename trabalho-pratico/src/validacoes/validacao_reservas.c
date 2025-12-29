@@ -6,11 +6,6 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#ifdef DEBUG
-#define LOG_DEBUG(fmt, ...) fprintf(stderr, "[DEBUG] %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
-#else
-#define LOG_DEBUG(fmt, ...)
-#endif
 
 #define IDX_RES_ID 0
 #define IDX_FLIGHT_IDS 1
