@@ -31,8 +31,10 @@ SRC_PARSERS = \
 SRC_QUERIES = \
     src/queries/querie1.c \
     src/queries/querie2.c \
-    src/queries/querie3.c
-
+    src/queries/querie3.c \
+	src/queries/querie4.c \
+	src/queries/querie5.c \
+	src/queries/querie6.c
 SRC_UTILS = src/utils.c
 
 MAIN_PRINCIPAL = src/programas/main.c
@@ -115,7 +117,7 @@ workflow: clean all verificar-erros
 debug-logs: CFLAGS += -DDEBUG -g -O0
 debug-logs: clean all
 	@echo "Compilação com logs de debug ativados concluída."
-	
+
 .PHONY: all clean run-erros run-sem-erros run-testes run-fast test-fast debug \
         test-validacoes build-validacoes test-validacoes-valgrind \
         verificador verificar-erros verificar-sem-erros verificar-tudo workflow

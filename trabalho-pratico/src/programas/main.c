@@ -12,7 +12,8 @@
 #include "../../include/queries/querie2.h"
 #include "../../include/queries/querie3.h"
 #include "../../include/queries/querie4.h"
-
+#include "../../include/queries/querie5.h"
+#include "../../include/queries/querie6.h"
 
 static void trim_string(char *str)
 {
@@ -78,7 +79,6 @@ int main(int argc, char *argv[])
         gestor_voos_destruir(gestor_voos);
         gestor_passageiros_destruir(gestor_passageiros);
         gestor_reservas_destruir(gestor_reservas);
-
         return 1;
     }
 
@@ -159,7 +159,6 @@ int main(int argc, char *argv[])
             if (strlen(fabricante) == 0)
                 fabricante = NULL;
 
-            // Passa o comando completo (linha) como novo parâmetro
             query2(gestor_avioes, gestor_voos, N, fabricante, linha, out);
         }
         else if (tipo == 3)
@@ -182,7 +181,6 @@ int main(int argc, char *argv[])
 
             if (strlen(data_inicio) > 0 && strlen(data_fim) > 0)
             {
-                // Passa o comando completo (linha) como novo parâmetro
                 query3(gestor_aeroportos, gestor_voos, data_inicio, data_fim, linha, out);
             }
             else
@@ -243,5 +241,6 @@ int main(int argc, char *argv[])
     gestor_voos_destruir(gestor_voos);
     gestor_passageiros_destruir(gestor_passageiros);
     gestor_reservas_destruir(gestor_reservas);
+
     return 0;
 }

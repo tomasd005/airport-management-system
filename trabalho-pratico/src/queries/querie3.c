@@ -20,9 +20,9 @@ static gint comparar_contadores(gconstpointer a, gconstpointer b)
     const ContadorPartidas *cb = b;
 
     if (ca->count != cb->count)
-        return (gint)(cb->count - ca->count);
+        return (gint)(cb->count - ca->count); // decrescente
 
-    return strcmp(ca->code, cb->code);
+    return strcmp(ca->code, cb->code); // ordem lexicográfica
 }
 
 typedef struct
@@ -32,10 +32,12 @@ typedef struct
     GHashTable *contagens;
 } FiltroDatas;
 
-static void contar_voos_validos(gpointer key, gpointer value, gpointer user_data)
+/**
+ * Callback para iterar sobre todos os voos e contar apenas os válidos
+ */
+static void contar_voos_validos(const char *flight_id, voo_t *voo, void *user_data)
 {
-    (void)key;
-    const voo_t *voo = (const voo_t *)value;
+    (void)flight_id; // não usamos aqui
     FiltroDatas *filtro = (FiltroDatas *)user_data;
 
     if (!voo || !filtro)
@@ -76,24 +78,19 @@ static void contar_voos_validos(gpointer key, gpointer value, gpointer user_data
 }
 
 /**
- * @brief Verifica se o comando usa formato alternativo (termina com 'S')
- * @param comando String do comando completo (ex: "3S 2023-01-01 2023-12-31" ou "3 2023-01-01 2023-12-31")
- * @return 1 se usa formato 'S', 0 caso contrário
+ * Detecta se o comando usa formato alternativo (termina com 'S')
  */
 static int usa_formato_alternativo(const char *comando)
 {
     if (!comando)
         return 0;
 
-    // Pula espaços iniciais
     while (*comando && isspace(*comando))
         comando++;
 
-    // Pula os dígitos do número da query
     while (*comando && isdigit(*comando))
         comando++;
 
-    // Verifica se há um 'S' logo após o número
     return (*comando == 'S');
 }
 
@@ -110,16 +107,8 @@ void query3(gestor_aeroportos_t *gestor_aeroportos,
         return;
     }
 
-    // Determina o separador baseado no formato do comando
     int formato_alternativo = usa_formato_alternativo(comando_completo);
     const char *separador = formato_alternativo ? "=" : ";";
-
-    GHashTable *tabela_voos = gestor_voos_obter_tabela(gestor_voos);
-    if (!tabela_voos)
-    {
-        fprintf(output, "\n");
-        return;
-    }
 
     GHashTable *contagens = g_hash_table_new_full(
         g_str_hash,
@@ -132,7 +121,8 @@ void query3(gestor_aeroportos_t *gestor_aeroportos,
         .data_fim = data_fim,
         .contagens = contagens};
 
-    g_hash_table_foreach(tabela_voos, contar_voos_validos, &filtro);
+    // Itera sobre todos os voos com a nova API segura
+    gestor_voos_para_cada(gestor_voos, contar_voos_validos, &filtro);
 
     if (g_hash_table_size(contagens) == 0)
     {
@@ -141,6 +131,7 @@ void query3(gestor_aeroportos_t *gestor_aeroportos,
         return;
     }
 
+    // Copia para array para ordenar
     GArray *lista = g_array_new(FALSE, FALSE, sizeof(ContadorPartidas));
 
     GHashTableIter iter;
@@ -163,11 +154,8 @@ void query3(gestor_aeroportos_t *gestor_aeroportos,
 
     if (!aero)
     {
-        fprintf(output, "%s%s%s%s%s%s%s%s%u\n",
+        fprintf(output, "%s%s%u\n",
                 melhor->code, separador,
-                "", separador,
-                "", separador,
-                "", separador,
                 melhor->count);
     }
     else
@@ -180,10 +168,9 @@ void query3(gestor_aeroportos_t *gestor_aeroportos,
                 melhor->count);
     }
 
+    // Libera memória
     for (guint i = 0; i < lista->len; i++)
-    {
         g_free(g_array_index(lista, ContadorPartidas, i).code);
-    }
     g_array_free(lista, TRUE);
     g_hash_table_destroy(contagens);
 }
