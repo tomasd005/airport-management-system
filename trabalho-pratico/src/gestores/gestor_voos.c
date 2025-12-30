@@ -1,6 +1,7 @@
 #include "gestores/gestor_voos.h"
 #include "parsers/parser.h"
 #include "validacoes/validacao_voos.h"
+#include "entidades/voos.h"
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +12,7 @@ struct gestor_voos
     GHashTable *tabela;
     GHashTable *por_origin;
     GHashTable *por_destination;
+    GPtrArray *atrasados; /* lista direta de voos com status "Delayed" */
 };
 
 gestor_voos_t *gestor_voos_criar(void)
@@ -35,6 +37,8 @@ gestor_voos_t *gestor_voos_criar(void)
         g_free,
         (GDestroyNotify)g_ptr_array_unref);
 
+    g->atrasados = g_ptr_array_new();
+
     return g;
 }
 
@@ -45,6 +49,8 @@ void gestor_voos_destruir(gestor_voos_t *gestor)
     g_hash_table_destroy(gestor->tabela);
     g_hash_table_destroy(gestor->por_origin);
     g_hash_table_destroy(gestor->por_destination);
+    if (gestor->atrasados)
+        g_ptr_array_free(gestor->atrasados, TRUE);
     free(gestor);
 }
 
@@ -60,8 +66,18 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
     if (!id || !origin || !destination)
         return;
 
+    voo_t *existente = g_hash_table_lookup(gestor->tabela, id);
+    if (existente)
+    {
+        // Já existe - destruir o novo e não adicionar NADA
+        voo_destruir(voo);
+        return; // ← SAI AQUI, não adiciona a NADA
+    }
+
+    // Adicionar à tabela principal
     g_hash_table_insert(gestor->tabela, g_strdup(id), voo);
 
+    // Adicionar ao índice por origem
     GPtrArray *voos_origin = g_hash_table_lookup(gestor->por_origin, origin);
     if (!voos_origin)
     {
@@ -70,6 +86,7 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
     }
     g_ptr_array_add(voos_origin, voo);
 
+    // Adicionar ao índice por destino
     GPtrArray *voos_dest = g_hash_table_lookup(gestor->por_destination, destination);
     if (!voos_dest)
     {
@@ -77,6 +94,11 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
         g_hash_table_insert(gestor->por_destination, g_strdup(destination), voos_dest);
     }
     g_ptr_array_add(voos_dest, voo);
+
+    // Se atrasado, adicionar ao array de atrasados
+    // A query5 filtra depois para incluir apenas voos com delay válido
+    if (voo_obter_status(voo) && strcmp(voo_obter_status(voo), "Delayed") == 0)
+        g_ptr_array_add(gestor->atrasados, voo);
 }
 
 voo_t *gestor_voos_obter_por_id(gestor_voos_t *gestor, const char *flight_id)

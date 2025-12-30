@@ -13,4 +13,8 @@ gboolean validacao_coordenada(const char *str, gboolean lat_mode, double *out_va
 gboolean coordenadas_validas(const char *lat, const char *lon, double *out_lat, double *out_lon);
 gboolean validacao_inteiro_positivo(const char *str, int *out_val);
 
+// Compara dois datetimes no formato "AAAA-MM-DD HH:MM"
+// Retorna: <0 se dt1 < dt2, 0 se dt1 == dt2, >0 se dt1 > dt2
+int comparar_datetime(const char *dt1, const char *dt2);
+
 #endif

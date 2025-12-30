@@ -20,7 +20,12 @@ struct voo
     char *aircraft;
     char *airline;
     char *tracking_url;
+    time_t departure_t;
+    time_t actual_departure_t;
+    double delay_minutes;
 };
+
+static time_t datetime_para_time(const char *datetime);
 
 voo_t *voo_criar(const char *flight_id, const char *departure,
                  const char *actual_departure, const char *arrival,
@@ -59,6 +64,24 @@ voo_t *voo_criar(const char *flight_id, const char *departure,
         return NULL;
     }
 
+    v->departure_t = datetime_para_time(v->departure);
+    if (v->actual_departure && strcmp(v->actual_departure, "N/A") != 0)
+        v->actual_departure_t = datetime_para_time(v->actual_departure);
+    else
+        v->actual_departure_t = (time_t)-1;
+
+    if (v->departure_t == (time_t)-1 || v->actual_departure_t == (time_t)-1)
+        v->delay_minutes = -1.0;
+    else if (strcmp(v->status, "Delayed") != 0) // Só calcular se Delayed
+        v->delay_minutes = -1.0;
+    else
+    {
+        v->delay_minutes = difftime(v->actual_departure_t, v->departure_t) / 60.0;
+
+        // Rejeitar se <= 0.5 minutos (30 segundos)
+        if (v->delay_minutes <= 0.5)
+            v->delay_minutes = -1.0;
+    }
     return v;
 }
 
@@ -82,103 +105,69 @@ void voo_destruir(voo_t *v)
     free(v);
 }
 
-const char *voo_obter_id(const voo_t *v)
-{
-    return v ? v->flight_id : NULL;
-}
+const char *voo_obter_id(const voo_t *v) { return v ? v->flight_id : NULL; }
+const char *voo_obter_departure(const voo_t *v) { return v ? v->departure : NULL; }
+const char *voo_obter_actual_departure(const voo_t *v) { return v ? v->actual_departure : NULL; }
+const char *voo_obter_arrival(const voo_t *v) { return v ? v->arrival : NULL; }
+const char *voo_obter_actual_arrival(const voo_t *v) { return v ? v->actual_arrival : NULL; }
+const char *voo_obter_gate(const voo_t *v) { return v ? v->gate : NULL; }
+const char *voo_obter_status(const voo_t *v) { return v ? v->status : NULL; }
+const char *voo_obter_origin(const voo_t *v) { return v ? v->origin : NULL; }
+const char *voo_obter_destination(const voo_t *v) { return v ? v->destination : NULL; }
+const char *voo_obter_aircraft(const voo_t *v) { return v ? v->aircraft : NULL; }
+const char *voo_obter_airline(const voo_t *v) { return v ? v->airline : NULL; }
+const char *voo_obter_tracking_url(const voo_t *v) { return v ? v->tracking_url : NULL; }
 
-const char *voo_obter_departure(const voo_t *v)
-{
-    return v ? v->departure : NULL;
-}
-
-const char *voo_obter_actual_departure(const voo_t *v)
-{
-    return v ? v->actual_departure : NULL;
-}
-
-const char *voo_obter_arrival(const voo_t *v)
-{
-    return v ? v->arrival : NULL;
-}
-
-const char *voo_obter_actual_arrival(const voo_t *v)
-{
-    return v ? v->actual_arrival : NULL;
-}
-
-const char *voo_obter_gate(const voo_t *v)
-{
-    return v ? v->gate : NULL;
-}
-
-const char *voo_obter_status(const voo_t *v)
-{
-    return v ? v->status : NULL;
-}
-
-const char *voo_obter_origin(const voo_t *v)
-{
-    return v ? v->origin : NULL;
-}
-
-const char *voo_obter_destination(const voo_t *v)
-{
-    return v ? v->destination : NULL;
-}
-
-const char *voo_obter_aircraft(const voo_t *v)
-{
-    return v ? v->aircraft : NULL;
-}
-
-const char *voo_obter_airline(const voo_t *v)
-{
-    return v ? v->airline : NULL;
-}
-
-const char *voo_obter_tracking_url(const voo_t *v)
-{
-    return v ? v->tracking_url : NULL;
-}
-
-/* Converte string "AAAA-MM-DD HH:MM" para time_t */
+/**
+ * Parser ROBUSTO que aceita AMBOS formatos:
+ * - "2025-09-12 05:00" (com hífens)
+ * - "2025/09/12 05:00" (com barras) ← ERRO NO DATASET!
+ */
 static time_t datetime_para_time(const char *datetime)
 {
     if (!datetime || strlen(datetime) < 16)
         return (time_t)-1;
 
     struct tm t = {0};
+    int ano, mes, dia, hora, min;
 
-    /* Parse: "AAAA-MM-DD HH:MM" */
-    if (sscanf(datetime, "%d-%d-%d %d:%d",
-               &t.tm_year, &t.tm_mon, &t.tm_mday,
-               &t.tm_hour, &t.tm_min) != 5)
-        return (time_t)-1;
+    // Tentar primeiro formato com hífens: "2025-09-12 05:00"
+    if (sscanf(datetime, "%d-%d-%d %d:%d", &ano, &mes, &dia, &hora, &min) == 5)
+    {
+        t.tm_year = ano - 1900;
+        t.tm_mon = mes - 1;
+        t.tm_mday = dia;
+        t.tm_hour = hora;
+        t.tm_min = min;
+        t.tm_isdst = -1;
+        return mktime(&t);
+    }
 
-    t.tm_year -= 1900; /* anos desde 1900 */
-    t.tm_mon -= 1;     /* meses de 0-11 */
-    t.tm_isdst = -1;   /* deixar mktime determinar DST */
+    // Tentar formato com barras: "2025/09/12 05:00"
+    if (sscanf(datetime, "%d/%d/%d %d:%d", &ano, &mes, &dia, &hora, &min) == 5)
+    {
+        t.tm_year = ano - 1900;
+        t.tm_mon = mes - 1;
+        t.tm_mday = dia;
+        t.tm_hour = hora;
+        t.tm_min = min;
+        t.tm_isdst = -1;
+        return mktime(&t);
+    }
 
-    return mktime(&t);
+    return (time_t)-1;
 }
 
 double voo_calcular_atraso_minutos(const voo_t *v)
 {
     if (!v)
-        return -1;
+        return -1.0;
 
     if (!v->departure || !v->actual_departure)
-        return -1;
+        return -1.0;
 
     if (strcmp(v->actual_departure, "N/A") == 0)
-        return -1;
+        return -1.0;
 
-    time_t t_dep = datetime_para_time(v->departure);
-    time_t t_act = datetime_para_time(v->actual_departure);
-
-    if (t_dep == (time_t)-1 || t_act == (time_t)-1)
-        return -1;
-
-    return difftime(t_act, t_dep) / 60.0;
+    return (v->delay_minutes < 0.0) ? -1.0 : v->delay_minutes;
 }

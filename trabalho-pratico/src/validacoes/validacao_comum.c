@@ -3,6 +3,10 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#include <stdio.h>
+#include "utils.h"
+
+
 
 #define ANO_ATUAL 2025
 #define MES_ATUAL 9
@@ -105,19 +109,44 @@ gboolean validacao_datetime(const char *str)
     int m = (str[14] - '0') * 10 + (str[15] - '0');
     return (h >= 0 && h <= 23 && m >= 0 && m <= 59);
 }
-
 gboolean validacao_flight_id(const char *str)
 {
-    if (!str || strlen(str) != 7 || contem_espacos(str))
+    if (!str)
         return FALSE;
-    if (!isupper((unsigned char)str[0]) || !isupper((unsigned char)str[1]))
+
+    // ✅ TRIM temporário para validação
+    char *temp = g_strdup(str);
+    utils_trim(temp);
+
+    if (contem_espacos(temp))
+    {
+        g_free(temp);
         return FALSE;
-    for (int i = 2; i < 7; i++)
-        if (!isdigit((unsigned char)str[i]))
+    }
+
+    size_t len = strlen(temp);
+    if (len != 7 && len != 8)
+    {
+        g_free(temp);
+        return FALSE;
+    }
+
+    if (!isupper((unsigned char)temp[0]) || !isupper((unsigned char)temp[1]))
+    {
+        g_free(temp);
+        return FALSE;
+    }
+
+    for (size_t i = 2; i < len; i++)
+        if (!isdigit((unsigned char)temp[i]))
+        {
+            g_free(temp);
             return FALSE;
+        }
+
+    g_free(temp);
     return TRUE;
 }
-
 gboolean validacao_coordenada(const char *str, gboolean lat_mode, double *out_valor)
 {
     if (!str || !*str || contem_espacos(str))
@@ -207,4 +236,37 @@ gboolean validacao_inteiro_positivo(const char *str, int *out_val)
     if (out_val)
         *out_val = (int)val;
     return TRUE;
+}
+
+// Compara dois datetimes no formato "AAAA-MM-DD HH:MM"
+// Usa conversão para time_t para comparação correta
+int comparar_datetime(const char *dt1, const char *dt2)
+{
+    if (!dt1 || !dt2)
+        return 0;
+
+    // Para o formato "AAAA-MM-DD HH:MM", a comparação de strings funciona
+    // porque é lexicograficamente comparável, mas vamos usar conversão para garantir
+    int y1, m1, d1, h1, min1;
+    int y2, m2, d2, h2, min2;
+
+    if (sscanf(dt1, "%d-%d-%d %d:%d", &y1, &m1, &d1, &h1, &min1) != 5)
+        return 0;
+    if (sscanf(dt2, "%d-%d-%d %d:%d", &y2, &m2, &d2, &h2, &min2) != 5)
+        return 0;
+
+    // Comparação ano
+    if (y1 != y2)
+        return y1 - y2;
+    // Comparação mês
+    if (m1 != m2)
+        return m1 - m2;
+    // Comparação dia
+    if (d1 != d2)
+        return d1 - d2;
+    // Comparação hora
+    if (h1 != h2)
+        return h1 - h2;
+    // Comparação minuto
+    return min1 - min2;
 }

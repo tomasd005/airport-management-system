@@ -1,13 +1,15 @@
 #include "../../include/queries/querie5.h"
+#include "../../include/entidades/voos.h"
 #include <glib.h>
 #include <string.h>
 #include <ctype.h>
 
-
 static int usa_formato_alternativo(const char *cmd)
 {
-    while (*cmd && isspace(*cmd)) cmd++;
-    while (*cmd && isdigit(*cmd)) cmd++;
+    while (*cmd && isspace(*cmd))
+        cmd++;
+    while (*cmd && isdigit(*cmd))
+        cmd++;
     return (*cmd == 'S');
 }
 
@@ -23,7 +25,6 @@ typedef struct
     guint count;
     double avg_delay;
 } ResultadoQ5;
-
 
 static void acumular_atraso(voo_t *voo, void *user_data)
 {
@@ -43,7 +44,10 @@ static void acumular_atraso(voo_t *voo, void *user_data)
         return;
 
     double atraso = voo_calcular_atraso_minutos(voo);
-    if (atraso < 0)
+
+    // Aceitar apenas atrasos > 0 (voos com atraso positivo)
+    // NOTA: Se atraso == 0, tecnicamente não há atraso
+    if (atraso <= 0.0)
         return;
 
     InfoCompanhia *info = g_hash_table_lookup(mapa, airline);
@@ -67,12 +71,18 @@ static gint cmp_q5(gconstpointer a, gconstpointer b)
     const ResultadoQ5 *ra = a;
     const ResultadoQ5 *rb = b;
 
-    if (ra->avg_delay != rb->avg_delay)
-        return (ra->avg_delay < rb->avg_delay) ? 1 : -1;
+    // Comparação de doubles: diferença maior que EPSILON
+    const double EPSILON = 1e-9;
+    double diff = ra->avg_delay - rb->avg_delay;
 
+    if (diff > EPSILON)
+        return -1; // ra > rb → ordem decrescente (maior primeiro)
+    if (diff < -EPSILON)
+        return 1; // ra < rb
+
+    // Empate: ordenar alfabeticamente
     return strcmp(ra->airline, rb->airline);
 }
-
 
 void query5(
     gestor_voos_t *gestor_voos,
@@ -86,8 +96,7 @@ void query5(
         return;
     }
 
-    const char *sep =
-        usa_formato_alternativo(comando_completo) ? "=" : ";";
+    const char *sep = usa_formato_alternativo(comando_completo) ? "=" : ";";
 
     GHashTable *mapa = g_hash_table_new_full(
         g_str_hash, g_str_equal, g_free, g_free);
