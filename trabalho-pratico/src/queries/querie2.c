@@ -15,7 +15,34 @@ typedef struct
     guint count;
 } ContadorVoos;
 
-static char *normalizar_string(const char *str);
+static char *normalizar_string(const char *str)
+{
+    if (!str)
+        return NULL;
+
+    // Duplicar string
+    char *norm = g_strdup(str);
+    if (!norm)
+        return NULL;
+
+    // Trim espaços (se já tens utils_trim, podes usar)
+    char *start = norm;
+    while (*start && isspace((unsigned char)*start))
+        start++;
+
+    if (start != norm)
+        memmove(norm, start, strlen(start) + 1);
+
+    size_t len = strlen(norm);
+    while (len > 0 && isspace((unsigned char)norm[len - 1]))
+        norm[--len] = '\0';
+
+    // Converter para lowercase
+    for (char *p = norm; *p; p++)
+        *p = (char)tolower((unsigned char)*p);
+
+    return norm;
+}
 
 static gint compara_contadores(gconstpointer a, gconstpointer b, gpointer user_data)
 {
@@ -137,7 +164,7 @@ static void processar_aviao(const char *key, aviao_t *aviao, gpointer user_data)
         g_free(c.modelo);
         return;
     }
-    
+
     g_array_append_val(resultados, c);
 }
 
