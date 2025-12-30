@@ -26,8 +26,9 @@ typedef struct
     double avg_delay;
 } ResultadoQ5;
 
-static void acumular_atraso(voo_t *voo, void *user_data)
+static void acumular_atraso(const char *flight_id, voo_t *voo, void *user_data)
 {
+    (void)flight_id;
     GHashTable *mapa = user_data;
 
     const char *status = voo_obter_status(voo);

@@ -15,6 +15,8 @@ typedef struct
     guint count;
 } ContadorVoos;
 
+static char *normalizar_string(const char *str);
+
 static gint compara_contadores(gconstpointer a, gconstpointer b, gpointer user_data)
 {
     (void)user_data;
@@ -124,8 +126,8 @@ static void processar_aviao(const char *key, aviao_t *aviao, gpointer user_data)
 
     // Obter contagem de voos (0 se não houver)
     char *id_norm = normalizar_string(id);
-    guint *cnt = g_hash_table_lookup(contagens, id_norm);
-    c.count = cnt ? *cnt : 0;
+    guint *cnt_norm = g_hash_table_lookup(contagens, id_norm);
+    c.count = cnt_norm ? *cnt_norm : 0;
     g_free(id_norm);
 
     if (c.count == 0)
