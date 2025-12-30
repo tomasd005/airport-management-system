@@ -143,23 +143,6 @@ static void filtrar_atrasados(const char *flight_id, voo_t *voo, void *user_data
         ctx->func(voo, ctx->user_data);
 }
 
-void gestor_voos_para_cada_atrasado(
-    gestor_voos_t *gestor,
-    void (*func)(voo_t *, void *),
-    void *user_data)
-{
-    if (!gestor || !func)
-        return;
-
-    struct
-    {
-        void (*func)(voo_t *, void *);
-        void *user_data;
-    } ctx = {func, user_data};
-
-    gestor_voos_para_cada(gestor, filtrar_atrasados, &ctx);
-}
-
 static gboolean adiciona_voo_callback(void *contexto, void *objeto)
 {
     gestor_voos_t *gestor = (gestor_voos_t *)contexto;

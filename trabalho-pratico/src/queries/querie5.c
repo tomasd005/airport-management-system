@@ -29,8 +29,17 @@ static void acumular_atraso(voo_t *voo, void *user_data)
 {
     GHashTable *mapa = user_data;
 
+    const char *status = voo_obter_status(voo);
+    if (!status || strcmp(status, "Delayed") != 0)
+        return;
+
     const char *airline = voo_obter_airline(voo);
     if (!airline || airline[0] == '\0')
+        return;
+
+    const char *dep = voo_obter_departure(voo);
+    const char *act_dep = voo_obter_actual_departure(voo);
+    if (!dep || !act_dep || strcmp(act_dep, "N/A") == 0)
         return;
 
     double atraso = voo_calcular_atraso_minutos(voo);
@@ -38,7 +47,6 @@ static void acumular_atraso(voo_t *voo, void *user_data)
         return;
 
     InfoCompanhia *info = g_hash_table_lookup(mapa, airline);
-
     if (info)
     {
         info->count++;
@@ -49,10 +57,10 @@ static void acumular_atraso(voo_t *voo, void *user_data)
         InfoCompanhia *novo = g_new(InfoCompanhia, 1);
         novo->count = 1;
         novo->total_delay = atraso;
-
         g_hash_table_insert(mapa, g_strdup(airline), novo);
     }
 }
+
 
 static gint cmp_q5(gconstpointer a, gconstpointer b)
 {
@@ -84,7 +92,7 @@ void query5(
     GHashTable *mapa = g_hash_table_new_full(
         g_str_hash, g_str_equal, g_free, g_free);
 
-    gestor_voos_para_cada_atrasado(
+    gestor_voos_para_cada(
         gestor_voos,
         acumular_atraso,
         mapa);
