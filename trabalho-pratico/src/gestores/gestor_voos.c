@@ -151,20 +151,6 @@ const char *gestor_voos_obter_departure(gestor_voos_t *gestor, const char *fligh
     return voo_obter_departure(v);
 }
 
-static void filtrar_atrasados(const char *flight_id, voo_t *voo, void *user_data)
-{
-    (void)flight_id; /* Parâmetro não usado - requerido pela assinatura GHFunc */
-
-    struct
-    {
-        void (*func)(voo_t *, void *);
-        void *user_data;
-    } *ctx = user_data;
-
-    if (strcmp(voo_obter_status(voo), "Delayed") == 0)
-        ctx->func(voo, ctx->user_data);
-}
-
 static gboolean adiciona_voo_callback(void *contexto, void *objeto)
 {
     gestor_voos_t *gestor = (gestor_voos_t *)contexto;
