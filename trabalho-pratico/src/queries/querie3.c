@@ -48,7 +48,10 @@ static void contar_voos_validos(const char *flight_id, voo_t *voo, void *user_da
         return;
 
     const char *actual_dep = voo_obter_actual_departure(voo);
-    if (!actual_dep || strlen(actual_dep) < 10)
+    if (!actual_dep || strcmp(actual_dep, "N/A") == 0)
+        return;
+
+    if (strlen(actual_dep) < 10)
         return;
 
     char data_voo[11];
