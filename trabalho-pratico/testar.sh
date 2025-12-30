@@ -96,3 +96,4 @@ echo "[ ] gestor->atrasados tem elementos?"
 echo
 
 echo "═══════════════════════════════════════════════════"
+

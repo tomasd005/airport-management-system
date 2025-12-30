@@ -1,6 +1,7 @@
 #include "gestores/gestor_voos.h"
 #include "parsers/parser.h"
 #include "validacoes/validacao_voos.h"
+#include "entidades/voos.h"
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
@@ -95,6 +96,7 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
     g_ptr_array_add(voos_dest, voo);
 
     // Se atrasado, adicionar ao array de atrasados
+    // A query5 filtra depois para incluir apenas voos com delay válido
     if (voo_obter_status(voo) && strcmp(voo_obter_status(voo), "Delayed") == 0)
         g_ptr_array_add(gestor->atrasados, voo);
 }
