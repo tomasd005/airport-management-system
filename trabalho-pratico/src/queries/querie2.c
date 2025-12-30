@@ -45,17 +45,20 @@ static void contar_voos_por_aviao(const char *key, voo_t *voo, void *user_data)
     if (!aircraft_id || strlen(aircraft_id) == 0)
         return;
 
+    char *aircraft_norm = normalizar_string(aircraft_id);
+
     GHashTable *contagens = (GHashTable *)user_data;
-    guint *ptr = g_hash_table_lookup(contagens, aircraft_id);
+    guint *ptr = g_hash_table_lookup(contagens, aircraft_norm);
     if (ptr)
     {
         (*ptr)++;
+        g_free(aircraft_norm);
     }
     else
     {
         guint *novo = g_new(guint, 1);
         *novo = 1;
-        g_hash_table_insert(contagens, g_strdup(aircraft_id), novo);
+        g_hash_table_insert(contagens, aircraft_norm, novo);
     }
 }
 
@@ -69,8 +72,16 @@ static gboolean fabricante_match(const char *fab_aviao, const char *fab_filtro)
     if (!fab_aviao)
         return FALSE;
 
-    // Comparação DIRETA (case-sensitive, sem normalização)
-    return strcmp(fab_aviao, fab_filtro) == 0;
+    // Normalizar ambas as strings para comparação
+    char *fab_aviao_norm = normalizar_string(fab_aviao);
+    char *fab_filtro_norm = normalizar_string(fab_filtro);
+
+    gboolean match = g_strrstr(fab_aviao_norm, fab_filtro_norm) != NULL;
+
+    g_free(fab_aviao_norm);
+    g_free(fab_filtro_norm);
+
+    return match;
 }
 
 // Processa cada avião e adiciona à lista de resultados
@@ -110,8 +121,21 @@ static void processar_aviao(const char *key, aviao_t *aviao, gpointer user_data)
     c.id = g_strdup(id);
     c.fabricante = fabricante ? g_strdup(fabricante) : g_strdup("");
     c.modelo = modelo ? g_strdup(modelo) : g_strdup("");
-    c.count = count;
 
+    // Obter contagem de voos (0 se não houver)
+    char *id_norm = normalizar_string(id);
+    guint *cnt = g_hash_table_lookup(contagens, id_norm);
+    c.count = cnt ? *cnt : 0;
+    g_free(id_norm);
+
+    if (c.count == 0)
+    {
+        g_free(c.id);
+        g_free(c.fabricante);
+        g_free(c.modelo);
+        return;
+    }
+    
     g_array_append_val(resultados, c);
 }
 

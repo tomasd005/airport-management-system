@@ -59,17 +59,6 @@ void gestor_voos_para_cada(
     void *user_data);
 
 /**
- * @brief Itera sobre voos atrasados
- * @param gestor Gestor de voos
- * @param func Função callback a aplicar (recebe: voo, user_data)
- * @param user_data Dados a passar para o callback
- */
-void gestor_voos_para_cada_atrasado(
-    gestor_voos_t *gestor,
-    void (*func)(voo_t *voo, void *user_data),
-    void *user_data);
-
-/**
  * @brief Itera sobre voos que partem de um aeroporto
  * @param gestor Gestor de voos
  * @param origin Código IATA do aeroporto de origem
