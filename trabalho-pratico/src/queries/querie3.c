@@ -50,11 +50,22 @@ static void contar_voos_validos(const char *flight_id, voo_t *voo, void *user_da
     const char *actual_dep = voo_obter_actual_departure(voo);
     if (!actual_dep || strlen(actual_dep) < 10)
         return;
+    
+    // Verificar se actual_departure não é "N/A"
+    if (strcmp(actual_dep, "N/A") == 0)
+        return;
 
     char data_voo[11];
     strncpy(data_voo, actual_dep, 10);
     data_voo[10] = '\0';
 
+    // Comparação de strings funciona corretamente para formato "YYYY-MM-DD"
+    // Mas precisamos garantir que estamos a comparar apenas datas válidas
+    // Se a data tiver formato diferente (ex: com barras), a comparação pode falhar
+    // Mas se passou validação, deve ter formato correto
+    
+    // Verificar se a data extraída está no intervalo [data_inicio, data_fim]
+    // strcmp retorna < 0 se primeira string é lexicograficamente menor
     if (strcmp(data_voo, filtro->data_inicio) < 0)
         return;
     if (strcmp(data_voo, filtro->data_fim) > 0)

@@ -1,4 +1,5 @@
 #include "../../include/queries/querie5.h"
+#include "../../include/entidades/voos.h"
 #include <glib.h>
 #include <string.h>
 #include <ctype.h>
@@ -28,6 +29,11 @@ typedef struct
 static void acumular_atraso(voo_t *voo, void *user_data)
 {
     GHashTable *mapa = user_data;
+
+    // Verificar se o voo tem status "Delayed"
+    const char *status = voo_obter_status(voo);
+    if (!status || strcmp(status, "Delayed") != 0)
+        return;
 
     const char *airline = voo_obter_airline(voo);
     if (!airline || airline[0] == '\0')
