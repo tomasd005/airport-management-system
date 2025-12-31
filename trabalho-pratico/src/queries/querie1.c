@@ -21,28 +21,25 @@ static int usa_formato_alternativo(const char *comando)
     return (*comando == 'S');
 }
 
-/* Contexto para contagem de passageiros */
 typedef struct
 {
     gestor_reservas_t *gestor_reservas;
     int total;
 } ContextoContagem;
 
-/* Callback para contar passageiros em voos de chegada */
 static void contar_passageiros_voo(voo_t *voo, void *user_data)
 {
     ContextoContagem *ctx = user_data;
 
-    // Só conta se NÃO estiver cancelado
-    if (strcmp(voo_obter_status(voo), "Cancelled") != 0)
-    {
-        ctx->total += gestor_reservas_contar_passageiros_voo(
-            ctx->gestor_reservas,
-            voo_obter_id(voo));
-    }
+    const char *status = voo_obter_status(voo);
+    if (!status || strcmp(status, "Cancelled") == 0)
+        return;
+
+    ctx->total += gestor_reservas_contar_passageiros_voo(
+        ctx->gestor_reservas,
+        voo_obter_id(voo));
 }
 
-/* Conta passageiros que ATERRARAM no aeroporto (destination) */
 static int conta_passageiros_chegada(
     gestor_voos_t *gestor_voos,
     gestor_reservas_t *gestor_reservas,
@@ -55,14 +52,12 @@ static int conta_passageiros_chegada(
         .gestor_reservas = gestor_reservas,
         .total = 0};
 
-    // USA ITERADOR em vez de obter GPtrArray diretamente
     gestor_voos_para_cada_destino(gestor_voos, airport_code,
                                   contar_passageiros_voo, &ctx);
 
     return ctx.total;
 }
 
-/* Conta passageiros que PARTIRAM do aeroporto (origin) */
 static int conta_passageiros_partida(
     gestor_voos_t *gestor_voos,
     gestor_reservas_t *gestor_reservas,
@@ -75,7 +70,6 @@ static int conta_passageiros_partida(
         .gestor_reservas = gestor_reservas,
         .total = 0};
 
-    // USA ITERADOR em vez de obter GPtrArray diretamente
     gestor_voos_para_cada_origem(gestor_voos, airport_code,
                                  contar_passageiros_voo, &ctx);
 
@@ -111,7 +105,6 @@ void query1(gestor_aeroportos_t *gestor_aeroportos,
         return;
     }
 
-    // Conta passageiros usando funções encapsuladas
     int arrival_count = conta_passageiros_chegada(
         gestor_voos, gestor_reservas, clean_code);
     int departure_count = conta_passageiros_partida(

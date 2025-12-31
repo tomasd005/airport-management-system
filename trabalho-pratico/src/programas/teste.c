@@ -3,18 +3,28 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#include <dirent.h>
 #include <time.h>
 
 #define MAX_LINHA 1024
 #define MAX_QUERIES 10
+#define MAX_INDIVIDUAL_QUERIES 1000
 
 typedef struct
 {
     int total;
     int corretos;
     double tempo_total;
+    double tempo_min;
+    double tempo_max;
 } EstatisticasQuery;
+
+typedef struct
+{
+    int comando_num;
+    int tipo_query;
+    double tempo_ms;
+    int correto;
+} InfoQueryIndividual;
 
 int comparar_ficheiros(const char *ficheiro1, const char *ficheiro2, int *linha_diferente)
 {
@@ -129,21 +139,44 @@ int main(int argc, char *argv[])
 
     double tempo_inicio_total = tempo_ms();
 
-    printf(" A executar testes automáticos...\n");
+    printf("\n==============================================================\n");
+    printf("         TESTES AUTOMATICOS - LI3 2024/2025                  \n");
+    printf("==============================================================\n\n");
+
+    printf("Dataset: %s\n", dataset);
+    printf("Input: %s\n", ficheiro_input);
+    printf("Esperados: %s\n\n", esperados);
 
     char comando[512];
     snprintf(comando, sizeof(comando),
              "./programa-principal %s %s > /dev/null 2>&1",
              dataset, ficheiro_input);
 
-    printf(" A gerar resultados...\n");
+    printf("A executar programa-principal...\n");
+    double tempo_exec_inicio = tempo_ms();
     system(comando);
+    double tempo_exec_fim = tempo_ms();
+    double tempo_execucao = (tempo_exec_fim - tempo_exec_inicio) / 1000.0;
+
+    printf("Execucao completa em %.2f segundos\n\n", tempo_execucao);
 
     EstatisticasQuery stats[MAX_QUERIES] = {0};
+    InfoQueryIndividual queries_individuais[MAX_INDIVIDUAL_QUERIES];
+    int num_queries_individuais = 0;
+
     int total_testes = 0;
     int total_ok = 0;
 
-    printf("\n A comparar resultados...\n\n");
+    // Inicializar min/max
+    for (int i = 0; i < MAX_QUERIES; i++)
+    {
+        stats[i].tempo_min = 1e9;
+        stats[i].tempo_max = 0;
+    }
+
+    printf("==============================================================\n");
+    printf("                  COMPARANDO RESULTADOS\n");
+    printf("==============================================================\n\n");
 
     int max_comandos = 0;
     FILE *f_count = fopen(ficheiro_input, "r");
@@ -179,21 +212,37 @@ int main(int argc, char *argv[])
 
         stats[tipo].total++;
         stats[tipo].tempo_total += tempo_query;
+
+        if (tempo_query < stats[tipo].tempo_min)
+            stats[tipo].tempo_min = tempo_query;
+        if (tempo_query > stats[tipo].tempo_max)
+            stats[tipo].tempo_max = tempo_query;
+
         total_testes++;
 
-        if (cmp == 1)
+        int correto = (cmp == 1);
+
+        if (num_queries_individuais < MAX_INDIVIDUAL_QUERIES)
+        {
+            queries_individuais[num_queries_individuais].comando_num = i;
+            queries_individuais[num_queries_individuais].tipo_query = tipo;
+            queries_individuais[num_queries_individuais].tempo_ms = tempo_query;
+            queries_individuais[num_queries_individuais].correto = correto;
+            num_queries_individuais++;
+        }
+
+        if (correto)
         {
             stats[tipo].corretos++;
             total_ok++;
         }
         else if (cmp == 0)
         {
-            printf(" Discrepância na query %d (tipo Q%d): linha %d de \"%s\"\n",
-                   i, tipo, linha_dif, path_res);
+            printf("[X] Query %d (Q%d): ERRO na linha %d\n", i, tipo, linha_dif);
         }
         else
         {
-            printf(" Erro ao comparar query %d: ficheiro não encontrado\n", i);
+            printf("[!] Query %d (Q%d): Ficheiro nao encontrado\n", i, tipo);
         }
     }
 
@@ -201,40 +250,75 @@ int main(int argc, char *argv[])
     double mem = memoria_MB();
 
     printf("\n");
-    printf("═══════════════════════════════════════════════════\n");
-    printf("            RESULTADOS DOS TESTES\n");
-    printf("═══════════════════════════════════════════════════\n\n");
+    printf("==============================================================\n");
+    printf("                RESUMO POR TIPO DE QUERY\n");
+    printf("==============================================================\n\n");
 
     for (int i = 1; i < MAX_QUERIES; i++)
     {
         if (stats[i].total > 0)
         {
             double tempo_medio = stats[i].tempo_total / stats[i].total;
-            printf("Q%d: %d de %d testes OK",
-                   i, stats[i].corretos, stats[i].total);
+
+            printf("Q%d: %d/%d corretos", i, stats[i].corretos, stats[i].total);
 
             if (stats[i].corretos == stats[i].total)
-                printf(" ");
+                printf(" [OK]");
             else
-                printf(" ");
+                printf(" [FAIL]");
 
-            printf(" (%.2f ms médio)\n", tempo_medio);
+            printf("\n");
+            printf("    Tempo medio: %8.2f ms\n", tempo_medio);
+            printf("    Tempo min:   %8.2f ms\n", stats[i].tempo_min);
+            printf("    Tempo max:   %8.2f ms\n", stats[i].tempo_max);
+            printf("    Total:       %8.2f ms\n\n", stats[i].tempo_total);
         }
     }
 
-    printf("\n");
-    printf("───────────────────────────────────────────────────\n");
-    printf("Total: %d de %d testes OK", total_ok, total_testes);
+    printf("==============================================================\n");
+    printf("                  QUERIES MAIS LENTAS\n");
+    printf("==============================================================\n\n");
 
+    // Ordenar queries por tempo (bubble sort)
+    for (int i = 0; i < num_queries_individuais - 1; i++)
+    {
+        for (int j = 0; j < num_queries_individuais - i - 1; j++)
+        {
+            if (queries_individuais[j].tempo_ms < queries_individuais[j + 1].tempo_ms)
+            {
+                InfoQueryIndividual temp = queries_individuais[j];
+                queries_individuais[j] = queries_individuais[j + 1];
+                queries_individuais[j + 1] = temp;
+            }
+        }
+    }
+
+    // Mostrar top 10 mais lentas
+    int limite = num_queries_individuais < 10 ? num_queries_individuais : 10;
+    for (int i = 0; i < limite; i++)
+    {
+        InfoQueryIndividual *q = &queries_individuais[i];
+        const char *status = q->correto ? "[OK]" : "[FAIL]";
+        printf("%2d. Command %3d (Q%d): %8.2f ms %s\n",
+               i + 1, q->comando_num, q->tipo_query, q->tempo_ms, status);
+    }
+
+    printf("\n");
+    printf("==============================================================\n");
+    printf("                     RESUMO FINAL\n");
+    printf("==============================================================\n\n");
+
+    printf("Testes: %d/%d corretos", total_ok, total_testes);
     if (total_ok == total_testes)
-        printf(" \n");
+        printf(" [OK]\n");
     else
         printf(" (%d falhas)\n", total_testes - total_ok);
 
-    printf("───────────────────────────────────────────────────\n");
-    printf("Memória utilizada: %.1f MB\n", mem);
+    printf("Memoria: %.1f MB\n", mem);
+    printf("Tempo execucao: %.2f s\n", tempo_execucao);
     printf("Tempo total: %.2f s\n", (tempo_fim_total - tempo_inicio_total) / 1000.0);
-    printf("═══════════════════════════════════════════════════\n");
+
+    printf("\n==============================================================\n\n");
 
     return (total_ok == total_testes) ? 0 : 1;
 }

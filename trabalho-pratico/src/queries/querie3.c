@@ -32,12 +32,10 @@ typedef struct
     GHashTable *contagens;
 } FiltroDatas;
 
-/**
- * Callback para iterar sobre todos os voos e contar apenas os válidos
- */
+
 static void contar_voos_validos(const char *flight_id, voo_t *voo, void *user_data)
 {
-    (void)flight_id; // não usamos aqui
+    (void)flight_id;
     FiltroDatas *filtro = (FiltroDatas *)user_data;
 
     if (!voo || !filtro)
@@ -48,27 +46,22 @@ static void contar_voos_validos(const char *flight_id, voo_t *voo, void *user_da
         return;
 
     const char *actual_dep = voo_obter_actual_departure(voo);
+    const char *data_partida = actual_dep;
+
+    // Se N/A ou NULL, usar departure estimado
     if (!actual_dep || strcmp(actual_dep, "N/A") == 0)
+        data_partida = voo_obter_departure(voo);
+
+    if (!data_partida || strlen(data_partida) < 10)
         return;
 
-    if (strlen(actual_dep) < 10)
-        return;
-    
-    // Verificar se actual_departure não é "N/A"
-    if (strcmp(actual_dep, "N/A") == 0)
-        return;
-
+    // Extrair data (primeiros 10 caracteres: YYYY-MM-DD)
     char data_voo[11];
-    strncpy(data_voo, actual_dep, 10);
+    strncpy(data_voo, data_partida, 10);
     data_voo[10] = '\0';
 
-    // Comparação de strings funciona corretamente para formato "YYYY-MM-DD"
-    // Mas precisamos garantir que estamos a comparar apenas datas válidas
-    // Se a data tiver formato diferente (ex: com barras), a comparação pode falhar
-    // Mas se passou validação, deve ter formato correto
-    
-    // Verificar se a data extraída está no intervalo [data_inicio, data_fim]
-    // strcmp retorna < 0 se primeira string é lexicograficamente menor
+    // Verificar se está no intervalo [data_inicio, data_fim]
+    // strcmp funciona corretamente para formato YYYY-MM-DD
     if (strcmp(data_voo, filtro->data_inicio) < 0)
         return;
     if (strcmp(data_voo, filtro->data_fim) > 0)
@@ -78,6 +71,7 @@ static void contar_voos_validos(const char *flight_id, voo_t *voo, void *user_da
     if (!origem || !*origem)
         return;
 
+    // Incrementar contador do aeroporto de origem
     guint *contador = g_hash_table_lookup(filtro->contagens, origem);
     if (contador)
     {
@@ -108,6 +102,7 @@ static int usa_formato_alternativo(const char *comando)
     return (*comando == 'S');
 }
 
+
 void query3(gestor_aeroportos_t *gestor_aeroportos,
             gestor_voos_t *gestor_voos,
             const char *data_inicio,
@@ -135,7 +130,7 @@ void query3(gestor_aeroportos_t *gestor_aeroportos,
         .data_fim = data_fim,
         .contagens = contagens};
 
-    // Itera sobre todos os voos com a nova API segura
+    // Iterar sobre todos os voos
     gestor_voos_para_cada(gestor_voos, contar_voos_validos, &filtro);
 
     if (g_hash_table_size(contagens) == 0)
@@ -145,7 +140,7 @@ void query3(gestor_aeroportos_t *gestor_aeroportos,
         return;
     }
 
-    // Copia para array para ordenar
+    // Copiar para array para ordenar
     GArray *lista = g_array_new(FALSE, FALSE, sizeof(ContadorPartidas));
 
     GHashTableIter iter;
@@ -182,7 +177,7 @@ void query3(gestor_aeroportos_t *gestor_aeroportos,
                 melhor->count);
     }
 
-    // Libera memória
+    // Liberar memória
     for (guint i = 0; i < lista->len; i++)
         g_free(g_array_index(lista, ContadorPartidas, i).code);
     g_array_free(lista, TRUE);
