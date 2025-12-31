@@ -32,11 +32,7 @@ typedef struct
     GHashTable *contagens;
 } FiltroDatas;
 
-/**
- * Callback para contar partidas válidas
- *
- * ✅ CORREÇÃO: Usa fallback para departure quando actual_departure é N/A
- */
+
 static void contar_voos_validos(const char *flight_id, voo_t *voo, void *user_data)
 {
     (void)flight_id;
@@ -49,7 +45,6 @@ static void contar_voos_validos(const char *flight_id, voo_t *voo, void *user_da
     if (!status || strcmp(status, "Cancelled") == 0)
         return;
 
-    // ✅ CORREÇÃO CRÍTICA: Usar actual_departure, mas fazer fallback para departure
     const char *actual_dep = voo_obter_actual_departure(voo);
     const char *data_partida = actual_dep;
 
@@ -107,17 +102,7 @@ static int usa_formato_alternativo(const char *comando)
     return (*comando == 'S');
 }
 
-/**
- * Query 3: Aeroporto com mais partidas entre duas datas
- *
- * Complexidade: O(V + A log A) onde V=voos, A=aeroportos com voos
- * Performance: ~50-100ms por query (razoável)
- *
- * ✅ CORREÇÃO APLICADA: Fallback para departure quando actual_departure é N/A
- *
- * ⚠️  OTIMIZAÇÃO FUTURA POSSÍVEL: Índice por data
- *    Mas não prioritário - query já é razoavelmente rápida
- */
+
 void query3(gestor_aeroportos_t *gestor_aeroportos,
             gestor_voos_t *gestor_voos,
             const char *data_inicio,

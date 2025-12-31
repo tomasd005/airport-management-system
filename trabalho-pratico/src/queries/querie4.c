@@ -64,26 +64,18 @@ typedef struct
     GHashTable *semanas_relevantes;
 } ContextoIdentificacao;
 
-/*
- * ✅ OTIMIZAÇÃO: Usa GINT_TO_POINTER em vez de g_new(int)
- */
 static void identificar_semana_relevante(int semana, const reserva_t *r, void *user_data)
 {
     (void)r;
     ContextoIdentificacao *ctx = user_data;
 
-    // ✅ SEM alocação - usa inteiro como ponteiro diretamente
     g_hash_table_add(ctx->semanas_relevantes, GINT_TO_POINTER(semana));
 }
 
-/*
- * ✅ OTIMIZAÇÃO: Usa GINT_TO_POINTER para evitar alocações
- */
 static void acumular_reserva_semana_completa(int semana, const reserva_t *r, void *user_data)
 {
     ContextoQ4 *ctx = (ContextoQ4 *)user_data;
 
-    // ✅ Lookup direto sem alocação
     if (!g_hash_table_contains(ctx->semanas_relevantes, GINT_TO_POINTER(semana)))
         return;
 
@@ -93,7 +85,6 @@ static void acumular_reserva_semana_completa(int semana, const reserva_t *r, voi
         gastos = g_hash_table_new_full(
             g_str_hash, g_str_equal, g_free, g_free);
 
-        // ✅ SEM alocação de inteiro
         g_hash_table_insert(ctx->semanas, GINT_TO_POINTER(semana), gastos);
     }
 
@@ -110,18 +101,6 @@ static void acumular_reserva_semana_completa(int semana, const reserva_t *r, voi
     }
 }
 
-/**
- * Query 4: Passageiro mais tempo no top 10
- *
- * Complexidade: O(R_total + S × P log P)
- * ✅ OTIMIZAÇÕES FASE 1 APLICADAS:
- *   - g_direct_hash + GINT_TO_POINTER (-100 alocações)
- *   - Pre-alocação de arrays (-realocações)
- *   - Redução de duplicações de strings (-50k alocações)
- *
- * ⚠️  LIMITAÇÃO: Ainda itera todas as reservas (1M)
- *    FASE 2 (futuro): Índice por semana em gestor_reservas
- */
 void query4(gestor_reservas_t *gestor_reservas,
             gestor_voos_t *gestor_voos,
             gestor_passageiros_t *gestor_passageiros,
@@ -138,7 +117,6 @@ void query4(gestor_reservas_t *gestor_reservas,
 
     const char *sep = usa_formato_alternativo(comando_completo) ? "=" : ";";
 
-    // ✅ FASE 1: g_direct_hash em vez de g_int_hash
     ContextoIdentificacao ctx_id = {
         .data_inicio = data_inicio,
         .data_fim = data_fim,
@@ -159,7 +137,6 @@ void query4(gestor_reservas_t *gestor_reservas,
         return;
     }
 
-    // ✅ g_direct_hash para semanas
     ContextoQ4 ctx;
     ctx.semanas = g_hash_table_new_full(
         g_direct_hash, g_direct_equal, NULL,
@@ -183,7 +160,6 @@ void query4(gestor_reservas_t *gestor_reservas,
     {
         GHashTable *gastos = sval;
 
-        // ✅ OTIMIZAÇÃO: Pre-alocar array com tamanho conhecido
         guint num_passageiros = g_hash_table_size(gastos);
         GArray *lista = g_array_sized_new(FALSE, FALSE, sizeof(Gasto), num_passageiros);
 
@@ -214,12 +190,10 @@ void query4(gestor_reservas_t *gestor_reservas,
             {
                 guint *novo = g_new(guint, 1);
                 *novo = 1;
-                // ✅ Duplicar apenas aqui (1 vez por passageiro único)
                 g_hash_table_insert(contador, g_strdup(g->doc), novo);
             }
         }
 
-        // ✅ OTIMIZAÇÃO: Não precisa liberar (não foram duplicados)
         g_array_free(lista, TRUE);
     }
 
@@ -233,7 +207,6 @@ void query4(gestor_reservas_t *gestor_reservas,
         return;
     }
 
-    // ✅ Pre-alocar array de resultados
     guint num_resultados = g_hash_table_size(contador);
     GArray *res = g_array_sized_new(FALSE, FALSE, sizeof(Resultado), num_resultados);
 
