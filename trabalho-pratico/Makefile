@@ -45,8 +45,10 @@ EXEC_PRINCIPAL = programa-principal
 EXEC_TESTES = programa-testes
 EXEC_VALIDACOES = test_validacoes
 EXEC_VERIFICADOR = verificador-csv
+MAIN_INTERATIVO = src/programas/interativo.c
+EXEC_INTERATIVO = programa-interativo
 
-all: $(EXEC_PRINCIPAL) $(EXEC_TESTES)
+all: $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_INTERATIVO)
 
 $(EXEC_PRINCIPAL): $(MAIN_PRINCIPAL) $(SRC_GESTORES) $(SRC_ENTIDADES) $(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS)
 	@echo " Compilando $(EXEC_PRINCIPAL)..."
@@ -54,6 +56,10 @@ $(EXEC_PRINCIPAL): $(MAIN_PRINCIPAL) $(SRC_GESTORES) $(SRC_ENTIDADES) $(SRC_PARS
 
 $(EXEC_TESTES): $(MAIN_TESTES) $(SRC_GESTORES) $(SRC_ENTIDADES) $(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS)
 	@echo " Compilando $(EXEC_TESTES)..."
+	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+
+$(EXEC_INTERATIVO): $(MAIN_INTERATIVO) $(SRC_GESTORES) $(SRC_ENTIDADES) $(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS)
+	@echo "Compilando $(EXEC_INTERATIVO)..."
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 $(EXEC_VALIDACOES): $(MAIN_VALIDACOES) $(SRC_ENTIDADES) $(SRC_PARSERS) $(SRC_UTILS)
@@ -66,11 +72,10 @@ $(EXEC_VERIFICADOR): verificador-csv.c
 	$(CC) -Wall -Wextra -std=c17 $(shell pkg-config --cflags glib-2.0) $< $(LDFLAGS) -o $@
 
 clean:
-	@echo " A limpar ficheiros compilados..."
-	rm -f $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_VALIDACOES) $(EXEC_VERIFICADOR)
+	@echo "A limpar ficheiros compilados..."
+	rm -f $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_INTERATIVO) $(EXEC_VALIDACOES) $(EXEC_VERIFICADOR)
 	find src -type f -name "*.o" -delete
 	rm -f resultados/*.txt resultados/*_errors.csv
-
 VALGRIND = valgrind --leak-check=full --show-leak-kinds=all \
            --track-origins=yes --error-exitcode=1
 TIME = /usr/bin/time -v

@@ -5,30 +5,37 @@
 #include <stdlib.h>
 #include <string.h>
 
+/*
+ * OTIMIZAÇÕES IMPLEMENTADAS:
+ * 1. GPtrArray em vez de GArray
+ * 2. Chaves partilhadas no índice por_documento
+ * 3. Crescimento dinâmico (50K inicial)
+ * Economia estimada: ~30 MB
+ */
+
 struct gestor_passageiros
 {
-    GArray *passageiros;
-    GHashTable *por_documento;     // NOVO: document_number -> passageiro_t*
-    GHashTable *por_nacionalidade; // NOVO: nacionalidade -> GPtrArray de passageiros
+    GPtrArray *passageiros;        
+    GHashTable *por_documento;    
+    GHashTable *por_nacionalidade; 
 };
 
 gestor_passageiros_t *gestor_passageiros_criar(void)
 {
     gestor_passageiros_t *g = malloc(sizeof(gestor_passageiros_t));
-    g->passageiros = g_array_new(FALSE, FALSE, sizeof(passageiro_t *));
+    
+    g->passageiros = g_ptr_array_new_full(50000, (GDestroyNotify)passageiro_destruir);
 
-    // Hash por documento (O(1) lookup)
     g->por_documento = g_hash_table_new_full(
         g_str_hash,
         g_str_equal,
-        NULL,  // Não liberar chave (pertence ao passageiro)
-        NULL); // Não liberar valor (gerido por passageiros array)
+        NULL,  // ⚡ NÃO liberar chaves
+        NULL); // ⚡ NÃO liberar valores (geridos pelo array)
 
-    // Hash por nacionalidade (O(1) lookup)
     g->por_nacionalidade = g_hash_table_new_full(
         g_str_hash,
         g_str_equal,
-        g_free,
+        g_free,  // Pode duplicar
         (GDestroyNotify)g_ptr_array_unref);
 
     return g;
@@ -39,12 +46,10 @@ void gestor_passageiros_destruir(gestor_passageiros_t *gestor)
     if (!gestor)
         return;
 
-    for (guint i = 0; i < gestor->passageiros->len; i++)
-        passageiro_destruir(g_array_index(gestor->passageiros, passageiro_t *, i));
-
-    g_array_free(gestor->passageiros, TRUE);
     g_hash_table_destroy(gestor->por_documento);
     g_hash_table_destroy(gestor->por_nacionalidade);
+    g_ptr_array_free(gestor->passageiros, TRUE);
+    
     free(gestor);
 }
 
@@ -53,14 +58,13 @@ void gestor_passageiros_adicionar(gestor_passageiros_t *gestor, passageiro_t *p)
     if (!gestor || !p)
         return;
 
-    g_array_append_val(gestor->passageiros, p);
+    g_ptr_array_add(gestor->passageiros, p);
 
-    // Adicionar ao índice por documento
+    // ⚡ Índice por documento (chave partilhada)
     const char *doc = passageiro_obter_document_number(p);
     if (doc)
         g_hash_table_insert(gestor->por_documento, (gpointer)doc, p);
 
-    // Adicionar ao índice por nacionalidade
     const char *nac = passageiro_obter_nacionalidade(p);
     if (nac)
     {
@@ -74,7 +78,6 @@ void gestor_passageiros_adicionar(gestor_passageiros_t *gestor, passageiro_t *p)
     }
 }
 
-// AGORA É O(1) em vez de O(n)!
 passageiro_t *gestor_passageiros_obter_por_documento(
     gestor_passageiros_t *gestor,
     const char *document_number)
@@ -85,7 +88,6 @@ passageiro_t *gestor_passageiros_obter_por_documento(
     return g_hash_table_lookup(gestor->por_documento, document_number);
 }
 
-// NOVA FUNÇÃO: Obter passageiros por nacionalidade O(1)
 GPtrArray *gestor_passageiros_obter_por_nacionalidade(
     gestor_passageiros_t *gestor,
     const char *nacionalidade)
