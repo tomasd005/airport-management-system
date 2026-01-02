@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
                 fprintf(out, "\n");
             }
         }
-        
+
         else if (tipo == 4)
         {
             while (*p && isspace((unsigned char)*p))
