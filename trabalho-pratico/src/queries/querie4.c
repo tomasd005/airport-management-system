@@ -64,7 +64,7 @@ typedef struct
     GHashTable *semanas_relevantes;
 } ContextoIdentificacao;
 
-static void identificar_semana_relevante(int semana, const reserva_t *r, void *user_data)
+static void identificar_semana_relevante(int semana, reserva_t *r, void *user_data)
 {
     (void)r;
     ContextoIdentificacao *ctx = user_data;
@@ -72,7 +72,7 @@ static void identificar_semana_relevante(int semana, const reserva_t *r, void *u
     g_hash_table_add(ctx->semanas_relevantes, GINT_TO_POINTER(semana));
 }
 
-static void acumular_reserva_semana_completa(int semana, const reserva_t *r, void *user_data)
+static void acumular_reserva_semana_completa(int semana, reserva_t *r, void *user_data)
 {
     ContextoQ4 *ctx = (ContextoQ4 *)user_data;
 
@@ -170,7 +170,6 @@ void query4(gestor_reservas_t *gestor_reservas,
         while (g_hash_table_iter_next(&it, &k, &v))
         {
             Gasto g;
-            // ✅ OTIMIZAÇÃO: Não duplicar ainda - string pertence ao hash
             g.doc = (char *)k;
             g.total = *(double *)v;
             g_array_append_val(lista, g);

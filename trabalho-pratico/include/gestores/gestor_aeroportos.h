@@ -13,8 +13,7 @@ aeroporto_t *gestor_aeroportos_obter_por_codigo(gestor_aeroportos_t *gestor, con
 unsigned int gestor_aeroportos_numero(gestor_aeroportos_t *gestor);
 unsigned int gestor_aeroportos_contar(const gestor_aeroportos_t *gestor);
 unsigned int gestor_aeroportos_total(const gestor_aeroportos_t *gestor);
-
-// Função de carregamento (antes em _parser.h)
 void gestor_aeroportos_carregar(gestor_aeroportos_t *gestor, const char *ficheiro_csv);
+void gestor_aeroportos_para_cada(gestor_aeroportos_t *gestor, void (*callback)(aeroporto_t *, void *), void *user_data);
 
 #endif

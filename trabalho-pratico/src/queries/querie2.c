@@ -19,10 +19,9 @@ static gboolean contem_substring_case_insensitive(const char *texto, const char 
 {
     if (!texto || !busca)
         return FALSE;
-    if (!*busca) // String vazia = match
+    if (!*busca)
         return TRUE;
 
-    // Converter ambas para lowercase temporariamente para comparação
     gchar *texto_lower = g_utf8_strdown(texto, -1);
     gchar *busca_lower = g_utf8_strdown(busca, -1);
 
@@ -40,19 +39,16 @@ static gint compara_contadores(gconstpointer a, gconstpointer b, gpointer user_d
     const ContadorVoos *ca = a;
     const ContadorVoos *cb = b;
 
-    // 1. Por count decrescente
     if (ca->count > cb->count)
         return -1;
     if (ca->count < cb->count)
         return 1;
 
-    // 2. Por ID crescente (case-sensitive! como especificado)
     return strcmp(ca->id, cb->id);
 }
 
-static void contar_voos_por_aviao(const char *key, voo_t *voo, void *user_data)
+static void contar_voos_por_aviao(voo_t *voo, void *user_data)
 {
-    (void)key;
     if (!voo || !user_data)
         return;
 
@@ -79,10 +75,8 @@ static void contar_voos_por_aviao(const char *key, voo_t *voo, void *user_data)
     }
 }
 
-
-    static gboolean fabricante_match(const char *fab_aviao, const char *fab_filtro)
+static gboolean fabricante_match(const char *fab_aviao, const char *fab_filtro)
 {
-    // Sem filtro = aceita todos
     if (!fab_filtro || !*fab_filtro)
         return TRUE;
 
@@ -92,9 +86,8 @@ static void contar_voos_por_aviao(const char *key, voo_t *voo, void *user_data)
     return contem_substring_case_insensitive(fab_aviao, fab_filtro);
 }
 
-static void processar_aviao(const char *key, aviao_t *aviao, gpointer user_data)
+static void processar_aviao(aviao_t *aviao, gpointer user_data)
 {
-    (void)key;
     if (!aviao || !user_data)
         return;
 
@@ -110,15 +103,13 @@ static void processar_aviao(const char *key, aviao_t *aviao, gpointer user_data)
     if (!id || !*id)
         return;
 
-    // Aplicar filtro de fabricante
     if (!fabricante_match(fabricante, fabricante_filtro))
         return;
 
     guint *cnt = g_hash_table_lookup(contagens, id);
     if (!cnt || *cnt == 0)
-        return; // Avião sem voos
+        return;
 
-    // Criar entrada
     ContadorVoos c;
     c.id = g_strdup(id);
     c.fabricante = fabricante ? g_strdup(fabricante) : g_strdup("");
@@ -161,10 +152,8 @@ void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
     gpointer dados[3] = {resultados, contagens, (gpointer)fabricante};
     gestor_avioes_para_cada(gestor_avioes, processar_aviao, dados);
 
-    // 3. Ordenar: count (desc) → ID (asc)
     g_array_sort_with_data(resultados, compara_contadores, NULL);
 
-    // 4. Imprimir top N
     guint n_imprimir = (guint)N < resultados->len ? (guint)N : resultados->len;
 
     if (n_imprimir == 0)
@@ -184,7 +173,6 @@ void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
         }
     }
 
-    // 5. Limpar memória
     for (guint i = 0; i < resultados->len; i++)
     {
         ContadorVoos *c = &g_array_index(resultados, ContadorVoos, i);

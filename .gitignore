@@ -10,7 +10,9 @@ main
 # Ficheiros de logs
 *.log
 
-
+# Ignorar scripts e ficheiro de resumo
+scripts/
+compare_summary.json
 
 last_test_report.txt
 out_after_debug_removal.txt
