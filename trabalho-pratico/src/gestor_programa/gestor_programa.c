@@ -1,6 +1,7 @@
 #include "gestor_programa.h"
 #include "gestor_queries.h"
 #include <stdio.h>
+#include <sys/stat.h>
 
 GestorDePrograma *gestor_programa_novo(gboolean modoEconomiaMemoria)
 {
@@ -20,23 +21,30 @@ void gestor_programa_executa(GestorDePrograma *gestor, const char *pastaDados, c
 {
     char caminho[512];
 
-    printf("Carregando dados...\n");
+    // Criar pasta resultados se não existir
+    mkdir("resultados", 0755);
+
+    fprintf(stderr, "Carregando dados de: %s\n", pastaDados);
 
     snprintf(caminho, sizeof(caminho), "%s/airports.csv", pastaDados);
     gestor_aeroportos_carregar(gestor->aeroportos, caminho);
-    printf("  Aeroportos carregados: %u\n", gestor_aeroportos_contar(gestor->aeroportos));
+    unsigned int aeroportos = gestor_aeroportos_contar(gestor->aeroportos);
+    fprintf(stderr, "  Aeroportos: %u\n", aeroportos);
 
     snprintf(caminho, sizeof(caminho), "%s/aircrafts.csv", pastaDados);
     gestor_avioes_carregar(gestor->avioes, caminho);
-    printf("  Avioes carregados: %u\n", gestor_avioes_contar(gestor->avioes));
+    unsigned int avioes = gestor_avioes_contar(gestor->avioes);
+    fprintf(stderr, "  Avioes: %u\n", avioes);
 
     snprintf(caminho, sizeof(caminho), "%s/flights.csv", pastaDados);
     gestor_voos_carregar(gestor->voos, caminho);
-    printf("  Voos carregados: %u\n", gestor_voos_contar(gestor->voos));
+    unsigned int voos = gestor_voos_contar(gestor->voos);
+    fprintf(stderr, "  Voos: %u\n", voos);
 
     snprintf(caminho, sizeof(caminho), "%s/passengers.csv", pastaDados);
     gestor_passageiros_carregar(gestor->passageiros, caminho);
-    printf("  Passageiros carregados: %u\n", gestor_passageiros_numero(gestor->passageiros));
+    unsigned int passageiros = gestor_passageiros_numero(gestor->passageiros);
+    fprintf(stderr, "  Passageiros: %u\n", passageiros);
 
     snprintf(caminho, sizeof(caminho), "%s/reservations.csv", pastaDados);
     gestor_reservas_carregar_com_validacao(
@@ -44,9 +52,16 @@ void gestor_programa_executa(GestorDePrograma *gestor, const char *pastaDados, c
         caminho,
         gestor->voos,
         gestor->passageiros);
-    printf("  Reservas carregadas: %u\n", gestor_reservas_numero(gestor->reservas));
+    unsigned int reservas = gestor_reservas_numero(gestor->reservas);
+    fprintf(stderr, "  Reservas: %u\n", reservas);
 
-    printf("Processando queries...\n");
+    if (aeroportos == 0 || voos == 0 || passageiros == 0)
+    {
+        fprintf(stderr, "ERRO: Dados não carregados corretamente!\n");
+        return;
+    }
+
+    fprintf(stderr, "Processando queries de: %s\n", ficheiroInput);
 
     gestor_queries_t *gestor_queries = gestor_queries_criar(
         gestor->aeroportos,
@@ -58,10 +73,15 @@ void gestor_programa_executa(GestorDePrograma *gestor, const char *pastaDados, c
     gestor_queries_processar_ficheiro(gestor_queries, ficheiroInput);
 
     gestor_queries_destruir(gestor_queries);
+
+    fprintf(stderr, "Processamento concluído!\n");
 }
 
 void gestor_programa_destroi(GestorDePrograma *gestor)
 {
+    if (!gestor)
+        return;
+
     gestor_aeroportos_destruir(gestor->aeroportos);
     gestor_avioes_destruir(gestor->avioes);
     gestor_voos_destruir(gestor->voos);

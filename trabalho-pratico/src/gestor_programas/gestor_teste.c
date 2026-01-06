@@ -227,7 +227,7 @@ int gestor_testes_executar(
     double tempo_inicio_total = tempo_ms();
 
     printf("\n==============================================================\n");
-    printf("         TESTES AUTOMATICOS - LI3 2024/2025                  \n");
+    printf("         TESTES AUTOMATICOS - LI3 2025/2026                  \n");
     printf("==============================================================\n\n");
 
     printf("Dataset: %s\n", pasta_dataset);

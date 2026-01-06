@@ -42,10 +42,7 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
     const char *origin = voo_obter_origin(voo);
     const char *destination = voo_obter_destination(voo);
 
-    if (!id || !origin || !destination)
-        return;
-
-    if (g_hash_table_lookup(gestor->tabela, id))
+    if (!id || !origin || !destination || g_hash_table_contains(gestor->tabela, id))
     {
         voo_destruir(voo);
         return;
@@ -72,23 +69,17 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
 
 voo_t *gestor_voos_obter_por_id(gestor_voos_t *gestor, const char *flight_id)
 {
-    if (!gestor || !flight_id)
-        return NULL;
-    return g_hash_table_lookup(gestor->tabela, flight_id);
+    return (gestor && flight_id) ? g_hash_table_lookup(gestor->tabela, flight_id) : NULL;
 }
 
 GPtrArray *gestor_voos_obter_por_origin(gestor_voos_t *gestor, const char *origin)
 {
-    if (!gestor || !origin)
-        return NULL;
-    return g_hash_table_lookup(gestor->por_origin, origin);
+    return (gestor && origin) ? g_hash_table_lookup(gestor->por_origin, origin) : NULL;
 }
 
 GPtrArray *gestor_voos_obter_por_destination(gestor_voos_t *gestor, const char *destination)
 {
-    if (!gestor || !destination)
-        return NULL;
-    return g_hash_table_lookup(gestor->por_destination, destination);
+    return (gestor && destination) ? g_hash_table_lookup(gestor->por_destination, destination) : NULL;
 }
 
 GHashTable *gestor_voos_obter_tabela(gestor_voos_t *gestor)
@@ -98,7 +89,7 @@ GHashTable *gestor_voos_obter_tabela(gestor_voos_t *gestor)
 
 unsigned gestor_voos_contar(const gestor_voos_t *gestor)
 {
-    return gestor && gestor->tabela ? g_hash_table_size(gestor->tabela) : 0;
+    return gestor ? g_hash_table_size(gestor->tabela) : 0;
 }
 
 void gestor_voos_para_cada(gestor_voos_t *gestor, void (*func)(voo_t *, void *), void *user_data)
@@ -111,9 +102,7 @@ void gestor_voos_para_cada(gestor_voos_t *gestor, void (*func)(voo_t *, void *),
     g_hash_table_iter_init(&iter, gestor->tabela);
 
     while (g_hash_table_iter_next(&iter, &key, &value))
-    {
-        func((voo_t *)value, user_data);
-    }
+        func(value, user_data);
 }
 
 void gestor_voos_para_cada_origem(gestor_voos_t *gestor, const char *origin, void (*func)(voo_t *, void *), void *user_data)
@@ -126,9 +115,7 @@ void gestor_voos_para_cada_origem(gestor_voos_t *gestor, const char *origin, voi
         return;
 
     for (guint i = 0; i < voos->len; i++)
-    {
         func(g_ptr_array_index(voos, i), user_data);
-    }
 }
 
 void gestor_voos_para_cada_destino(gestor_voos_t *gestor, const char *destination, void (*func)(voo_t *, void *), void *user_data)
@@ -141,21 +128,17 @@ void gestor_voos_para_cada_destino(gestor_voos_t *gestor, const char *destinatio
         return;
 
     for (guint i = 0; i < voos->len; i++)
-    {
         func(g_ptr_array_index(voos, i), user_data);
-    }
 }
 
 static gboolean _adiciona_voo_callback(void *contexto, void *objeto)
 {
-    gestor_voos_t *gestor = (gestor_voos_t *)contexto;
-    gestor_voos_adicionar(gestor, (voo_t *)objeto);
+    gestor_voos_adicionar(contexto, objeto);
     return TRUE;
 }
 
 void gestor_voos_carregar(gestor_voos_t *gestor, const char *ficheiro_csv)
 {
-    if (!gestor || !ficheiro_csv)
-        return;
-    parser_carrega(gestor, ficheiro_csv, _adiciona_voo_callback, (LinhaParaObjeto)valida_voo, (DestroiObjeto)voo_destruir);
+    if (gestor && ficheiro_csv)
+        parser_carrega(gestor, ficheiro_csv, _adiciona_voo_callback, (LinhaParaObjeto)valida_voo, (DestroiObjeto)voo_destruir);
 }

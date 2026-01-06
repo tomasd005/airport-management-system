@@ -108,7 +108,16 @@ GPtrArray *gestor_reservas_obter_por_passageiro(gestor_reservas_t *gestor, const
 {
     if (!gestor || !document_number)
         return NULL;
-    return g_hash_table_lookup(gestor->por_passageiro, document_number);
+
+    GPtrArray *lista_interna = g_hash_table_lookup(gestor->por_passageiro, document_number);
+    if (!lista_interna || lista_interna->len == 0)
+        return NULL;
+
+    GPtrArray *resultado = g_ptr_array_new();
+    for (guint i = 0; i < lista_interna->len; i++)
+        g_ptr_array_add(resultado, g_ptr_array_index(lista_interna, i));
+
+    return resultado;
 }
 
 void gestor_reservas_para_cada(gestor_reservas_t *gestor, void (*func)(reserva_t *, void *), void *user_data)
@@ -204,8 +213,7 @@ void gestor_reservas_para_cada_com_semana(
     void (*callback)(int semana, reserva_t *, void *),
     void *user_data)
 {
-    (void)gestor_voos;
-    if (!gestor || !callback)
+    if (!gestor || !gestor_voos || !callback)
         return;
 
     GHashTableIter iter;
@@ -218,11 +226,22 @@ void gestor_reservas_para_cada_com_semana(
         const char **flight_ids = reserva_obter_flight_ids(r);
         size_t num_voos = reserva_obter_num_voos(r);
 
-        if (num_voos > 0 && flight_ids && flight_ids[0] && strchr(flight_ids[0], '-'))
+        if (num_voos > 0 && flight_ids && flight_ids[0])
         {
-            int semana = _calcular_semana(flight_ids[0]);
-            if (semana >= 0)
-                callback(semana, r, user_data);
+            voo_t *voo = gestor_voos_obter_por_id(gestor_voos, flight_ids[0]);
+            if (voo)
+            {
+                const char *data = voo_obter_departure(voo);
+                if (data && strlen(data) >= 10)
+                {
+                    char data_str[11];
+                    strncpy(data_str, data, 10);
+                    data_str[10] = '\0';
+                    int semana = _calcular_semana(data_str);
+                    if (semana >= 0)
+                        callback(semana, r, user_data);
+                }
+            }
         }
     }
 }
@@ -235,8 +254,7 @@ void gestor_reservas_para_cada_semana(
     void (*callback)(int semana, reserva_t *, void *),
     void *user_data)
 {
-    (void)gestor_voos;
-    if (!gestor || !data_inicio || !data_fim || !callback)
+    if (!gestor || !gestor_voos || !data_inicio || !data_fim || !callback)
         return;
 
     int semana_inicio = _calcular_semana(data_inicio);
@@ -252,11 +270,22 @@ void gestor_reservas_para_cada_semana(
         const char **flight_ids = reserva_obter_flight_ids(r);
         size_t num_voos = reserva_obter_num_voos(r);
 
-        if (num_voos > 0 && flight_ids && flight_ids[0] && strchr(flight_ids[0], '-'))
+        if (num_voos > 0 && flight_ids && flight_ids[0])
         {
-            int semana = _calcular_semana(flight_ids[0]);
-            if (semana >= semana_inicio && semana <= semana_fim)
-                callback(semana, r, user_data);
+            voo_t *voo = gestor_voos_obter_por_id(gestor_voos, flight_ids[0]);
+            if (voo)
+            {
+                const char *data = voo_obter_departure(voo);
+                if (data && strlen(data) >= 10)
+                {
+                    char data_str[11];
+                    strncpy(data_str, data, 10);
+                    data_str[10] = '\0';
+                    int semana = _calcular_semana(data_str);
+                    if (semana >= semana_inicio && semana <= semana_fim)
+                        callback(semana, r, user_data);
+                }
+            }
         }
     }
 }

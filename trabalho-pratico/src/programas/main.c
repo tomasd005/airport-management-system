@@ -1,31 +1,29 @@
 #include <stdio.h>
 #include <string.h>
-#include "gestor_programa/gestor_programa.h"
+#include <sys/stat.h>
+#include "gestor_programa.h"
 
 int main(int argc, char *argv[])
 {
-
     if (argc < 3)
     {
-        fprintf(stderr, "Uso: %s <pasta_dados> <ficheiro_input> [normal]\n", argv[0]);
+        fprintf(stderr, "Uso: %s <pasta_dados> <ficheiro_input>\n", argv[0]);
         return 1;
     }
 
     const char *pastaDados = argv[1];
     const char *ficheiroInput = argv[2];
 
-    gboolean modoEconomiaMemoria = TRUE; // default: modo economia de memória
+    // Criar pasta resultados se não existir
+    mkdir("resultados", 0755);
 
-    if (argc > 3 && strcmp(argv[3], "normal") == 0)
+    // Criar gestor do programa (modo normal, sem economia de memória para performance)
+    GestorDePrograma *gestor = gestor_programa_novo(FALSE);
+    if (!gestor)
     {
-        modoEconomiaMemoria = FALSE;
+        fprintf(stderr, "Erro ao criar gestor\n");
+        return 1;
     }
-
-    printf("Programa principal inicializado no modo %s\n",
-           modoEconomiaMemoria ? "Economia de memória" : "Normal");
-
-    // Criar gestor do programa
-    GestorDePrograma *gestor = gestor_programa_novo(modoEconomiaMemoria);
 
     // Executar
     gestor_programa_executa(gestor, pastaDados, ficheiroInput);
@@ -33,6 +31,5 @@ int main(int argc, char *argv[])
     // Libertar memória
     gestor_programa_destroi(gestor);
 
-    printf("Execução concluída com sucesso.\n");
     return 0;
 }
