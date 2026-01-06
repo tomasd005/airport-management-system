@@ -72,22 +72,32 @@ static void carregar_dados(gestor_principal_t *gestor, const char *pasta)
 {
     char caminho[512];
 
+    fprintf(stderr, "[DEBUG] Carregando aeroportos...\n");
     snprintf(caminho, sizeof(caminho), "%s/airports.csv", pasta);
     gestor_aeroportos_carregar(gestor->aeroportos, caminho);
+    fprintf(stderr, "[DEBUG] Aeroportos carregados: %u\n", gestor_aeroportos_contar(gestor->aeroportos));
 
+    fprintf(stderr, "[DEBUG] Carregando aviões...\n");
     snprintf(caminho, sizeof(caminho), "%s/aircrafts.csv", pasta);
     gestor_avioes_carregar(gestor->avioes, caminho);
+    fprintf(stderr, "[DEBUG] Aviões carregados: %u\n", gestor_avioes_contar(gestor->avioes));
 
+    fprintf(stderr, "[DEBUG] Carregando voos...\n");
     snprintf(caminho, sizeof(caminho), "%s/flights.csv", pasta);
     gestor_voos_carregar(gestor->voos, caminho);
+    fprintf(stderr, "[DEBUG] Voos carregados: %u\n", gestor_voos_contar(gestor->voos));
 
+    fprintf(stderr, "[DEBUG] Carregando passageiros...\n");
     snprintf(caminho, sizeof(caminho), "%s/passengers.csv", pasta);
     gestor_passageiros_carregar(gestor->passageiros, caminho);
+    fprintf(stderr, "[DEBUG] Passageiros carregados: %u\n", gestor_passageiros_numero(gestor->passageiros));
 
+    fprintf(stderr, "[DEBUG] Carregando reservas...\n");
     snprintf(caminho, sizeof(caminho), "%s/reservations.csv", pasta);
     gestor_reservas_carregar_com_validacao(
         gestor->reservas, caminho,
         gestor->voos, gestor->passageiros);
+    fprintf(stderr, "[DEBUG] Reservas carregadas: %u\n", gestor_reservas_numero(gestor->reservas));
 }
 
 static void executar_query(
@@ -101,7 +111,6 @@ static void executar_query(
 
     char *p = linha;
 
-    // Skip whitespace
     while (*p && isspace((unsigned char)*p))
         p++;
 
@@ -111,7 +120,6 @@ static void executar_query(
         return;
     }
 
-    // Extract query type
     char *tipo_str = p;
     while (*p && !isspace((unsigned char)*p))
         p++;
@@ -121,7 +129,8 @@ static void executar_query(
 
     int tipo = atoi(tipo_str);
 
-    // Execute query based on type
+    fprintf(stderr, "[DEBUG] Executando query tipo %d\n", tipo);
+
     switch (tipo)
     {
     case 1:
@@ -130,6 +139,8 @@ static void executar_query(
             p++;
         char *aeroporto = p;
         trim_string(aeroporto);
+
+        fprintf(stderr, "[DEBUG] Q1: aeroporto='%s'\n", aeroporto);
 
         query1(gestor->aeroportos, gestor->voos, gestor->reservas,
                linha_completa, aeroporto, output);
@@ -158,6 +169,8 @@ static void executar_query(
         if (strlen(fabricante) == 0)
             fabricante = NULL;
 
+        fprintf(stderr, "[DEBUG] Q2: N=%d, fabricante='%s'\n", N, fabricante ? fabricante : "(vazio)");
+
         query2(gestor->avioes, gestor->voos, N, fabricante, linha_completa, output);
         break;
     }
@@ -178,6 +191,8 @@ static void executar_query(
 
         char *data_fim = p;
         trim_string(data_fim);
+
+        fprintf(stderr, "[DEBUG] Q3: inicio='%s', fim='%s'\n", data_inicio, data_fim);
 
         if (strlen(data_inicio) > 0 && strlen(data_fim) > 0)
         {
@@ -217,6 +232,10 @@ static void executar_query(
             }
         }
 
+        fprintf(stderr, "[DEBUG] Q4: inicio='%s', fim='%s'\n",
+                data_inicio ? data_inicio : "(null)",
+                data_fim ? data_fim : "(null)");
+
         query4(gestor->reservas, gestor->voos, gestor->passageiros,
                data_inicio, data_fim, linha_completa, output);
         break;
@@ -231,6 +250,8 @@ static void executar_query(
         trim_string(n_str);
         int N = atoi(n_str);
 
+        fprintf(stderr, "[DEBUG] Q5: N=%d\n", N);
+
         query5(gestor->voos, N, linha_completa, output);
         break;
     }
@@ -242,6 +263,8 @@ static void executar_query(
 
         char *nacionalidade = p;
         trim_string(nacionalidade);
+
+        fprintf(stderr, "[DEBUG] Q6: nacionalidade='%s'\n", nacionalidade);
 
         if (strlen(nacionalidade) > 0)
         {
@@ -256,6 +279,7 @@ static void executar_query(
     }
 
     default:
+        fprintf(stderr, "[DEBUG] Query tipo desconhecido: %d\n", tipo);
         fprintf(output, "\n");
         break;
     }
@@ -267,12 +291,15 @@ void gestor_principal_executar(
     const char *ficheiro_input)
 {
     if (!gestor || !pasta_dados || !ficheiro_input)
+    {
+        fprintf(stderr, "[ERRO] Parâmetros inválidos\n");
         return;
+    }
 
-    // Carregar dados
+    fprintf(stderr, "[DEBUG] Carregando dados de: %s\n", pasta_dados);
     carregar_dados(gestor, pasta_dados);
 
-    // Abrir ficheiro de input
+    fprintf(stderr, "[DEBUG] Abrindo ficheiro de input: %s\n", ficheiro_input);
     FILE *input = fopen(ficheiro_input, "r");
     if (!input)
     {
@@ -280,13 +307,13 @@ void gestor_principal_executar(
         return;
     }
 
-    // Processar queries
     char linha[256];
     int contador = 1;
 
+    fprintf(stderr, "[DEBUG] Processando queries...\n");
+
     while (fgets(linha, sizeof(linha), input))
     {
-        // Remove newlines
         size_t len = strlen(linha);
         while (len > 0 && (linha[len - 1] == '\n' || linha[len - 1] == '\r'))
         {
@@ -297,10 +324,11 @@ void gestor_principal_executar(
         if (len == 0)
             continue;
 
-        // Create output file
         char caminho_saida[256];
         snprintf(caminho_saida, sizeof(caminho_saida),
                  "resultados/command%d_output.txt", contador);
+
+        fprintf(stderr, "[DEBUG] Processando comando %d: %s\n", contador, linha);
 
         FILE *out = fopen(caminho_saida, "w");
         if (!out)
@@ -310,12 +338,16 @@ void gestor_principal_executar(
             continue;
         }
 
-        // Execute query
         executar_query(gestor, linha, out);
 
         fclose(out);
+
+        fprintf(stderr, "[DEBUG] Comando %d escrito em: %s\n", contador, caminho_saida);
+
         contador++;
     }
 
     fclose(input);
+
+    fprintf(stderr, "[DEBUG] Total de comandos processados: %d\n", contador - 1);
 }

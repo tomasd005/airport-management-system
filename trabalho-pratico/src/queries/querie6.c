@@ -80,6 +80,8 @@ void query6(gestor_reservas_t *gestor_reservas,
                 }
             }
         }
+
+        g_ptr_array_free(reservas_pass, TRUE);
     }
 
     if (g_hash_table_size(destinos) == 0)
