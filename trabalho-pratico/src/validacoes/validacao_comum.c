@@ -114,7 +114,6 @@ gboolean validacao_flight_id(const char *str)
     if (!str)
         return FALSE;
 
-    // ✅ TRIM temporário para validação
     char *temp = g_strdup(str);
     utils_trim(temp);
 
@@ -125,7 +124,7 @@ gboolean validacao_flight_id(const char *str)
     }
 
     size_t len = strlen(temp);
-    if (len != 7 && len != 8)
+    if (len != 7 && len != 8 && len != 9)
     {
         g_free(temp);
         return FALSE;
