@@ -1,5 +1,7 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -std=c17 \
+
+# Flags fixas (sempre usadas)
+CFLAGS = -w -O2 -funroll-all-loops -ftree-vectorize -Wextra -g \
          -Iinclude \
          -Iinclude/entidades \
          -Iinclude/gestores \
@@ -8,8 +10,12 @@ CFLAGS = -Wall -Wextra -Werror -std=c17 \
          -Iinclude/parsers \
          -Iinclude/queries \
          -Iinclude/validacoes \
-$(shell pkg-config --cflags glib-2.0)
+         $(shell pkg-config --cflags glib-2.0)
+
 LDFLAGS = $(shell pkg-config --libs glib-2.0)
+
+# Número de jobs paralelos (usa todos os cores)
+MAKEFLAGS += -j$(shell nproc)
 
 # Entidades
 SRC_ENTIDADES = \
