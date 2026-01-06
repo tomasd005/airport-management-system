@@ -1,9 +1,11 @@
 #include "gestores/gestor_aeroportos.h"
 #include "parsers/parser.h"
 #include "validacoes/validacao_aeroportos.h"
+#include "entidades/aeroportos.h"
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 struct gestor_aeroportos
 {
@@ -12,12 +14,8 @@ struct gestor_aeroportos
 
 gestor_aeroportos_t *gestor_aeroportos_criar(void)
 {
-    gestor_aeroportos_t *g = malloc(sizeof(*g));
-    g->aeroportos = g_hash_table_new_full(
-        g_str_hash,
-        g_str_equal,
-        g_free,
-        (GDestroyNotify)aeroporto_destruir);
+    gestor_aeroportos_t *g = malloc(sizeof(gestor_aeroportos_t));
+    g->aeroportos = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)aeroporto_destruir);
     return g;
 }
 
@@ -33,8 +31,25 @@ void gestor_aeroportos_adicionar(gestor_aeroportos_t *gestor, aeroporto_t *aerop
 {
     if (!gestor || !aeroporto)
         return;
-    const char *codigo = aeroporto_obter_codigo(aeroporto);
-    g_hash_table_insert(gestor->aeroportos, g_strdup(codigo), aeroporto);
+
+    const char *id = aeroporto_obter_codigo(aeroporto);
+    if (!id)
+        return;
+
+    if (g_hash_table_lookup(gestor->aeroportos, id))
+    {
+        aeroporto_destruir(aeroporto);
+        return;
+    }
+
+    g_hash_table_insert(gestor->aeroportos, g_strdup(id), aeroporto);
+}
+
+aeroporto_t *gestor_aeroportos_obter_por_id(gestor_aeroportos_t *gestor, const char *id)
+{
+    if (!gestor || !id)
+        return NULL;
+    return g_hash_table_lookup(gestor->aeroportos, id);
 }
 
 aeroporto_t *gestor_aeroportos_obter_por_codigo(gestor_aeroportos_t *gestor, const char *codigo)
@@ -44,31 +59,30 @@ aeroporto_t *gestor_aeroportos_obter_por_codigo(gestor_aeroportos_t *gestor, con
     return g_hash_table_lookup(gestor->aeroportos, codigo);
 }
 
-unsigned int gestor_aeroportos_numero(gestor_aeroportos_t *gestor)
+unsigned gestor_aeroportos_contar(const gestor_aeroportos_t *gestor)
 {
-    return gestor ? g_hash_table_size(gestor->aeroportos) : 0;
+    return gestor && gestor->aeroportos ? g_hash_table_size(gestor->aeroportos) : 0;
 }
 
-unsigned int gestor_aeroportos_total(const gestor_aeroportos_t *gestor)
+void gestor_aeroportos_para_cada(gestor_aeroportos_t *gestor, void (*callback)(aeroporto_t *, void *), void *user_data)
 {
-    return gestor ? g_hash_table_size(gestor->aeroportos) : 0;
+    if (!gestor || !callback)
+        return;
+
+    GHashTableIter iter;
+    gpointer key, value;
+    g_hash_table_iter_init(&iter, gestor->aeroportos);
+
+    while (g_hash_table_iter_next(&iter, &key, &value))
+    {
+        callback((aeroporto_t *)value, user_data);
+    }
 }
 
-unsigned int gestor_aeroportos_contar(const gestor_aeroportos_t *gestor)
-{
-    return gestor ? g_hash_table_size(gestor->aeroportos) : 0;
-}
-
-// Callback interno para o parser
-static gboolean adiciona_aeroporto_callback(void *contexto, gpointer objeto)
+static gboolean _adiciona_aeroporto_callback(void *contexto, void *objeto)
 {
     gestor_aeroportos_t *gestor = (gestor_aeroportos_t *)contexto;
-    aeroporto_t *aeroporto = (aeroporto_t *)objeto;
-
-    if (!gestor || !aeroporto)
-        return FALSE;
-
-    gestor_aeroportos_adicionar(gestor, aeroporto);
+    gestor_aeroportos_adicionar(gestor, (aeroporto_t *)objeto);
     return TRUE;
 }
 
@@ -76,11 +90,5 @@ void gestor_aeroportos_carregar(gestor_aeroportos_t *gestor, const char *ficheir
 {
     if (!gestor || !ficheiro_csv)
         return;
-
-    parser_carrega(
-        gestor,
-        ficheiro_csv,
-        adiciona_aeroporto_callback,
-        (LinhaParaObjeto)valida_aeroporto,
-        (DestroiObjeto)aeroporto_destruir);
+    parser_carrega(gestor, ficheiro_csv, _adiciona_aeroporto_callback, (LinhaParaObjeto)valida_aeroporto, (DestroiObjeto)aeroporto_destruir);
 }
