@@ -111,7 +111,7 @@ static void carregar_dataset(gestor_interativo_t *gestor, const char *pasta)
 
     printf("  [3/5] Carregando voos...\n");
     snprintf(caminho, sizeof(caminho), "%s/flights.csv", pasta);
-    gestor_voos_carregar(gestor->voos, caminho);
+    gestor_voos_carregar_com_validacao(gestor->voos, caminho, gestor->avioes);
 
     printf("  [4/5] Carregando passageiros...\n");
     snprintf(caminho, sizeof(caminho), "%s/passengers.csv", pasta);
@@ -119,7 +119,9 @@ static void carregar_dataset(gestor_interativo_t *gestor, const char *pasta)
 
     printf("  [5/5] Carregando reservas...\n");
     snprintf(caminho, sizeof(caminho), "%s/reservations.csv", pasta);
-    gestor_reservas_carregar(gestor->reservas, caminho);
+    gestor_reservas_carregar_com_validacao(
+        gestor->reservas, caminho,
+        gestor->voos, gestor->passageiros);
 
     gestor->dados_carregados = 1;
 

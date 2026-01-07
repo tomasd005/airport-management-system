@@ -6,6 +6,7 @@
 #include <glib.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 typedef struct
 {
@@ -15,17 +16,24 @@ typedef struct
     guint count;
 } ContadorVoos;
 
-static inline gboolean contem_substring_case_insensitive(const char *texto, const char *busca)
-{
-    if (!texto || !busca || !*busca)
-        return !busca || !*busca;
+static GHashTable *contagens_cache = NULL;
 
-    gchar *texto_lower = g_utf8_strdown(texto, -1);
-    gchar *busca_lower = g_utf8_strdown(busca, -1);
-    gboolean found = (g_strstr_len(texto_lower, -1, busca_lower) != NULL);
-    g_free(texto_lower);
-    g_free(busca_lower);
-    return found;
+static void liberar_cache_q2(void)
+{
+    if (contagens_cache)
+    {
+        g_hash_table_destroy(contagens_cache);
+        contagens_cache = NULL;
+    }
+}
+
+static inline gboolean fabricante_match(const char *fabricante, const char *filtro)
+{
+    if (!filtro || !*filtro)
+        return TRUE;
+    if (!fabricante)
+        return FALSE;
+    return strcmp(fabricante, filtro) == 0;
 }
 
 static gint compara_contadores(gconstpointer a, gconstpointer b, gpointer user_data)
@@ -62,6 +70,16 @@ static void contar_voos_por_aviao(voo_t *voo, void *user_data)
     }
 }
 
+static void preparar_cache_q2(gestor_voos_t *gestor_voos)
+{
+    if (contagens_cache)
+        return;
+
+    contagens_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+    gestor_voos_para_cada(gestor_voos, contar_voos_por_aviao, contagens_cache);
+    atexit(liberar_cache_q2);
+}
+
 static void processar_aviao(aviao_t *aviao, gpointer user_data)
 {
     if (!aviao)
@@ -78,8 +96,7 @@ static void processar_aviao(aviao_t *aviao, gpointer user_data)
     if (!id || !*id)
         return;
 
-    if (fabricante_filtro && *fabricante_filtro &&
-        !contem_substring_case_insensitive(fabricante, fabricante_filtro))
+    if (!fabricante_match(fabricante, fabricante_filtro))
         return;
 
     guint *cnt = g_hash_table_lookup(contagens, id);
@@ -116,11 +133,10 @@ void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
 
     const char *separador = usa_formato_alternativo(comando_completo) ? "=" : ";";
 
-    GHashTable *contagens = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
-    gestor_voos_para_cada(gestor_voos, contar_voos_por_aviao, contagens);
+    preparar_cache_q2(gestor_voos);
 
     GArray *resultados = g_array_new(FALSE, FALSE, sizeof(ContadorVoos));
-    gpointer dados[3] = {resultados, contagens, (gpointer)fabricante};
+    gpointer dados[3] = {resultados, contagens_cache, (gpointer)fabricante};
     gestor_avioes_para_cada(gestor_avioes, processar_aviao, dados);
 
     g_array_sort_with_data(resultados, compara_contadores, NULL);
@@ -146,5 +162,4 @@ void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
         g_free(c->modelo);
     }
     g_array_free(resultados, TRUE);
-    g_hash_table_destroy(contagens);
 }

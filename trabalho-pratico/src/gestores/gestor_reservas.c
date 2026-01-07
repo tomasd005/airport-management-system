@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <time.h>
 
 struct gestor_reservas
 {
@@ -18,7 +19,7 @@ struct gestor_reservas
 gestor_reservas_t *gestor_reservas_criar(void)
 {
     gestor_reservas_t *g = malloc(sizeof(gestor_reservas_t));
-    g->tabela = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)reserva_destruir);
+    g->tabela = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, (GDestroyNotify)reserva_destruir);
     g->por_passageiro = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, (GDestroyNotify)g_ptr_array_unref);
     g->por_voo = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
     return g;
@@ -47,7 +48,7 @@ void gestor_reservas_adicionar(gestor_reservas_t *gestor, reserva_t *reserva)
         return;
     }
 
-    g_hash_table_insert(gestor->tabela, g_strdup(id), reserva);
+    g_hash_table_insert(gestor->tabela, (gpointer)id, reserva);
 
     const char *doc = reserva_obter_document_number(reserva);
     if (doc)
@@ -120,6 +121,12 @@ GPtrArray *gestor_reservas_obter_por_passageiro(gestor_reservas_t *gestor, const
     for (guint i = 0; i < lista_interna->len; i++)
         g_ptr_array_add(resultado, g_ptr_array_index(lista_interna, i));
 
+    if (resultado->len == 0)
+    {
+        g_ptr_array_free(resultado, TRUE);
+        return NULL;
+    }
+
     return resultado;
 }
 
@@ -147,6 +154,29 @@ static reserva_t *_criar_reserva_de_campos(char **campos)
     return campos ? valida_reserva_from_csv(campos) : NULL;
 }
 
+typedef struct
+{
+    gestor_reservas_t *gestor_reservas;
+    gestor_voos_t *gestor_voos;
+    gestor_passageiros_t *gestor_passageiros;
+} contexto_reservas_validacao_t;
+
+static gboolean _adiciona_reserva_validada(void *contexto, void *objeto)
+{
+    contexto_reservas_validacao_t *ctx = contexto;
+    reserva_t *reserva = objeto;
+
+    GPtrArray *erros = validar_reserva(reserva, ctx->gestor_voos, ctx->gestor_passageiros);
+    if (erros)
+    {
+        g_ptr_array_free(erros, TRUE);
+        return FALSE;
+    }
+
+    gestor_reservas_adicionar(ctx->gestor_reservas, reserva);
+    return TRUE;
+}
+
 void gestor_reservas_carregar(gestor_reservas_t *gestor, const char *ficheiro_csv)
 {
     if (!gestor || !ficheiro_csv)
@@ -165,39 +195,32 @@ void gestor_reservas_carregar_com_validacao(
     if (!gestor || !ficheiro_csv)
         return;
 
-    FILE *file = fopen(ficheiro_csv, "r");
-    if (!file)
-        return;
+    contexto_reservas_validacao_t ctx = {
+        .gestor_reservas = gestor,
+        .gestor_voos = gestor_voos,
+        .gestor_passageiros = gestor_passageiros};
 
-    char linha[4096];
-    if (fgets(linha, sizeof(linha), file))
-        ;
+    parser_carrega(&ctx, ficheiro_csv, _adiciona_reserva_validada,
+                   (LinhaParaObjeto)_criar_reserva_de_campos, (DestroiObjeto)reserva_destruir);
+}
 
-    while (fgets(linha, sizeof(linha), file))
-    {
-        linha[strcspn(linha, "\r\n")] = '\0';
-        if (!linha[0])
-            continue;
+static int _is_leap(int y)
+{
+    return (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0);
+}
 
-        char **campos = g_strsplit(linha, ";", -1);
-        reserva_t *reserva = valida_reserva_from_csv(campos);
+static int _iso_weeks_in_year(int y)
+{
+    struct tm t = {0};
+    t.tm_year = y - 1900;
+    t.tm_mon = 0;
+    t.tm_mday = 1;
+    t.tm_isdst = -1;
+    if (mktime(&t) == (time_t)-1)
+        return 52;
 
-        if (reserva)
-        {
-            GPtrArray *erros = validar_reserva(reserva, gestor_voos, gestor_passageiros);
-            if (!erros || erros->len == 0)
-                gestor_reservas_adicionar(gestor, reserva);
-            else
-                reserva_destruir(reserva);
-
-            if (erros)
-                g_ptr_array_free(erros, TRUE);
-        }
-
-        g_strfreev(campos);
-    }
-
-    fclose(file);
+    int wday = t.tm_wday == 0 ? 7 : t.tm_wday;
+    return (wday == 4 || (_is_leap(y) && wday == 3)) ? 53 : 52;
 }
 
 static inline int _calcular_semana(const char *data)
@@ -212,9 +235,22 @@ static inline int _calcular_semana(const char *data)
     if (m < 1 || m > 12 || d < 1 || d > 31)
         return -1;
 
-    static const int dias_acum[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
-    int dia_ano = dias_acum[m - 1] + d;
-    return (dia_ano - 1) / 7 + 1;
+    struct tm t = {0};
+    t.tm_year = y - 1900;
+    t.tm_mon = m - 1;
+    t.tm_mday = d;
+    t.tm_hour = 12;
+    t.tm_isdst = -1;
+
+    time_t tt = mktime(&t);
+    if (tt == (time_t)-1)
+        return -1;
+
+    long days = (long)(tt / 86400);
+    int wday = t.tm_wday; // 0 = Domingo
+    long week_start = days - wday;
+
+    return (int)(week_start / 7);
 }
 
 void gestor_reservas_para_cada_com_semana(

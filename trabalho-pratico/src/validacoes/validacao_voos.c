@@ -80,6 +80,13 @@ voo_t *valida_voo(char **colunas)
         return NULL;
     }
 
+    if ((colunas[IDX_ORIG] && contem_espacos(colunas[IDX_ORIG])) ||
+        (colunas[IDX_DEST] && contem_espacos(colunas[IDX_DEST])))
+    {
+        grava_erro(colunas);
+        return NULL;
+    }
+
     for (int i = 0; i <= IDX_URL; i++)
         if (colunas[i])
             utils_trim(colunas[i]);
@@ -96,6 +103,12 @@ voo_t *valida_voo(char **colunas)
         !isupper(colunas[IDX_DEST][0]) || !isupper(colunas[IDX_DEST][1]) || !isupper(colunas[IDX_DEST][2]) ||
         strcmp(colunas[IDX_ORIG], colunas[IDX_DEST]) == 0 ||
         !validacao_datetime(colunas[IDX_DEP]) || !validacao_datetime(colunas[IDX_ARR]))
+    {
+        grava_erro(colunas);
+        return NULL;
+    }
+
+    if (comparar_datetime(colunas[IDX_ARR], colunas[IDX_DEP]) < 0)
     {
         grava_erro(colunas);
         return NULL;

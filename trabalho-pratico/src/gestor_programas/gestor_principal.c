@@ -84,7 +84,7 @@ static void carregar_dados(gestor_principal_t *gestor, const char *pasta)
 
     fprintf(stderr, "[DEBUG] Carregando voos...\n");
     snprintf(caminho, sizeof(caminho), "%s/flights.csv", pasta);
-    gestor_voos_carregar(gestor->voos, caminho);
+    gestor_voos_carregar_com_validacao(gestor->voos, caminho, gestor->avioes);
     fprintf(stderr, "[DEBUG] Voos carregados: %u\n", gestor_voos_contar(gestor->voos));
 
     fprintf(stderr, "[DEBUG] Carregando passageiros...\n");

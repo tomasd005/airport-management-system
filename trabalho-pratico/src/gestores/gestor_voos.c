@@ -1,4 +1,5 @@
 #include "gestores/gestor_voos.h"
+#include "gestores/gestor_avioes.h"
 #include "parsers/parser.h"
 #include "validacoes/validacao_voos.h"
 #include "entidades/voos.h"
@@ -137,8 +138,38 @@ static gboolean _adiciona_voo_callback(void *contexto, void *objeto)
     return TRUE;
 }
 
+typedef struct
+{
+    gestor_voos_t *gestor_voos;
+    gestor_avioes_t *gestor_avioes;
+} contexto_voos_validacao_t;
+
+static gboolean _adiciona_voo_validado(void *contexto, void *objeto)
+{
+    contexto_voos_validacao_t *ctx = contexto;
+    voo_t *voo = objeto;
+
+    const char *aircraft = voo_obter_aircraft(voo);
+    if (!aircraft || !ctx->gestor_avioes || !gestor_avioes_obter_por_id(ctx->gestor_avioes, aircraft))
+        return FALSE;
+
+    gestor_voos_adicionar(ctx->gestor_voos, voo);
+    return TRUE;
+}
+
 void gestor_voos_carregar(gestor_voos_t *gestor, const char *ficheiro_csv)
 {
     if (gestor && ficheiro_csv)
         parser_carrega(gestor, ficheiro_csv, _adiciona_voo_callback, (LinhaParaObjeto)valida_voo, (DestroiObjeto)voo_destruir);
+}
+
+void gestor_voos_carregar_com_validacao(gestor_voos_t *gestor, const char *ficheiro_csv, gestor_avioes_t *gestor_avioes)
+{
+    if (gestor && ficheiro_csv)
+    {
+        contexto_voos_validacao_t ctx = {
+            .gestor_voos = gestor,
+            .gestor_avioes = gestor_avioes};
+        parser_carrega(&ctx, ficheiro_csv, _adiciona_voo_validado, (LinhaParaObjeto)valida_voo, (DestroiObjeto)voo_destruir);
+    }
 }
