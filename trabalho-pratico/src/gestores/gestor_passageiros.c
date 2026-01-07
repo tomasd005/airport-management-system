@@ -7,7 +7,6 @@
 
 struct gestor_passageiros
 {
-    GPtrArray *passageiros;
     GHashTable *por_documento;
     GHashTable *por_nacionalidade;
 };
@@ -15,8 +14,7 @@ struct gestor_passageiros
 gestor_passageiros_t *gestor_passageiros_criar(void)
 {
     gestor_passageiros_t *g = malloc(sizeof(*g));
-    g->passageiros = g_ptr_array_new_full(50000, (GDestroyNotify)passageiro_destruir);
-    g->por_documento = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, NULL);
+    g->por_documento = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, (GDestroyNotify)passageiro_destruir);
     g->por_nacionalidade = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)g_ptr_array_unref);
     return g;
 }
@@ -27,7 +25,6 @@ void gestor_passageiros_destruir(gestor_passageiros_t *gestor)
         return;
     g_hash_table_destroy(gestor->por_documento);
     g_hash_table_destroy(gestor->por_nacionalidade);
-    g_ptr_array_free(gestor->passageiros, TRUE);
     free(gestor);
 }
 
@@ -36,11 +33,14 @@ void gestor_passageiros_adicionar(gestor_passageiros_t *gestor, passageiro_t *p)
     if (!gestor || !p)
         return;
 
-    g_ptr_array_add(gestor->passageiros, p);
-
     const char *doc = passageiro_obter_document_number(p);
-    if (doc)
-        g_hash_table_insert(gestor->por_documento, (gpointer)doc, p);
+    if (!doc || g_hash_table_contains(gestor->por_documento, doc))
+    {
+        passageiro_destruir(p);
+        return;
+    }
+
+    g_hash_table_insert(gestor->por_documento, (gpointer)doc, p);
 
     const char *nac = passageiro_obter_nacionalidade(p);
     if (nac)
@@ -67,7 +67,7 @@ GPtrArray *gestor_passageiros_obter_por_nacionalidade(gestor_passageiros_t *gest
 
 unsigned int gestor_passageiros_numero(gestor_passageiros_t *gestor)
 {
-    return gestor ? gestor->passageiros->len : 0;
+    return gestor ? g_hash_table_size(gestor->por_documento) : 0;
 }
 
 static gboolean adiciona_passageiro_callback(void *contexto, void *objeto)
@@ -89,6 +89,10 @@ void gestor_passageiros_para_cada(gestor_passageiros_t *gestor, void (*func)(pas
     if (!gestor || !func)
         return;
 
-    for (guint i = 0; i < gestor->passageiros->len; i++)
-        func(g_ptr_array_index(gestor->passageiros, i), user_data);
+    GHashTableIter iter;
+    gpointer key, value;
+    g_hash_table_iter_init(&iter, gestor->por_documento);
+
+    while (g_hash_table_iter_next(&iter, &key, &value))
+        func(value, user_data);
 }

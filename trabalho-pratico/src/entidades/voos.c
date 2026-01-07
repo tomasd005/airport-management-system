@@ -16,9 +16,6 @@ struct voo
     char *destination;
     char *aircraft;
     char *airline;
-    time_t departure_t;
-    time_t actual_departure_t;
-    double delay_minutes;
 };
 
 static time_t datetime_para_time(const char *datetime);
@@ -53,22 +50,6 @@ voo_t *voo_criar(const char *flight_id, const char *departure,
         return NULL;
     }
 
-    v->departure_t = datetime_para_time(v->departure);
-    if (v->actual_departure && strcmp(v->actual_departure, "N/A") != 0)
-        v->actual_departure_t = datetime_para_time(v->actual_departure);
-    else
-        v->actual_departure_t = (time_t)-1;
-
-    if (v->departure_t == (time_t)-1 || v->actual_departure_t == (time_t)-1)
-        v->delay_minutes = -1.0;
-    else if (strcmp(v->status, "Delayed") != 0)
-        v->delay_minutes = -1.0;
-    else
-    {
-        v->delay_minutes = difftime(v->actual_departure_t, v->departure_t) / 60.0;
-        if (v->delay_minutes <= 0.5)
-            v->delay_minutes = -1.0;
-    }
     return v;
 }
 
@@ -145,5 +126,11 @@ double voo_calcular_atraso_minutos(const voo_t *v)
     if (strcmp(v->actual_departure, "N/A") == 0)
         return -1.0;
 
-    return (v->delay_minutes < 0.0) ? -1.0 : v->delay_minutes;
+    time_t dep = datetime_para_time(v->departure);
+    time_t act = datetime_para_time(v->actual_departure);
+    if (dep == (time_t)-1 || act == (time_t)-1)
+        return -1.0;
+
+    double diff = difftime(act, dep) / 60.0;
+    return (diff < 0.0) ? -1.0 : diff;
 }

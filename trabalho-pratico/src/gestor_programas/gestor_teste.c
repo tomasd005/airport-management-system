@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <sys/resource.h>
 
 #define MAX_LINHA 1024
 #define MAX_QUERIES 10
@@ -32,6 +33,7 @@ struct GestorTestes
     int num_queries_individuais;
     int total_testes;
     int total_ok;
+    double memoria_pico_MB;
 };
 
 gestor_testes_t *gestor_testes_criar(void)
@@ -42,7 +44,6 @@ gestor_testes_t *gestor_testes_criar(void)
 
     memset(gestor, 0, sizeof(gestor_testes_t));
 
-    // Inicializar min/max
     for (int i = 0; i < MAX_QUERIES; i++)
     {
         gestor->stats[i].tempo_min = 1e9;
@@ -106,7 +107,7 @@ static double tempo_ms(void)
     return (tv.tv_sec * 1000.0) + (tv.tv_usec / 1000.0);
 }
 
-static double memoria_MB(void)
+static double memoria_atual_MB(void)
 {
     FILE *f = fopen("/proc/self/status", "r");
     if (!f)
@@ -124,6 +125,16 @@ static double memoria_MB(void)
     }
     fclose(f);
     return mem_kB / 1024.0;
+}
+
+static double memoria_pico_MB(void)
+{
+    struct rusage usage;
+    if (getrusage(RUSAGE_SELF, &usage) == 0)
+    {
+        return usage.ru_maxrss / 1024.0;
+    }
+    return 0;
 }
 
 static int detectar_tipo_query(const char *ficheiro_input, int comando_num)
@@ -191,7 +202,6 @@ static void imprimir_queries_lentas(gestor_testes_t *gestor)
     printf("                  QUERIES MAIS LENTAS\n");
     printf("==============================================================\n\n");
 
-    // Bubble sort por tempo
     for (int i = 0; i < gestor->num_queries_individuais - 1; i++)
     {
         for (int j = 0; j < gestor->num_queries_individuais - i - 1; j++)
@@ -206,7 +216,6 @@ static void imprimir_queries_lentas(gestor_testes_t *gestor)
         }
     }
 
-    // Top 10
     int limite = gestor->num_queries_individuais < 10 ? gestor->num_queries_individuais : 10;
     for (int i = 0; i < limite; i++)
     {
@@ -234,7 +243,6 @@ int gestor_testes_executar(
     printf("Input: %s\n", ficheiro_input);
     printf("Esperados: %s\n\n", pasta_esperados);
 
-    // Executar programa principal
     char comando[512];
     snprintf(comando, sizeof(comando),
              "./programa-principal %s %s > /dev/null 2>&1",
@@ -242,17 +250,23 @@ int gestor_testes_executar(
 
     printf("A executar programa-principal...\n");
     double tempo_exec_inicio = tempo_ms();
+    double mem_antes = memoria_atual_MB();
+
     system(comando);
+
     double tempo_exec_fim = tempo_ms();
     double tempo_execucao = (tempo_exec_fim - tempo_exec_inicio) / 1000.0;
+    double mem_pico = memoria_pico_MB();
 
-    printf("Execucao completa em %.2f segundos\n\n", tempo_execucao);
+    gestor->memoria_pico_MB = mem_pico;
+
+    printf("Execucao completa em %.2f segundos\n", tempo_execucao);
+    printf("Memoria pico: %.1f MB\n\n", mem_pico);
 
     printf("==============================================================\n");
     printf("                  COMPARANDO RESULTADOS\n");
     printf("==============================================================\n\n");
 
-    // Contar comandos
     int max_comandos = 0;
     FILE *f_count = fopen(ficheiro_input, "r");
     if (f_count)
@@ -266,7 +280,6 @@ int gestor_testes_executar(
         fclose(f_count);
     }
 
-    // Comparar resultados
     for (int i = 1; i <= max_comandos; i++)
     {
         char path_res[256], path_exp[256];
@@ -323,9 +336,8 @@ int gestor_testes_executar(
     }
 
     double tempo_fim_total = tempo_ms();
-    double mem = memoria_MB();
+    double mem_final = memoria_atual_MB();
 
-    // Imprimir resultados
     imprimir_resumo_queries(gestor);
     imprimir_queries_lentas(gestor);
 
@@ -339,7 +351,8 @@ int gestor_testes_executar(
     else
         printf(" (%d falhas)\n", gestor->total_testes - gestor->total_ok);
 
-    printf("Memoria: %.1f MB\n", mem);
+    printf("Memoria atual: %.1f MB\n", mem_final);
+    printf("Memoria pico: %.1f MB\n", gestor->memoria_pico_MB);
     printf("Tempo execucao: %.2f s\n", tempo_execucao);
     printf("Tempo total: %.2f s\n", (tempo_fim_total - tempo_inicio_total) / 1000.0);
 

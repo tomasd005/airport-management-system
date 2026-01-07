@@ -52,15 +52,7 @@ static gint cmp_resultado(gconstpointer a, gconstpointer b)
     if (ra->count != rb->count)
         return (gint)(rb->count - ra->count);
 
-    // Desempate: comparar documentos numericamente (menor primeiro)
-    unsigned long long doc_a = strtoull(ra->doc, NULL, 10);
-    unsigned long long doc_b = strtoull(rb->doc, NULL, 10);
-
-    if (doc_a < doc_b)
-        return -1;
-    if (doc_a > doc_b)
-        return 1;
-    return 0;
+    return strcmp(ra->doc, rb->doc);
 }
 
 typedef struct
@@ -88,7 +80,7 @@ void acumular_gastos(int semana, reserva_t *r, void *ud)
     GHashTable *gastos = g_hash_table_lookup(c->semanas, GINT_TO_POINTER(semana));
     if (!gastos)
     {
-        gastos = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+        gastos = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, g_free);
         g_hash_table_insert(c->semanas, GINT_TO_POINTER(semana), gastos);
     }
 
@@ -102,7 +94,7 @@ void acumular_gastos(int semana, reserva_t *r, void *ud)
     {
         double *novo = g_new(double, 1);
         *novo = preco;
-        g_hash_table_insert(gastos, g_strdup(doc), novo);
+        g_hash_table_insert(gastos, (gpointer)doc, novo);
     }
 }
 
@@ -149,7 +141,7 @@ void query4(gestor_reservas_t *gestor_reservas,
 
     gestor_reservas_para_cada_com_semana(gestor_reservas, gestor_voos, acumular_gastos, &ctx_full);
 
-    GHashTable *contador = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+    GHashTable *contador = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, g_free);
 
     GHashTableIter iter_sem;
     gpointer skey, sval;
@@ -184,7 +176,7 @@ void query4(gestor_reservas_t *gestor_reservas,
             {
                 guint *novo = g_new(guint, 1);
                 *novo = 1;
-                g_hash_table_insert(contador, g_strdup(g->doc), novo);
+                g_hash_table_insert(contador, g->doc, novo);
             }
         }
 
@@ -210,7 +202,7 @@ void query4(gestor_reservas_t *gestor_reservas,
 
     while (g_hash_table_iter_next(&iter, &k, &v))
     {
-        Resultado r = {.doc = g_strdup((char *)k), .count = *(guint *)v};
+        Resultado r = {.doc = (char *)k, .count = *(guint *)v};
         g_array_append_val(res, r);
     }
 
@@ -231,9 +223,6 @@ void query4(gestor_reservas_t *gestor_reservas,
     }
     else
         fprintf(output, "\n");
-
-    for (guint i = 0; i < res->len; i++)
-        g_free(g_array_index(res, Resultado, i).doc);
 
     g_array_free(res, TRUE);
     g_hash_table_destroy(contador);
