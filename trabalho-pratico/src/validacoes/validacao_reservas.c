@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <ctype.h>
 
-
 #define IDX_RES_ID 0
 #define IDX_FLIGHT_IDS 1
 #define IDX_DOC 2
@@ -88,7 +87,7 @@ static char **processar_flight_ids(const char *flight_str, size_t *out_count)
     }
 
     *out_count = count;
-    
+
     return ids;
 }
 
@@ -163,7 +162,6 @@ reserva_t *valida_reserva_from_csv(char **colunas)
         return NULL;
     }
 
-    
     reserva_t *r = reserva_criar(colunas[IDX_RES_ID],
                                  (const char **)flight_ids,
                                  num_flights,
@@ -251,4 +249,3 @@ void validar_reserva_imprimir_erros(GPtrArray *erros)
 
     g_ptr_array_free(erros, TRUE);
 }
-
