@@ -2,6 +2,8 @@
 com_erros/
 sem_erros/
 
+com_erros_grande/
+sem_erros_grande/
 # Ficheiros compilados
 *.o
 main
