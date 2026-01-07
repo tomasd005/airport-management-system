@@ -11,11 +11,19 @@
 
 static inline int usa_formato_alternativo(const char *cmd)
 {
-    while (*cmd && isspace(*cmd))
-        cmd++;
-    while (*cmd && isdigit(*cmd))
-        cmd++;
-    return (*cmd == 'S');
+    if (!cmd)
+        return 0;
+    const char *p = cmd;
+    while (*p && isspace(*p))
+        p++;
+    while (*p && isdigit(*p))
+        p++;
+    while (*p && isspace(*p))
+        p++;
+    // Só é formato alternativo se for 'S' SOZINHO seguido de espaço
+    if ((*p == 'S' || *p == 's') && (*(p + 1) == ' ' || *(p + 1) == '\t' || *(p + 1) == '\0'))
+        return 1;
+    return 0;
 }
 
 void query6(gestor_reservas_t *gestor_reservas,
@@ -25,7 +33,7 @@ void query6(gestor_reservas_t *gestor_reservas,
             const char *comando_completo,
             FILE *output)
 {
-    if (!gestor_reservas || !gestor_voos || !gestor_passageiros || !output || !nacionalidade)
+    if (!gestor_reservas || !gestor_voos || !gestor_passageiros || !output || !nacionalidade || !*nacionalidade)
     {
         fprintf(output, "\n");
         return;
@@ -56,17 +64,24 @@ void query6(gestor_reservas_t *gestor_reservas,
         for (guint j = 0; j < reservas_pass->len; j++)
         {
             reserva_t *r = g_ptr_array_index(reservas_pass, j);
-            size_t num_voos = reserva_obter_num_voos(r);
             const char **flight_ids = reserva_obter_flight_ids(r);
+            size_t num_voos = reserva_obter_num_voos(r);
 
             for (size_t k = 0; k < num_voos; k++)
             {
+                if (!flight_ids || !flight_ids[k])
+                    continue;
+
                 voo_t *v = gestor_voos_obter_por_id(gestor_voos, flight_ids[k]);
-                if (!v || strcmp(voo_obter_status(v), "Cancelled") == 0)
+                if (!v)
+                    continue;
+
+                const char *status = voo_obter_status(v);
+                if (status && strcmp(status, "Cancelled") == 0)
                     continue;
 
                 const char *dest = voo_obter_destination(v);
-                if (!dest)
+                if (!dest || !*dest)
                     continue;
 
                 guint *count = g_hash_table_lookup(destinos, dest);
@@ -100,7 +115,7 @@ void query6(gestor_reservas_t *gestor_reservas,
 
     while (g_hash_table_iter_next(&iter, &key, &value))
     {
-        const char *dest = key;
+        const char *dest = (const char *)key;
         guint count = *(guint *)value;
 
         if (count > melhor_count || (count == melhor_count && (!melhor_dest || strcmp(dest, melhor_dest) < 0)))

@@ -68,12 +68,23 @@ static void processar_query1(gestor_queries_t *g, const char *linha, FILE *outpu
         return;
     }
 
-    token = strtok(NULL, " \t\r\n");
+    token = strtok(NULL, " \t");
     if (!token)
     {
         fprintf(output, "\n");
         g_free(copia);
         return;
+    }
+
+    if (strcmp(token, "S") == 0 || strcmp(token, "s") == 0)
+    {
+        token = strtok(NULL, " \t\r\n");
+        if (!token)
+        {
+            fprintf(output, "\n");
+            g_free(copia);
+            return;
+        }
     }
 
     query1(g->aeroportos, g->voos, g->reservas, linha, token, output);
@@ -83,7 +94,8 @@ static void processar_query1(gestor_queries_t *g, const char *linha, FILE *outpu
 static void processar_query2(gestor_queries_t *g, const char *linha, FILE *output)
 {
     char *copia = g_strdup(linha);
-    char *token = strtok(copia, " \t");
+    char *saveptr = NULL;
+    char *token = strtok_r(copia, " \t", &saveptr);
     if (!token)
     {
         fprintf(output, "\n");
@@ -91,26 +103,41 @@ static void processar_query2(gestor_queries_t *g, const char *linha, FILE *outpu
         return;
     }
 
-    token = strtok(NULL, " \t");
+    token = strtok_r(NULL, " \t", &saveptr);
     if (!token)
     {
         fprintf(output, "\n");
         g_free(copia);
         return;
     }
+
+    if (strcmp(token, "S") == 0 || strcmp(token, "s") == 0)
+    {
+        token = strtok_r(NULL, " \t", &saveptr);
+        if (!token)
+        {
+            fprintf(output, "\n");
+            g_free(copia);
+            return;
+        }
+    }
+
     int N = atoi(token);
 
-    token = strtok(NULL, " \t\r\n");
-    const char *fabricante = token ? token : "";
+    const char *fabricante = saveptr ? saveptr : "";
+    char *fab_copy = g_strdup(fabricante);
+    fab_copy[strcspn(fab_copy, "\r\n")] = '\0';
 
-    query2(g->avioes, g->voos, N, fabricante, linha, output);
+    query2(g->avioes, g->voos, N, fab_copy, linha, output);
+    g_free(fab_copy);
     g_free(copia);
 }
 
 static void processar_query3(gestor_queries_t *g, const char *linha, FILE *output)
 {
     char *copia = g_strdup(linha);
-    char *token = strtok(copia, " \t");
+    char *saveptr = NULL;
+    char *token = strtok_r(copia, " \t", &saveptr);
     if (!token)
     {
         fprintf(output, "\n");
@@ -118,16 +145,28 @@ static void processar_query3(gestor_queries_t *g, const char *linha, FILE *outpu
         return;
     }
 
-    token = strtok(NULL, " \t");
+    token = strtok_r(NULL, " \t", &saveptr);
     if (!token)
     {
         fprintf(output, "\n");
         g_free(copia);
         return;
     }
+
+    if (strcmp(token, "S") == 0 || strcmp(token, "s") == 0)
+    {
+        token = strtok_r(NULL, " \t", &saveptr);
+        if (!token)
+        {
+            fprintf(output, "\n");
+            g_free(copia);
+            return;
+        }
+    }
+
     char *data_inicio = g_strdup(token);
 
-    token = strtok(NULL, " \t\r\n");
+    token = strtok_r(NULL, " \t\r\n", &saveptr);
     if (!token)
     {
         fprintf(output, "\n");
@@ -146,7 +185,8 @@ static void processar_query3(gestor_queries_t *g, const char *linha, FILE *outpu
 static void processar_query4(gestor_queries_t *g, const char *linha, FILE *output)
 {
     char *copia = g_strdup(linha);
-    char *token = strtok(copia, " \t");
+    char *saveptr = NULL;
+    char *token = strtok_r(copia, " \t", &saveptr);
     if (!token)
     {
         fprintf(output, "\n");
@@ -154,16 +194,28 @@ static void processar_query4(gestor_queries_t *g, const char *linha, FILE *outpu
         return;
     }
 
-    token = strtok(NULL, " \t");
+    token = strtok_r(NULL, " \t", &saveptr);
     if (!token)
     {
-        fprintf(output, "\n");
+        query4(g->reservas, g->voos, g->passageiros, NULL, NULL, linha, output);
         g_free(copia);
         return;
     }
+
+    if (strcmp(token, "S") == 0 || strcmp(token, "s") == 0)
+    {
+        token = strtok_r(NULL, " \t", &saveptr);
+        if (!token)
+        {
+            query4(g->reservas, g->voos, g->passageiros, NULL, NULL, linha, output);
+            g_free(copia);
+            return;
+        }
+    }
+
     char *data_inicio = g_strdup(token);
 
-    token = strtok(NULL, " \t\r\n");
+    token = strtok_r(NULL, " \t\r\n", &saveptr);
     if (!token)
     {
         fprintf(output, "\n");
@@ -182,7 +234,8 @@ static void processar_query4(gestor_queries_t *g, const char *linha, FILE *outpu
 static void processar_query5(gestor_queries_t *g, const char *linha, FILE *output)
 {
     char *copia = g_strdup(linha);
-    char *token = strtok(copia, " \t");
+    char *saveptr = NULL;
+    char *token = strtok_r(copia, " \t", &saveptr);
     if (!token)
     {
         fprintf(output, "\n");
@@ -190,13 +243,25 @@ static void processar_query5(gestor_queries_t *g, const char *linha, FILE *outpu
         return;
     }
 
-    token = strtok(NULL, " \t\r\n");
+    token = strtok_r(NULL, " \t", &saveptr);
     if (!token)
     {
         fprintf(output, "\n");
         g_free(copia);
         return;
     }
+
+    if (strcmp(token, "S") == 0 || strcmp(token, "s") == 0)
+    {
+        token = strtok_r(NULL, " \t\r\n", &saveptr);
+        if (!token)
+        {
+            fprintf(output, "\n");
+            g_free(copia);
+            return;
+        }
+    }
+
     int N = atoi(token);
 
     query5(g->voos, N, linha, output);
@@ -205,25 +270,33 @@ static void processar_query5(gestor_queries_t *g, const char *linha, FILE *outpu
 
 static void processar_query6(gestor_queries_t *g, const char *linha, FILE *output)
 {
-    char *copia = g_strdup(linha);
-    char *token = strtok(copia, " \t");
-    if (!token)
+    const char *p = linha;
+
+    while (*p && isspace(*p))
+        p++;
+    while (*p && isdigit(*p))
+        p++;
+    while (*p && isspace(*p))
+        p++;
+
+    if ((*p == 'S' || *p == 's') && (*(p + 1) == ' ' || *(p + 1) == '\t'))
+    {
+        p++;
+        while (*p && isspace(*p))
+            p++;
+    }
+
+    if (!*p)
     {
         fprintf(output, "\n");
-        g_free(copia);
         return;
     }
 
-    token = strtok(NULL, " \t\r\n");
-    if (!token)
-    {
-        fprintf(output, "\n");
-        g_free(copia);
-        return;
-    }
+    char *nacionalidade = g_strdup(p);
+    nacionalidade[strcspn(nacionalidade, "\r\n")] = '\0';
 
-    query6(g->reservas, g->voos, g->passageiros, token, linha, output);
-    g_free(copia);
+    query6(g->reservas, g->voos, g->passageiros, nacionalidade, linha, output);
+    g_free(nacionalidade);
 }
 
 void gestor_queries_processar_ficheiro(gestor_queries_t *gestor, const char *ficheiro_input)

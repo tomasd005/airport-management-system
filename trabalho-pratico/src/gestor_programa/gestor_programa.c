@@ -47,11 +47,7 @@ void gestor_programa_executa(GestorDePrograma *gestor, const char *pastaDados, c
     fprintf(stderr, "  Passageiros: %u\n", passageiros);
 
     snprintf(caminho, sizeof(caminho), "%s/reservations.csv", pastaDados);
-    gestor_reservas_carregar_com_validacao(
-        gestor->reservas,
-        caminho,
-        gestor->voos,
-        gestor->passageiros);
+    gestor_reservas_carregar(gestor->reservas, caminho);
     unsigned int reservas = gestor_reservas_numero(gestor->reservas);
     fprintf(stderr, "  Reservas: %u\n", reservas);
 
