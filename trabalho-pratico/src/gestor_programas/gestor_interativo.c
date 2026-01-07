@@ -123,6 +123,10 @@ static void carregar_dataset(gestor_interativo_t *gestor, const char *pasta)
         gestor->reservas, caminho,
         gestor->voos, gestor->passageiros);
 
+    gestor_reservas_finalizar(gestor->reservas);
+    gestor_voos_atualizar_contagens_aeroportos(gestor->voos, gestor->aeroportos);
+    gestor_voos_preparar_q3(gestor->voos);
+
     gestor->dados_carregados = 1;
 
     printf(GREEN "\n✓ Dataset carregado com sucesso!\n" RESET);

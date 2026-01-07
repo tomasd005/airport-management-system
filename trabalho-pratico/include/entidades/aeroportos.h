@@ -17,5 +17,9 @@ double aeroporto_obter_latitude(const aeroporto_t *a);
 double aeroporto_obter_longitude(const aeroporto_t *a);
 const char *aeroporto_obter_icao(const aeroporto_t *a);
 const char *aeroporto_obter_tipo(const aeroporto_t *a);
+int aeroporto_obter_partidas(const aeroporto_t *a);
+int aeroporto_obter_chegadas(const aeroporto_t *a);
+void aeroporto_incrementar_partidas(aeroporto_t *a, int delta);
+void aeroporto_incrementar_chegadas(aeroporto_t *a, int delta);
 
 #endif

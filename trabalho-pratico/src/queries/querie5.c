@@ -1,5 +1,4 @@
 #include "../../include/queries/querie5.h"
-#include "../../include/entidades/voos.h"
 #include <glib.h>
 #include <string.h>
 #include <ctype.h>
@@ -16,72 +15,10 @@ static inline int usa_formato_alternativo(const char *cmd)
 
 typedef struct
 {
-    guint count;
-    double total_delay;
-} InfoCompanhia;
-
-typedef struct
-{
     char *airline;
     guint count;
     double avg_delay;
 } ResultadoQ5;
-
-static GHashTable *mapa_cache = NULL;
-
-static void liberar_cache_q5(void)
-{
-    if (mapa_cache)
-    {
-        g_hash_table_destroy(mapa_cache);
-        mapa_cache = NULL;
-    }
-}
-
-static void acumular_atraso(voo_t *voo, void *user_data)
-{
-    GHashTable *mapa = user_data;
-
-    if (strcmp(voo_obter_status(voo), "Delayed") != 0)
-        return;
-
-    const char *airline = voo_obter_airline(voo);
-    if (!airline || !airline[0])
-        return;
-
-    const char *dep = voo_obter_departure(voo);
-    const char *act_dep = voo_obter_actual_departure(voo);
-    if (!dep || !act_dep || strcmp(act_dep, "N/A") == 0)
-        return;
-
-    double atraso = voo_calcular_atraso_minutos(voo);
-    if (atraso < 0.0)
-        return;
-
-    InfoCompanhia *info = g_hash_table_lookup(mapa, airline);
-    if (info)
-    {
-        info->count++;
-        info->total_delay += atraso;
-    }
-    else
-    {
-        InfoCompanhia *novo = g_new(InfoCompanhia, 1);
-        novo->count = 1;
-        novo->total_delay = atraso;
-        g_hash_table_insert(mapa, g_strdup(airline), novo);
-    }
-}
-
-static void preparar_cache_q5(gestor_voos_t *gestor_voos)
-{
-    if (mapa_cache)
-        return;
-
-    mapa_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
-    gestor_voos_para_cada(gestor_voos, acumular_atraso, mapa_cache);
-    atexit(liberar_cache_q5);
-}
 
 static gint cmp_q5(gconstpointer a, gconstpointer b)
 {
@@ -96,6 +33,24 @@ static gint cmp_q5(gconstpointer a, gconstpointer b)
     return strcmp(ra->airline, rb->airline);
 }
 
+typedef struct
+{
+    GArray *res;
+} Q5Contexto;
+
+static void adicionar_resultado_q5(const char *airline, guint count, double total_delay, void *user_data)
+{
+    Q5Contexto *ctx = user_data;
+    if (!ctx || !airline || !*airline || count == 0)
+        return;
+
+    ResultadoQ5 r = {
+        .airline = g_strdup(airline),
+        .count = count,
+        .avg_delay = total_delay / count};
+    g_array_append_val(ctx->res, r);
+}
+
 void query5(gestor_voos_t *gestor_voos, int N, const char *comando_completo, FILE *output)
 {
     if (!gestor_voos || !output || N <= 0)
@@ -106,28 +61,15 @@ void query5(gestor_voos_t *gestor_voos, int N, const char *comando_completo, FIL
 
     const char *sep = usa_formato_alternativo(comando_completo) ? "=" : ";";
 
-    preparar_cache_q5(gestor_voos);
+    GArray *res = g_array_new(FALSE, FALSE, sizeof(ResultadoQ5));
+    Q5Contexto ctx = {.res = res};
+    gestor_voos_para_cada_atraso(gestor_voos, adicionar_resultado_q5, &ctx);
 
-    if (g_hash_table_size(mapa_cache) == 0)
+    if (res->len == 0)
     {
         fprintf(output, "\n");
+        g_array_free(res, TRUE);
         return;
-    }
-
-    GArray *res = g_array_sized_new(FALSE, FALSE, sizeof(ResultadoQ5), g_hash_table_size(mapa_cache));
-
-    GHashTableIter it;
-    gpointer k, v;
-    g_hash_table_iter_init(&it, mapa_cache);
-
-    while (g_hash_table_iter_next(&it, &k, &v))
-    {
-        InfoCompanhia *info = v;
-        ResultadoQ5 r = {
-            .airline = g_strdup(k),
-            .count = info->count,
-            .avg_delay = info->total_delay / info->count};
-        g_array_append_val(res, r);
     }
 
     g_array_sort(res, cmp_q5);
