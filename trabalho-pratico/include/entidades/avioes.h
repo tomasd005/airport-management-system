@@ -15,5 +15,7 @@ const char *aviao_obter_modelo(const aviao_t *a);
 int aviao_obter_ano(const aviao_t *a);
 int aviao_obter_capacidade(const aviao_t *a);
 int aviao_obter_alcance_km(const aviao_t *a);
+int aviao_obter_contagem_voos(const aviao_t *a);
+void aviao_incrementar_contagem_voos(aviao_t *a, int delta);
 
 #endif

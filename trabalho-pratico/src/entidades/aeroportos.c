@@ -10,6 +10,8 @@ struct aeroporto
     char *cidade;
     char *pais;
     char *tipo;
+    int partidas;
+    int chegadas;
 };
 
 aeroporto_t *aeroporto_criar(const char *codigo, const char *nome, const char *cidade,
@@ -28,6 +30,8 @@ aeroporto_t *aeroporto_criar(const char *codigo, const char *nome, const char *c
     a->cidade = g_strdup(cidade);
     a->pais = g_strdup(pais);
     a->tipo = g_strdup(tipo);
+    a->partidas = 0;
+    a->chegadas = 0;
 
     if (!a->codigo || !a->nome || !a->cidade || !a->pais || !a->tipo)
     {
@@ -89,4 +93,28 @@ const char *aeroporto_obter_icao(const aeroporto_t *a)
 const char *aeroporto_obter_tipo(const aeroporto_t *a)
 {
     return a ? a->tipo : NULL;
+}
+
+int aeroporto_obter_partidas(const aeroporto_t *a)
+{
+    return a ? a->partidas : 0;
+}
+
+int aeroporto_obter_chegadas(const aeroporto_t *a)
+{
+    return a ? a->chegadas : 0;
+}
+
+void aeroporto_incrementar_partidas(aeroporto_t *a, int delta)
+{
+    if (!a)
+        return;
+    a->partidas += delta;
+}
+
+void aeroporto_incrementar_chegadas(aeroporto_t *a, int delta)
+{
+    if (!a)
+        return;
+    a->chegadas += delta;
 }

@@ -2,6 +2,8 @@
 #define QUERY1_H
 
 #include "../gestores/gestor_aeroportos.h"
+#include "../gestores/gestor_voos.h"
+#include "../gestores/gestor_reservas.h"
 #include <stdio.h>
 
 void query1(gestor_aeroportos_t *gestor_aeroportos,
