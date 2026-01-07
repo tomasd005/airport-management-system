@@ -46,19 +46,43 @@ static void grava_erro(char **colunas)
     fputc('\n', fp);
 }
 
+static gboolean validacao_flight_id_strict(const char *str)
+{
+    if (!str || contem_espacos(str))
+        return FALSE;
+
+    size_t len = strlen(str);
+    if (len < 7 || len > 9)
+        return FALSE;
+
+    if (!isupper(str[0]) || !isupper(str[1]))
+        return FALSE;
+
+    for (size_t i = 2; i < len; i++)
+        if (!isdigit(str[i]))
+            return FALSE;
+
+    return TRUE;
+}
+
 voo_t *valida_voo(char **colunas)
 {
     if (!colunas || !colunas[IDX_ID])
         return NULL;
 
     for (int i = 0; i <= IDX_URL; i++)
-    {
         if (colunas[i])
-        {
             utils_remove_aspas_somente(colunas[i]);
-            utils_trim(colunas[i]);
-        }
+
+    if (!colunas[IDX_ID] || !validacao_flight_id_strict(colunas[IDX_ID]))
+    {
+        grava_erro(colunas);
+        return NULL;
     }
+
+    for (int i = 0; i <= IDX_URL; i++)
+        if (colunas[i])
+            utils_trim(colunas[i]);
 
     if (!*colunas[IDX_ID] || !*colunas[IDX_ORIG] || !*colunas[IDX_DEST] ||
         !*colunas[IDX_AIR] || !*colunas[IDX_STATUS] || !*colunas[IDX_DEP] || !*colunas[IDX_ARR])
@@ -67,8 +91,7 @@ voo_t *valida_voo(char **colunas)
         return NULL;
     }
 
-    if (!validacao_flight_id(colunas[IDX_ID]) ||
-        strlen(colunas[IDX_ORIG]) != 3 || strlen(colunas[IDX_DEST]) != 3 ||
+    if (strlen(colunas[IDX_ORIG]) != 3 || strlen(colunas[IDX_DEST]) != 3 ||
         !isupper(colunas[IDX_ORIG][0]) || !isupper(colunas[IDX_ORIG][1]) || !isupper(colunas[IDX_ORIG][2]) ||
         !isupper(colunas[IDX_DEST][0]) || !isupper(colunas[IDX_DEST][1]) || !isupper(colunas[IDX_DEST][2]) ||
         strcmp(colunas[IDX_ORIG], colunas[IDX_DEST]) == 0 ||
