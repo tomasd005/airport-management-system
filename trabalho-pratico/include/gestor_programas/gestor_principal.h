@@ -1,12 +1,6 @@
 #ifndef GESTOR_PRINCIPAL_H
 #define GESTOR_PRINCIPAL_H
 
-#include "gestores/gestor_aeroportos.h"
-#include "gestores/gestor_avioes.h"
-#include "gestores/gestor_voos.h"
-#include "gestores/gestor_passageiros.h"
-#include "gestores/gestor_reservas.h"
-
 /**
  * @brief Estrutura opaca para o gestor do programa principal
  */

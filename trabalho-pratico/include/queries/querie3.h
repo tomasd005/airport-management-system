@@ -2,8 +2,9 @@
 #define QUERIE3_H
 
 #include <stdio.h>
-#include "../../include/gestores/gestor_aeroportos.h"
-#include "../../include/gestores/gestor_voos.h"
+
+typedef struct gestor_aeroportos gestor_aeroportos_t;
+typedef struct gestor_voos gestor_voos_t;
 
 void query3(gestor_aeroportos_t *gestor_aeroportos,
             gestor_voos_t *gestor_voos,

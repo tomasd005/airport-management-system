@@ -112,7 +112,7 @@ gboolean validacao_datetime(const char *str)
     char data[11];
     memcpy(data, str, 10);
     data[10] = '\0';
-    if (!validacao_data(data))
+    if (!validacao_data_passado(data))
         return FALSE;
 
     int h = (str[11] - '0') * 10 + (str[12] - '0');

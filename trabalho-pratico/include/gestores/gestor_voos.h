@@ -2,11 +2,11 @@
 #define GESTOR_VOOS_H
 
 #include "../entidades/voos.h"
-#include "../gestores/gestor_avioes.h"
-#include "../gestores/gestor_aeroportos.h"
 #include <glib.h>
 
 typedef struct gestor_voos gestor_voos_t;
+typedef struct gestor_avioes gestor_avioes_t;
+typedef struct gestor_aeroportos gestor_aeroportos_t;
 
 typedef struct
 {

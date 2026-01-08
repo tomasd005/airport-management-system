@@ -1,7 +1,22 @@
 #include "gestor_programa.h"
 #include "gestor_queries.h"
+#include "gestores/gestor_aeroportos.h"
+#include "gestores/gestor_avioes.h"
+#include "gestores/gestor_voos.h"
+#include "gestores/gestor_passageiros.h"
+#include "gestores/gestor_reservas.h"
 #include <stdio.h>
 #include <sys/stat.h>
+
+struct gestor_programa
+{
+    gestor_aeroportos_t *aeroportos;
+    gestor_avioes_t *avioes;
+    gestor_voos_t *voos;
+    gestor_passageiros_t *passageiros;
+    gestor_reservas_t *reservas;
+    gboolean modoEconomiaMemoria;
+};
 
 GestorDePrograma *gestor_programa_novo(gboolean modoEconomiaMemoria)
 {
