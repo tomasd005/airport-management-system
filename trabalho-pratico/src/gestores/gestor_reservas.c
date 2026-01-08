@@ -4,11 +4,12 @@
 #include "parsers/parser.h"
 #include "validacoes/validacao_reservas.h"
 #include "entidades/passageiros.h"
-#include "entidades/reservas.h"
 #include "entidades/voos.h"
+#include "utils.h"
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 typedef struct
 {
@@ -21,6 +22,9 @@ typedef struct
     const char *doc;
     double total;
 } gasto_t;
+
+#define MAX_COLUNAS_RESERVAS 16
+#define RESERVA_COLS 8
 
 struct gestor_reservas
 {
@@ -74,16 +78,14 @@ unsigned int gestor_reservas_numero(gestor_reservas_t *gestor)
 }
 
 static void acumular_gastos_semana(gestor_reservas_t *gestor,
-                                   reserva_t *r,
+                                   const char *doc,
+                                   double preco,
+                                   const char **flight_ids,
+                                   size_t num_voos,
                                    gestor_voos_t *gestor_voos,
                                    gestor_passageiros_t *gestor_passageiros)
 {
-    if (!gestor || !r || !gestor_voos || !gestor_passageiros)
-        return;
-
-    const char **flight_ids = reserva_obter_flight_ids(r);
-    size_t num_voos = reserva_obter_num_voos(r);
-    if (!flight_ids || num_voos == 0)
+    if (!gestor || !doc || !flight_ids || num_voos == 0 || !gestor_voos || !gestor_passageiros)
         return;
 
     voo_t *voo = gestor_voos_obter_por_id(gestor_voos, flight_ids[0]);
@@ -101,12 +103,10 @@ static void acumular_gastos_semana(gestor_reservas_t *gestor,
         g_hash_table_insert(gestor->gastos_por_semana, GINT_TO_POINTER(semana), gastos);
     }
 
-    const char *doc = reserva_obter_document_number(r);
     passageiro_t *p = doc ? gestor_passageiros_obter_por_documento(gestor_passageiros, doc) : NULL;
     const char *doc_estavel = p ? passageiro_obter_document_number(p) : NULL;
     if (!doc_estavel)
         return;
-    double preco = reserva_obter_preco(r);
 
     double *total = g_hash_table_lookup(gastos, doc_estavel);
     if (total)
@@ -119,12 +119,16 @@ static void acumular_gastos_semana(gestor_reservas_t *gestor,
     }
 }
 
-static void acumular_destinos_nacionalidade(gestor_reservas_t *gestor, reserva_t *r, gestor_voos_t *gestor_voos, gestor_passageiros_t *gestor_passageiros)
+static void acumular_destinos_nacionalidade(gestor_reservas_t *gestor,
+                                            const char *doc,
+                                            const char **flight_ids,
+                                            size_t num_voos,
+                                            gestor_voos_t *gestor_voos,
+                                            gestor_passageiros_t *gestor_passageiros)
 {
-    if (!gestor || !r || !gestor_voos || !gestor_passageiros)
+    if (!gestor || !doc || !flight_ids || num_voos == 0 || !gestor_voos || !gestor_passageiros)
         return;
 
-    const char *doc = reserva_obter_document_number(r);
     passageiro_t *p = gestor_passageiros_obter_por_documento(gestor_passageiros, doc);
     if (!p)
         return;
@@ -139,11 +143,6 @@ static void acumular_destinos_nacionalidade(gestor_reservas_t *gestor, reserva_t
         destinos = criar_mapa_destinos();
         g_hash_table_insert(gestor->destinos_por_nacionalidade, (gpointer)nac, destinos);
     }
-
-    const char **flight_ids = reserva_obter_flight_ids(r);
-    size_t num_voos = reserva_obter_num_voos(r);
-    if (!flight_ids || num_voos == 0)
-        return;
 
     for (size_t i = 0; i < num_voos; i++)
     {
@@ -173,14 +172,9 @@ static void acumular_destinos_nacionalidade(gestor_reservas_t *gestor, reserva_t
     }
 }
 
-static void acumular_passageiros_voos(gestor_voos_t *gestor_voos, reserva_t *r)
+static void acumular_passageiros_voos(gestor_voos_t *gestor_voos, const char **flight_ids, size_t num_voos)
 {
-    if (!gestor_voos || !r)
-        return;
-
-    const char **flight_ids = reserva_obter_flight_ids(r);
-    size_t num_voos = reserva_obter_num_voos(r);
-    if (!flight_ids || num_voos == 0)
+    if (!gestor_voos || !flight_ids || num_voos == 0)
         return;
 
     for (size_t i = 0; i < num_voos; i++)
@@ -194,23 +188,14 @@ static void acumular_passageiros_voos(gestor_voos_t *gestor_voos, reserva_t *r)
     }
 }
 
-typedef struct
+static gboolean reserva_valida_logica_view(const char **flight_ids,
+                                           size_t num_voos,
+                                           const char *document_number,
+                                           gestor_voos_t *gestor_voos,
+                                           gestor_passageiros_t *gestor_passageiros)
 {
-    gestor_reservas_t *gestor_reservas;
-    gestor_voos_t *gestor_voos;
-    gestor_passageiros_t *gestor_passageiros;
-} contexto_reservas_validacao_t;
-
-static gboolean reserva_valida_logica(reserva_t *reserva,
-                                      gestor_voos_t *gestor_voos,
-                                      gestor_passageiros_t *gestor_passageiros)
-{
-    if (!reserva)
+    if (!flight_ids || num_voos == 0)
         return FALSE;
-
-    const char **flight_ids = reserva_obter_flight_ids(reserva);
-    size_t num_voos = reserva_obter_num_voos(reserva);
-    const char *doc = reserva_obter_document_number(reserva);
 
     voo_t *voo1 = NULL;
     voo_t *voo2 = NULL;
@@ -219,7 +204,7 @@ static gboolean reserva_valida_logica(reserva_t *reserva,
     {
         for (size_t i = 0; i < num_voos; i++)
         {
-            const char *fid = (flight_ids ? flight_ids[i] : NULL);
+            const char *fid = flight_ids[i];
             if (!fid)
                 return FALSE;
 
@@ -234,9 +219,9 @@ static gboolean reserva_valida_logica(reserva_t *reserva,
         }
     }
 
-    if (gestor_passageiros && doc)
+    if (gestor_passageiros && document_number)
     {
-        if (!gestor_passageiros_obter_por_documento(gestor_passageiros, doc))
+        if (!gestor_passageiros_obter_por_documento(gestor_passageiros, document_number))
             return FALSE;
     }
 
@@ -251,29 +236,6 @@ static gboolean reserva_valida_logica(reserva_t *reserva,
     return TRUE;
 }
 
-static gboolean _adiciona_reserva_validada(void *contexto, void *objeto)
-{
-    contexto_reservas_validacao_t *ctx = contexto;
-    reserva_t *reserva = objeto;
-
-    if (!reserva_valida_logica(reserva, ctx->gestor_voos, ctx->gestor_passageiros))
-        return FALSE;
-
-    ctx->gestor_reservas->total_reservas++;
-
-    acumular_passageiros_voos(ctx->gestor_voos, reserva);
-    acumular_gastos_semana(ctx->gestor_reservas, reserva, ctx->gestor_voos, ctx->gestor_passageiros);
-    acumular_destinos_nacionalidade(ctx->gestor_reservas, reserva, ctx->gestor_voos, ctx->gestor_passageiros);
-
-    reserva_destruir(reserva);
-    return TRUE;
-}
-
-static reserva_t *_criar_reserva_de_campos(char **campos)
-{
-    return campos ? valida_reserva_from_csv(campos) : NULL;
-}
-
 void gestor_reservas_carregar_com_validacao(
     gestor_reservas_t *gestor,
     const char *ficheiro_csv,
@@ -283,13 +245,82 @@ void gestor_reservas_carregar_com_validacao(
     if (!gestor || !ficheiro_csv)
         return;
 
-    contexto_reservas_validacao_t ctx = {
-        .gestor_reservas = gestor,
-        .gestor_voos = gestor_voos,
-        .gestor_passageiros = gestor_passageiros};
+    FILE *ficheiro = fopen(ficheiro_csv, "r");
+    if (!ficheiro)
+    {
+        perror("Erro ao abrir ficheiro CSV");
+        return;
+    }
+    setvbuf(ficheiro, NULL, _IOFBF, 1 << 20);
 
-    parser_carrega(&ctx, ficheiro_csv, _adiciona_reserva_validada,
-                   (LinhaParaObjeto)_criar_reserva_de_campos, (DestroiObjeto)reserva_destruir);
+    char *nome_base = utils_obtem_nome_ficheiro(ficheiro_csv);
+    char *caminho_erros = g_strdup_printf("resultados/%s_errors.csv", nome_base);
+    g_free(nome_base);
+
+    FILE *ficheiro_erros = fopen(caminho_erros, "w");
+    g_free(caminho_erros);
+    if (ficheiro_erros)
+        setvbuf(ficheiro_erros, NULL, _IOFBF, 1 << 20);
+
+    char *linha = NULL;
+    size_t tamanho = 0;
+    char *linha_parse = NULL;
+    size_t tamanho_parse = 0;
+    ssize_t lidos;
+
+    if ((lidos = getline(&linha, &tamanho, ficheiro)) != -1)
+    {
+        if (ficheiro_erros)
+            fprintf(ficheiro_erros, "%s", linha);
+    }
+
+    while ((lidos = getline(&linha, &tamanho, ficheiro)) != -1)
+    {
+        size_t necessario = (size_t)lidos + 1;
+        if (necessario > tamanho_parse)
+        {
+            char *novo = realloc(linha_parse, necessario);
+            if (!novo)
+                break;
+            linha_parse = novo;
+            tamanho_parse = necessario;
+        }
+        memcpy(linha_parse, linha, necessario);
+
+        char *colunas[MAX_COLUNAS_RESERVAS + 1];
+        int numColunas = parser_dividir_csv(linha_parse, colunas, MAX_COLUNAS_RESERVAS);
+        if (numColunas < RESERVA_COLS)
+        {
+            if (ficheiro_erros)
+                fprintf(ficheiro_erros, "%s", linha);
+            continue;
+        }
+
+        const char *flight_ids[2] = {0};
+        size_t num_voos = 0;
+        const char *document_number = NULL;
+        double preco = 0.0;
+        if (!valida_reserva_campos(colunas, flight_ids, &num_voos, &document_number, &preco) ||
+            !reserva_valida_logica_view(flight_ids, num_voos, document_number, gestor_voos, gestor_passageiros))
+        {
+            if (ficheiro_erros)
+                fprintf(ficheiro_erros, "%s", linha);
+            continue;
+        }
+
+        gestor->total_reservas++;
+        acumular_passageiros_voos(gestor_voos, flight_ids, num_voos);
+        acumular_gastos_semana(gestor, document_number, preco, flight_ids, num_voos,
+                               gestor_voos, gestor_passageiros);
+        acumular_destinos_nacionalidade(gestor, document_number, flight_ids, num_voos,
+                                        gestor_voos, gestor_passageiros);
+    }
+
+    free(linha_parse);
+    free(linha);
+    fclose(ficheiro);
+    if (ficheiro_erros)
+        fclose(ficheiro_erros);
 }
 
 static gint cmp_gastos(gconstpointer a, gconstpointer b)

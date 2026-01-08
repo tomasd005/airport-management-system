@@ -10,6 +10,8 @@ typedef gboolean (*AdicionaObjeto)(void *contexto, gpointer objeto);
 
 typedef void (*DestroiObjeto)(gpointer objeto);
 
+int parser_dividir_csv(char *linha, char **colunas, int max_colunas);
+
 void parser_carrega(void *contexto,
                     const char *ficheiro_csv,
                     AdicionaObjeto adiciona_objeto,

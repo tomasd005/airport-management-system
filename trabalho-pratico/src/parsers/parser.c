@@ -9,6 +9,43 @@
 
 #define MAX_COLUNAS 100
 
+int parser_dividir_csv(char *linha, char **colunas, int max_colunas)
+{
+    if (!linha || !colunas || max_colunas <= 0)
+        return 0;
+
+    int numColunas = 0;
+    char *campo_inicio = linha;
+    int dentro_aspas = 0;
+
+    for (char *p = linha; *p; p++)
+    {
+        if (*p == '"')
+            dentro_aspas = !dentro_aspas;
+        else if (*p == ',' && !dentro_aspas)
+        {
+            *p = '\0';
+            colunas[numColunas++] = campo_inicio;
+            campo_inicio = p + 1;
+            if (numColunas >= max_colunas)
+                break;
+        }
+    }
+
+    if (numColunas < max_colunas)
+    {
+        char *nl = strchr(campo_inicio, '\n');
+        if (nl)
+            *nl = '\0';
+        nl = strchr(campo_inicio, '\r');
+        if (nl)
+            *nl = '\0';
+        colunas[numColunas++] = campo_inicio;
+    }
+    colunas[numColunas] = NULL;
+    return numColunas;
+}
+
 void parser_carrega(void *contexto,
                     const char *ficheiro_csv,
                     AdicionaObjeto adiciona_objeto,
@@ -21,6 +58,7 @@ void parser_carrega(void *contexto,
         perror("Erro ao abrir ficheiro CSV");
         return;
     }
+    setvbuf(ficheiro, NULL, _IOFBF, 1 << 20);
 
     char *nome_base = utils_obtem_nome_ficheiro(ficheiro_csv);
     char *caminho_erros = g_strdup_printf("resultados/%s_errors.csv", nome_base);
@@ -28,6 +66,8 @@ void parser_carrega(void *contexto,
 
     FILE *ficheiro_erros = fopen(caminho_erros, "w");
     g_free(caminho_erros);
+    if (ficheiro_erros)
+        setvbuf(ficheiro_erros, NULL, _IOFBF, 1 << 20);
 
     char *linha = NULL;
     size_t tamanho = 0;
@@ -54,36 +94,13 @@ void parser_carrega(void *contexto,
         }
         memcpy(linha_parse, linha, necessario);
         char *colunas[MAX_COLUNAS + 1];
-        int numColunas = 0;
-
-        char *campo_inicio = linha_parse;
-        int dentro_aspas = 0;
-
-        for (char *p = linha_parse; *p; p++)
+        int numColunas = parser_dividir_csv(linha_parse, colunas, MAX_COLUNAS);
+        if (numColunas <= 0)
         {
-            if (*p == '"')
-                dentro_aspas = !dentro_aspas;
-            else if (*p == ',' && !dentro_aspas)
-            {
-                *p = '\0';
-                colunas[numColunas++] = campo_inicio;
-                campo_inicio = p + 1;
-                if (numColunas >= MAX_COLUNAS)
-                    break;
-            }
+            if (ficheiro_erros)
+                fprintf(ficheiro_erros, "%s", linha);
+            continue;
         }
-
-        if (numColunas < MAX_COLUNAS)
-        {
-            char *nl = strchr(campo_inicio, '\n');
-            if (nl)
-                *nl = '\0';
-            nl = strchr(campo_inicio, '\r');
-            if (nl)
-                *nl = '\0';
-            colunas[numColunas++] = campo_inicio;
-        }
-        colunas[numColunas] = NULL;
 
         gpointer objeto = linha_para_objeto(colunas);
 
