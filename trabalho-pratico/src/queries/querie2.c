@@ -8,9 +8,9 @@
 
 typedef struct
 {
-    char *id;
-    char *fabricante;
-    char *modelo;
+    const char *id;
+    const char *fabricante;
+    const char *modelo;
     guint count;
 } ContadorVoos;
 
@@ -57,10 +57,11 @@ static void processar_aviao(aviao_t *aviao, gpointer user_data)
     if (cnt <= 0)
         return;
 
+    const char *modelo = aviao_obter_modelo(aviao);
     ContadorVoos c = {
-        .id = g_strdup(id),
-        .fabricante = fabricante ? g_strdup(fabricante) : g_strdup(""),
-        .modelo = aviao_obter_modelo(aviao) ? g_strdup(aviao_obter_modelo(aviao)) : g_strdup(""),
+        .id = id,
+        .fabricante = fabricante ? fabricante : "",
+        .modelo = modelo ? modelo : "",
         .count = (guint)cnt};
     g_array_append_val(resultados, c);
 }
@@ -108,12 +109,5 @@ void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
         }
     }
 
-    for (guint i = 0; i < resultados->len; i++)
-    {
-        ContadorVoos *c = &g_array_index(resultados, ContadorVoos, i);
-        g_free(c->id);
-        g_free(c->fabricante);
-        g_free(c->modelo);
-    }
     g_array_free(resultados, TRUE);
 }

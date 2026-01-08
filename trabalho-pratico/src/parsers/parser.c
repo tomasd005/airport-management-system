@@ -9,24 +9,6 @@
 
 #define MAX_COLUNAS 100
 
-// ═══════════════════════════════════════════════════
-// FUNÇÃO PARA REMOVER ASPAS DOS CAMPOS CSV
-// ═══════════════════════════════════════════════════
-static void remove_aspas(char *str)
-{
-    if (!str)
-        return;
-
-    size_t len = strlen(str);
-
-    // Se string começa e termina com aspas, remove-as
-    if (len >= 2 && str[0] == '"' && str[len - 1] == '"')
-    {
-        str[len - 1] = '\0';            // Remove aspa do fim
-        memmove(str, str + 1, len - 1); // Move tudo 1 posição à esquerda
-    }
-}
-
 void parser_carrega(void *contexto,
                     const char *ficheiro_csv,
                     AdicionaObjeto adiciona_objeto,
@@ -49,6 +31,8 @@ void parser_carrega(void *contexto,
 
     char *linha = NULL;
     size_t tamanho = 0;
+    char *linha_parse = NULL;
+    size_t tamanho_parse = 0;
     ssize_t lidos;
 
     if ((lidos = getline(&linha, &tamanho, ficheiro)) != -1)
@@ -59,14 +43,23 @@ void parser_carrega(void *contexto,
 
     while ((lidos = getline(&linha, &tamanho, ficheiro)) != -1)
     {
-        char *linha_original = g_strdup(linha);
+        size_t necessario = (size_t)lidos + 1;
+        if (necessario > tamanho_parse)
+        {
+            char *novo = realloc(linha_parse, necessario);
+            if (!novo)
+                break;
+            linha_parse = novo;
+            tamanho_parse = necessario;
+        }
+        memcpy(linha_parse, linha, necessario);
         char *colunas[MAX_COLUNAS + 1];
         int numColunas = 0;
 
-        char *campo_inicio = linha;
+        char *campo_inicio = linha_parse;
         int dentro_aspas = 0;
 
-        for (char *p = linha; *p; p++)
+        for (char *p = linha_parse; *p; p++)
         {
             if (*p == '"')
                 dentro_aspas = !dentro_aspas;
@@ -92,15 +85,12 @@ void parser_carrega(void *contexto,
         }
         colunas[numColunas] = NULL;
 
-        for (int i = 0; i < numColunas; i++)
-            remove_aspas(colunas[i]);
-
         gpointer objeto = linha_para_objeto(colunas);
 
         if (objeto == NULL)
         {
             if (ficheiro_erros)
-                fprintf(ficheiro_erros, "%s", linha_original);
+                fprintf(ficheiro_erros, "%s", linha);
         }
         else if (adiciona_objeto(contexto, objeto))
         {
@@ -108,13 +98,12 @@ void parser_carrega(void *contexto,
         else
         {
             if (ficheiro_erros)
-                fprintf(ficheiro_erros, "%s", linha_original);
+                fprintf(ficheiro_erros, "%s", linha);
             destroi_objeto(objeto);
         }
-
-        g_free(linha_original);
     }
 
+    free(linha_parse);
     free(linha);
     fclose(ficheiro);
     if (ficheiro_erros)
