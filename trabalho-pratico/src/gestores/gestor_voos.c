@@ -18,6 +18,7 @@ struct gestor_voos
     int q3_max_day;
     int q3_range;
     GHashTable *atrasos_airline;
+    GArray *q5_cache;
 };
 
 typedef struct
@@ -25,6 +26,34 @@ typedef struct
     guint count;
     double total_delay;
 } atraso_airline_t;
+
+static gint q5_cache_cmp(gconstpointer a, gconstpointer b)
+{
+    const gestor_voos_q5_t *ra = a;
+    const gestor_voos_q5_t *rb = b;
+
+    double diff = ra->avg_delay - rb->avg_delay;
+    if (diff > 1e-9)
+        return -1;
+    if (diff < -1e-9)
+        return 1;
+
+    return strcmp(ra->airline, rb->airline);
+}
+
+static void q5_cache_destruir(GArray *cache)
+{
+    if (!cache)
+        return;
+
+    for (guint i = 0; i < cache->len; i++)
+    {
+        gestor_voos_q5_t *item = &g_array_index(cache, gestor_voos_q5_t, i);
+        g_free(item->airline);
+    }
+
+    g_array_free(cache, TRUE);
+}
 
 static void contagens_origem_destruir(gpointer data)
 {
@@ -40,6 +69,7 @@ gestor_voos_t *gestor_voos_criar(void)
     g->q3_max_day = INT_MIN;
     g->q3_range = 0;
     g->atrasos_airline = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+    g->q5_cache = NULL;
     return g;
 }
 
@@ -49,6 +79,8 @@ void gestor_voos_destruir(gestor_voos_t *gestor)
         return;
     if (gestor->q3_contagens)
         g_hash_table_destroy(gestor->q3_contagens);
+    if (gestor->q5_cache)
+        q5_cache_destruir(gestor->q5_cache);
     g_hash_table_destroy(gestor->atrasos_airline);
     g_hash_table_destroy(gestor->tabela);
     voo_intern_pool_destruir();
@@ -300,6 +332,39 @@ void gestor_voos_para_cada_atraso(gestor_voos_t *gestor, void (*callback)(const 
         atraso_airline_t *stats = value;
         callback(airline, stats->count, stats->total_delay, user_data);
     }
+}
+
+const GArray *gestor_voos_obter_q5_cache(gestor_voos_t *gestor)
+{
+    if (!gestor)
+        return NULL;
+
+    if (gestor->q5_cache)
+        return gestor->q5_cache;
+
+    GArray *cache = g_array_new(FALSE, FALSE, sizeof(gestor_voos_q5_t));
+
+    GHashTableIter iter;
+    gpointer key, value;
+    g_hash_table_iter_init(&iter, gestor->atrasos_airline);
+
+    while (g_hash_table_iter_next(&iter, &key, &value))
+    {
+        const char *airline = key;
+        atraso_airline_t *stats = value;
+        if (!airline || !*airline || !stats || stats->count == 0)
+            continue;
+
+        gestor_voos_q5_t item = {
+            .airline = g_strdup(airline),
+            .count = stats->count,
+            .avg_delay = stats->total_delay / stats->count};
+        g_array_append_val(cache, item);
+    }
+
+    g_array_sort(cache, q5_cache_cmp);
+    gestor->q5_cache = cache;
+    return gestor->q5_cache;
 }
 
 void gestor_voos_atualizar_contagens_aeroportos(gestor_voos_t *gestor_voos, gestor_aeroportos_t *gestor_aeroportos)
