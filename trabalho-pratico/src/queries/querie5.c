@@ -1,4 +1,5 @@
 #include "../../include/queries/querie5.h"
+#include "../../include/gestores/gestor_voos.h"
 #include <glib.h>
 #include <string.h>
 #include <ctype.h>

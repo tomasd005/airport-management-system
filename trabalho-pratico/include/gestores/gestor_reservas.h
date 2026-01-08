@@ -1,12 +1,11 @@
 #ifndef GESTOR_RESERVAS_H
 #define GESTOR_RESERVAS_H
 
-#include "../entidades/reservas.h"
-#include "../gestores/gestor_voos.h"
-#include "../gestores/gestor_passageiros.h"
 #include <glib.h>
 
 typedef struct gestor_reservas gestor_reservas_t;
+typedef struct gestor_voos gestor_voos_t;
+typedef struct gestor_passageiros gestor_passageiros_t;
 
 gestor_reservas_t *gestor_reservas_criar(void);
 void gestor_reservas_destruir(gestor_reservas_t *gestor);
