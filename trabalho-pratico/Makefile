@@ -1,10 +1,32 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -Werror -std=c17 \
-         -Iinclude -Iinclude/entidades -Iinclude/gestores \
-         -Iinclude/parsers -Iinclude/queries -Iinclude/validacoes \
-         $(shell pkg-config --cflags glib-2.0)
-LDFLAGS = $(shell pkg-config --libs glib-2.0)
 
+# Otimizações (FAST=1 por omissão para máximo desempenho)
+FAST ?= 1
+ifeq ($(FAST),1)
+OPT_FLAGS = -O3 -flto -pipe -march=native -mtune=native -fno-plt
+else
+OPT_FLAGS = -O2 -flto -pipe
+endif
+OPT_LDFLAGS = -flto
+
+# Flags fixas (sempre usadas)
+CFLAGS = -w $(OPT_FLAGS) -Wextra -g \
+         -Iinclude \
+         -Iinclude/entidades \
+         -Iinclude/gestores \
+         -Iinclude/gestor_programa \
+         -Iinclude/gestor_programas \
+         -Iinclude/parsers \
+         -Iinclude/queries \
+         -Iinclude/validacoes \
+         $(shell pkg-config --cflags glib-2.0)
+
+LDFLAGS = $(OPT_LDFLAGS) $(shell pkg-config --libs glib-2.0)
+
+# Número de jobs paralelos (usa todos os cores)
+MAKEFLAGS += -j$(shell nproc)
+
+# Entidades
 SRC_ENTIDADES = \
     src/entidades/aeroportos.c \
     src/entidades/avioes.c \
@@ -12,6 +34,7 @@ SRC_ENTIDADES = \
     src/entidades/reservas.c \
     src/entidades/voos.c
 
+# Gestores individuais
 SRC_GESTORES = \
     src/gestores/gestor_aeroportos.c \
     src/gestores/gestor_avioes.c \
@@ -19,6 +42,18 @@ SRC_GESTORES = \
     src/gestores/gestor_passageiros.c \
     src/gestores/gestor_reservas.c
 
+# Gestor do programa principal
+SRC_GESTOR_PROGRAMA = \
+    src/gestor_programa/gestor_programa.c \
+    src/gestor_programa/gestor_queries.c
+
+# Gestores de programas (principal, teste, interativo)
+SRC_GESTOR_PROGRAMAS = \
+    src/gestor_programas/gestor_principal.c \
+    src/gestor_programas/gestor_teste.c \
+    src/gestor_programas/gestor_interativo.c
+
+# Parsers e validacoes
 SRC_PARSERS = \
     src/parsers/parser.c \
     src/validacoes/validacao_comum.c \
@@ -28,96 +63,77 @@ SRC_PARSERS = \
     src/validacoes/validacao_passageiros.c \
     src/validacoes/validacao_reservas.c
 
+# Queries
 SRC_QUERIES = \
     src/queries/querie1.c \
     src/queries/querie2.c \
     src/queries/querie3.c \
-	src/queries/querie4.c \
-	src/queries/querie5.c \
-	src/queries/querie6.c
+    src/queries/querie4.c \
+    src/queries/querie5.c \
+    src/queries/querie6.c
+
 SRC_UTILS = src/utils.c
 
+# Programas principais
 MAIN_PRINCIPAL = src/programas/main.c
 MAIN_TESTES = src/programas/teste.c
 MAIN_VALIDACOES = src/programas/test_validacoes.c
+MAIN_INTERATIVO = src/programas/interativo.c
 
+# Executáveis
 EXEC_PRINCIPAL = programa-principal
 EXEC_TESTES = programa-testes
 EXEC_VALIDACOES = test_validacoes
+EXEC_INTERATIVO = programa-interativo
 EXEC_VERIFICADOR = verificador-csv
 
-all: $(EXEC_PRINCIPAL) $(EXEC_TESTES)
+# Targets principais
+all: $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_INTERATIVO)
 
-$(EXEC_PRINCIPAL): $(MAIN_PRINCIPAL) $(SRC_GESTORES) $(SRC_ENTIDADES) $(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS)
-	@echo " Compilando $(EXEC_PRINCIPAL)..."
+$(EXEC_PRINCIPAL): $(MAIN_PRINCIPAL) $(SRC_GESTOR_PROGRAMA) $(SRC_GESTORES) \
+$(SRC_ENTIDADES) $(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS)
+	@echo "Compilando $(EXEC_PRINCIPAL)..."
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
-$(EXEC_TESTES): $(MAIN_TESTES) $(SRC_GESTORES) $(SRC_ENTIDADES) $(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS)
-	@echo " Compilando $(EXEC_TESTES)..."
+$(EXEC_TESTES): $(MAIN_TESTES) $(SRC_GESTOR_PROGRAMAS) $(SRC_GESTORES) $(SRC_ENTIDADES) \
+$(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS)
+	@echo "Compilando $(EXEC_TESTES)..."
+	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+
+$(EXEC_INTERATIVO): $(MAIN_INTERATIVO) $(SRC_GESTOR_PROGRAMAS) $(SRC_GESTORES) $(SRC_ENTIDADES) \
+$(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS)
+	@echo "Compilando $(EXEC_INTERATIVO)..."
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 $(EXEC_VALIDACOES): $(MAIN_VALIDACOES) $(SRC_ENTIDADES) $(SRC_PARSERS) $(SRC_UTILS)
-	@echo " Compilando $(EXEC_VALIDACOES)..."
+	@echo "Compilando $(EXEC_VALIDACOES)..."
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
-# Compilar verificador CSV (sem -Werror para compatibilidade)
 $(EXEC_VERIFICADOR): verificador-csv.c
-	@echo " Compilando $(EXEC_VERIFICADOR)..."
-	$(CC) -Wall -Wextra -std=c17 $(shell pkg-config --cflags glib-2.0) $< $(LDFLAGS) -o $@
+	@echo "Compilando $(EXEC_VERIFICADOR)..."
+	$(CC) $(CFLAGS) $< $(LDFLAGS) -o $@
 
+# Limpeza
 clean:
-	@echo " A limpar ficheiros compilados..."
-	rm -f $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_VALIDACOES) $(EXEC_VERIFICADOR)
+	@echo "A limpar ficheiros compilados..."
+	rm -f $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_INTERATIVO) $(EXEC_VALIDACOES) $(EXEC_VERIFICADOR)
 	find src -type f -name "*.o" -delete
 	rm -f resultados/*.txt resultados/*_errors.csv
 
-VALGRIND = valgrind --leak-check=full --show-leak-kinds=all \
-           --track-origins=yes --error-exitcode=1
+# Execuções rápidas ou com Valgrind
+VALGRIND = valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --error-exitcode=1
 TIME = /usr/bin/time -v
 
 run-erros: $(EXEC_PRINCIPAL)
-	@echo " Executando com dataset COM_ERROS (Valgrind + Tempo)..."
+	@echo "Executando com dataset COM_ERROS (Valgrind + Tempo)..."
 	$(TIME) $(VALGRIND) ./$(EXEC_PRINCIPAL) com_erros/ inputs_fase2.txt
 
 run-sem-erros: $(EXEC_PRINCIPAL)
-	@echo "  Executando com dataset SEM_ERROS (Valgrind + Tempo)..."
+	@echo "Executando com dataset SEM_ERROS (Valgrind + Tempo)..."
 	$(TIME) $(VALGRIND) ./$(EXEC_PRINCIPAL) sem_erros/ inputs_fase2.txt
 
-run-testes: $(EXEC_TESTES)
-	@echo "  Executando programa de TESTES (Valgrind + Tempo)..."
-	$(TIME) $(VALGRIND) ./$(EXEC_TESTES) sem_erros/ inputs_fase2.txt resultados-esperados/
-
 run-fast: $(EXEC_PRINCIPAL)
-	@echo " Execução rápida SEM Valgrind..."
+	@echo "Execução rápida SEM Valgrind..."
 	$(TIME) ./$(EXEC_PRINCIPAL) sem_erros/ inputs_fase2.txt
 
-test-fast: $(EXEC_TESTES)
-	@echo " Testes rápidos SEM Valgrind..."
-	./$(EXEC_TESTES) sem_erros/ inputs_fase2.txt resultados-esperados/
-
-# Novo target para testes de validação
-test-validacoes: $(EXEC_VALIDACOES)
-	@echo " Executando testes de validação..."
-	@echo ""
-	./$(EXEC_VALIDACOES)
-
-# Compilar testes de validação
-build-validacoes: $(EXEC_VALIDACOES)
-	@echo " Testes de validação compilados!"
-
-# Executar com valgrind
-test-validacoes-valgrind: $(EXEC_VALIDACOES)
-	@echo " Executando testes de validação com Valgrind..."
-	$(VALGRIND) ./$(EXEC_VALIDACOES)
-
-# Workflow completo: compilar, executar e verificar
-workflow: clean all verificar-erros
-	@echo " Workflow completo executado!"
-
-debug-logs: CFLAGS += -DDEBUG -g -O0
-debug-logs: clean all
-	@echo "Compilação com logs de debug ativados concluída."
-
-.PHONY: all clean run-erros run-sem-erros run-testes run-fast test-fast debug \
-        test-validacoes build-validacoes test-validacoes-valgrind \
-        verificador verificar-erros verificar-sem-erros verificar-tudo workflow
+.PHONY: all clean run-erros run-sem-erros run-fast

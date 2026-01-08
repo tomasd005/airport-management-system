@@ -15,25 +15,20 @@
 #define IDX_ADDR 8
 #define IDX_PHOTO 9
 
-static gboolean valida_document_number(const char *doc)
+static inline gboolean valida_document_number(const char *doc)
 {
-    if (!doc || strlen(doc) != 9)
-        return FALSE;
-
-    if (contem_espacos(doc))
+    if (!doc || strlen(doc) != 9 || contem_espacos(doc))
         return FALSE;
 
     for (int i = 0; i < 9; i++)
-        if (!isdigit((unsigned char)doc[i]))
+        if (!isdigit(doc[i]))
             return FALSE;
-
     return TRUE;
 }
 
-static gboolean valida_genero(const char *gen)
+static inline gboolean valida_genero(const char *gen)
 {
-    return gen && strlen(gen) == 1 &&
-           (gen[0] == 'M' || gen[0] == 'F' || gen[0] == 'O');
+    return gen && strlen(gen) == 1 && (gen[0] == 'M' || gen[0] == 'F' || gen[0] == 'O');
 }
 
 static gboolean valida_email(const char *email)
@@ -46,12 +41,8 @@ static gboolean valida_email(const char *email)
         return FALSE;
 
     for (const char *p = email; p < at; p++)
-    {
-        if (!((*p >= 'a' && *p <= 'z') ||
-              (*p >= '0' && *p <= '9') ||
-              *p == '.'))
+        if (!((*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') || *p == '.'))
             return FALSE;
-    }
 
     const char *domain = at + 1;
     const char *dot = strchr(domain, '.');
@@ -64,10 +55,7 @@ static gboolean valida_email(const char *email)
 
     const char *ext = dot + 1;
     int len = strlen(ext);
-    if (len < 2 || len > 3)
-        return FALSE;
-
-    if (strchr(ext, '.'))
+    if (len < 2 || len > 3 || strchr(ext, '.'))
         return FALSE;
 
     for (int i = 0; i < len; i++)
@@ -93,25 +81,12 @@ passageiro_t *valida_passageiro(char **colunas)
         if (colunas[i])
             utils_trim(colunas[i]);
 
-    /* CORRIGIDO: Usar validacao_data_passado() para data de nascimento */
-    if (!validacao_data_passado(colunas[IDX_DOB]))
+    if (!validacao_data_passado(colunas[IDX_DOB]) || !valida_genero(colunas[IDX_GEN]) || !valida_email(colunas[IDX_EMAIL]))
         return NULL;
 
-    if (!valida_genero(colunas[IDX_GEN]))
-        return NULL;
-
-    if (!valida_email(colunas[IDX_EMAIL]))
-        return NULL;
-
-    if (!colunas[IDX_FIRST] || !*colunas[IDX_FIRST])
-        return NULL;
-    if (!colunas[IDX_LAST] || !*colunas[IDX_LAST])
-        return NULL;
-    if (!colunas[IDX_NAT] || !*colunas[IDX_NAT])
-        return NULL;
-    if (!colunas[IDX_PHONE] || !*colunas[IDX_PHONE])
-        return NULL;
-    if (!colunas[IDX_ADDR] || !*colunas[IDX_ADDR])
+    if (!colunas[IDX_FIRST] || !*colunas[IDX_FIRST] || !colunas[IDX_LAST] || !*colunas[IDX_LAST] ||
+        !colunas[IDX_NAT] || !*colunas[IDX_NAT] || !colunas[IDX_PHONE] || !*colunas[IDX_PHONE] ||
+        !colunas[IDX_ADDR] || !*colunas[IDX_ADDR])
         return NULL;
 
     return passageiro_criar(colunas[IDX_DOC], colunas[IDX_FIRST], colunas[IDX_LAST],

@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <ctype.h>
 
-
 #define IDX_RES_ID 0
 #define IDX_FLIGHT_IDS 1
 #define IDX_DOC 2
@@ -88,8 +87,53 @@ static char **processar_flight_ids(const char *flight_str, size_t *out_count)
     }
 
     *out_count = count;
-    
+
     return ids;
+}
+
+static size_t processar_flight_ids_inplace(char *flight_str, const char **out_ids)
+{
+    if (!flight_str || !out_ids)
+        return 0;
+
+    size_t len = strlen(flight_str);
+    if (len < 2 || flight_str[0] != '[' || flight_str[len - 1] != ']')
+        return 0;
+
+    flight_str[len - 1] = '\0';
+    char *p = flight_str + 1;
+    size_t count = 0;
+
+    while (*p)
+    {
+        while (*p && (isspace((unsigned char)*p) || *p == '\'' || *p == '"'))
+            p++;
+        if (!*p)
+            break;
+
+        char *start = p;
+        while (*p && *p != ',' && *p != ';')
+            p++;
+        char *end = p;
+
+        while (end > start && isspace((unsigned char)end[-1]))
+            end--;
+        while (end > start && (end[-1] == '\'' || end[-1] == '"'))
+            end--;
+        *end = '\0';
+
+        if (!*start || !validacao_flight_id(start))
+            return 0;
+
+        if (count >= 2)
+            return 0;
+        out_ids[count++] = start;
+
+        if (*p)
+            p++;
+    }
+
+    return count;
 }
 
 reserva_t *valida_reserva_from_csv(char **colunas)
@@ -163,7 +207,6 @@ reserva_t *valida_reserva_from_csv(char **colunas)
         return NULL;
     }
 
-    
     reserva_t *r = reserva_criar(colunas[IDX_RES_ID],
                                  (const char **)flight_ids,
                                  num_flights,
@@ -176,6 +219,58 @@ reserva_t *valida_reserva_from_csv(char **colunas)
 
     g_strfreev(flight_ids);
     return r;
+}
+
+gboolean valida_reserva_campos(char **colunas,
+                               const char **out_flight_ids,
+                               size_t *out_num_voos,
+                               const char **out_document_number,
+                               double *out_preco)
+{
+    if (!colunas || !out_flight_ids || !out_num_voos || !out_document_number || !out_preco)
+        return FALSE;
+
+    for (int i = 0; i < 8; i++)
+        if (!colunas[i])
+            return FALSE;
+
+    for (int i = 0; i < 8; i++)
+    {
+        utils_remove_aspas(colunas[i]);
+        utils_trim(colunas[i]);
+    }
+
+    if (!valida_reservation_id(colunas[IDX_RES_ID]))
+        return FALSE;
+
+    if (!valida_document_number(colunas[IDX_DOC]))
+        return FALSE;
+
+    if (!colunas[IDX_SEAT] || colunas[IDX_SEAT][0] == '\0')
+        return FALSE;
+
+    char *end;
+    double price = strtod(colunas[IDX_PRICE], &end);
+    if (*end != '\0' || price < 0.0)
+        return FALSE;
+
+    if (strcmp(colunas[IDX_EXTRA_BAG], "true") != 0 && strcmp(colunas[IDX_EXTRA_BAG], "false") != 0)
+        return FALSE;
+
+    if (strcmp(colunas[IDX_PRIORITY], "true") != 0 && strcmp(colunas[IDX_PRIORITY], "false") != 0)
+        return FALSE;
+
+    if (!colunas[IDX_QR] || colunas[IDX_QR][0] == '\0')
+        return FALSE;
+
+    size_t num_flights = processar_flight_ids_inplace(colunas[IDX_FLIGHT_IDS], out_flight_ids);
+    if (num_flights < 1 || num_flights > 2)
+        return FALSE;
+
+    *out_num_voos = num_flights;
+    *out_document_number = colunas[IDX_DOC];
+    *out_preco = price;
+    return TRUE;
 }
 
 /* Validação lógica conforme enunciado */
@@ -251,4 +346,3 @@ void validar_reserva_imprimir_erros(GPtrArray *erros)
 
     g_ptr_array_free(erros, TRUE);
 }
-

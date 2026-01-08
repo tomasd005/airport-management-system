@@ -9,22 +9,41 @@
 
 #define MAX_COLUNAS 100
 
-// ═══════════════════════════════════════════════════
-// FUNÇÃO PARA REMOVER ASPAS DOS CAMPOS CSV
-// ═══════════════════════════════════════════════════
-static void remove_aspas(char *str)
+int parser_dividir_csv(char *linha, char **colunas, int max_colunas)
 {
-    if (!str)
-        return;
+    if (!linha || !colunas || max_colunas <= 0)
+        return 0;
 
-    size_t len = strlen(str);
+    int numColunas = 0;
+    char *campo_inicio = linha;
+    int dentro_aspas = 0;
 
-    // Se string começa e termina com aspas, remove-as
-    if (len >= 2 && str[0] == '"' && str[len - 1] == '"')
+    for (char *p = linha; *p; p++)
     {
-        str[len - 1] = '\0';            // Remove aspa do fim
-        memmove(str, str + 1, len - 1); // Move tudo 1 posição à esquerda
+        if (*p == '"')
+            dentro_aspas = !dentro_aspas;
+        else if (*p == ',' && !dentro_aspas)
+        {
+            *p = '\0';
+            colunas[numColunas++] = campo_inicio;
+            campo_inicio = p + 1;
+            if (numColunas >= max_colunas)
+                break;
+        }
     }
+
+    if (numColunas < max_colunas)
+    {
+        char *nl = strchr(campo_inicio, '\n');
+        if (nl)
+            *nl = '\0';
+        nl = strchr(campo_inicio, '\r');
+        if (nl)
+            *nl = '\0';
+        colunas[numColunas++] = campo_inicio;
+    }
+    colunas[numColunas] = NULL;
+    return numColunas;
 }
 
 void parser_carrega(void *contexto,
@@ -39,6 +58,7 @@ void parser_carrega(void *contexto,
         perror("Erro ao abrir ficheiro CSV");
         return;
     }
+    setvbuf(ficheiro, NULL, _IOFBF, 1 << 20);
 
     char *nome_base = utils_obtem_nome_ficheiro(ficheiro_csv);
     char *caminho_erros = g_strdup_printf("resultados/%s_errors.csv", nome_base);
@@ -46,9 +66,13 @@ void parser_carrega(void *contexto,
 
     FILE *ficheiro_erros = fopen(caminho_erros, "w");
     g_free(caminho_erros);
+    if (ficheiro_erros)
+        setvbuf(ficheiro_erros, NULL, _IOFBF, 1 << 20);
 
     char *linha = NULL;
     size_t tamanho = 0;
+    char *linha_parse = NULL;
+    size_t tamanho_parse = 0;
     ssize_t lidos;
 
     if ((lidos = getline(&linha, &tamanho, ficheiro)) != -1)
@@ -59,60 +83,31 @@ void parser_carrega(void *contexto,
 
     while ((lidos = getline(&linha, &tamanho, ficheiro)) != -1)
     {
-        char *linha_original = g_strdup(linha);
+        size_t necessario = (size_t)lidos + 1;
+        if (necessario > tamanho_parse)
+        {
+            char *novo = realloc(linha_parse, necessario);
+            if (!novo)
+                break;
+            linha_parse = novo;
+            tamanho_parse = necessario;
+        }
+        memcpy(linha_parse, linha, necessario);
         char *colunas[MAX_COLUNAS + 1];
-        int numColunas = 0;
-
-        char *campo_inicio = linha;
-        int dentro_aspas = 0;
-
-        for (char *p = linha; *p; p++)
+        int numColunas = parser_dividir_csv(linha_parse, colunas, MAX_COLUNAS);
+        if (numColunas <= 0)
         {
-            if (*p == '"')
-                dentro_aspas = !dentro_aspas;
-            else if (*p == ',' && !dentro_aspas)
-            {
-                *p = '\0';
-                colunas[numColunas++] = campo_inicio;
-                campo_inicio = p + 1;
-                if (numColunas >= MAX_COLUNAS)
-                    break;
-            }
+            if (ficheiro_erros)
+                fprintf(ficheiro_erros, "%s", linha);
+            continue;
         }
 
-        if (numColunas < MAX_COLUNAS)
-        {
-            char *nl = strchr(campo_inicio, '\n');
-            if (nl)
-                *nl = '\0';
-            nl = strchr(campo_inicio, '\r');
-            if (nl)
-                *nl = '\0';
-            colunas[numColunas++] = campo_inicio;
-        }
-        colunas[numColunas] = NULL;
-
-        // ═══════════════════════════════════════════════════
-        // CORREÇÃO CRÍTICA: Remover aspas de TODOS os campos
-        // ═══════════════════════════════════════════════════
-        char *colunas_copia[MAX_COLUNAS + 1];
-        for (int i = 0; i < numColunas; i++)
-        {
-            remove_aspas(colunas[i]); // ← NOVA LINHA
-            colunas_copia[i] = g_strdup(colunas[i]);
-        }
-        colunas_copia[numColunas] = NULL;
-
-        gpointer objeto = linha_para_objeto(colunas_copia);
-
-        for (int i = 0; i < numColunas; i++)
-            if (colunas_copia[i])
-                g_free(colunas_copia[i]);
+        gpointer objeto = linha_para_objeto(colunas);
 
         if (objeto == NULL)
         {
             if (ficheiro_erros)
-                fprintf(ficheiro_erros, "%s", linha_original);
+                fprintf(ficheiro_erros, "%s", linha);
         }
         else if (adiciona_objeto(contexto, objeto))
         {
@@ -120,13 +115,12 @@ void parser_carrega(void *contexto,
         else
         {
             if (ficheiro_erros)
-                fprintf(ficheiro_erros, "%s", linha_original);
+                fprintf(ficheiro_erros, "%s", linha);
             destroi_objeto(objeto);
         }
-
-        g_free(linha_original);
     }
 
+    free(linha_parse);
     free(linha);
     fclose(ficheiro);
     if (ficheiro_erros)

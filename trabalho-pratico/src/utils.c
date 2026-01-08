@@ -111,3 +111,75 @@ void utils_trim(char *s)
     while (end >= s && isspace((unsigned char)*end))
         *end-- = '\0';
 }
+
+static int days_from_civil(int y, unsigned m, unsigned d)
+{
+    y -= m <= 2;
+    const int era = (y >= 0 ? y : y - 399) / 400;
+    const unsigned yoe = (unsigned)(y - era * 400);
+    const unsigned doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+    const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return era * 146097 + (int)doe - 719468;
+}
+
+static int parse_date_components(const char *date, int *y, int *m, int *d)
+{
+    if (!date || strlen(date) < 10)
+        return 0;
+    if (date[4] != '-' || date[7] != '-')
+        return 0;
+    if (!isdigit((unsigned char)date[0]) || !isdigit((unsigned char)date[1]) ||
+        !isdigit((unsigned char)date[2]) || !isdigit((unsigned char)date[3]) ||
+        !isdigit((unsigned char)date[5]) || !isdigit((unsigned char)date[6]) ||
+        !isdigit((unsigned char)date[8]) || !isdigit((unsigned char)date[9]))
+        return 0;
+
+    *y = (date[0] - '0') * 1000 + (date[1] - '0') * 100 + (date[2] - '0') * 10 + (date[3] - '0');
+    *m = (date[5] - '0') * 10 + (date[6] - '0');
+    *d = (date[8] - '0') * 10 + (date[9] - '0');
+    return 1;
+}
+
+int utils_parse_date_to_day(const char *date)
+{
+    int y, m, d;
+    if (!parse_date_components(date, &y, &m, &d))
+        return -1;
+    return days_from_civil(y, (unsigned)m, (unsigned)d);
+}
+
+int utils_parse_datetime_to_day(const char *datetime)
+{
+    if (!datetime || strcmp(datetime, "N/A") == 0 || strlen(datetime) < 16)
+        return -1;
+    return utils_parse_date_to_day(datetime);
+}
+
+int utils_parse_datetime_to_minutes(const char *datetime)
+{
+    if (!datetime || strcmp(datetime, "N/A") == 0 || strlen(datetime) < 16)
+        return -1;
+    if (datetime[10] != ' ' || datetime[13] != ':')
+        return -1;
+    if (!isdigit((unsigned char)datetime[11]) || !isdigit((unsigned char)datetime[12]) ||
+        !isdigit((unsigned char)datetime[14]) || !isdigit((unsigned char)datetime[15]))
+        return -1;
+
+    int day = utils_parse_date_to_day(datetime);
+    if (day < 0)
+        return -1;
+
+    int h = (datetime[11] - '0') * 10 + (datetime[12] - '0');
+    int min = (datetime[14] - '0') * 10 + (datetime[15] - '0');
+    return day * 1440 + h * 60 + min;
+}
+
+int utils_week_from_day(int day)
+{
+    if (day < 0)
+        return -1;
+    int wday = (day + 4) % 7;
+    if (wday < 0)
+        wday += 7;
+    return (day - wday) / 7;
+}

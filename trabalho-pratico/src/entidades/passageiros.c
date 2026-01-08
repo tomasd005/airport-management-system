@@ -10,11 +10,6 @@ struct passageiro
     char *ultimo_nome;
     char *dob;
     char *nacionalidade;
-    char *genero;
-    char *email;
-    char *telefone;
-    char *morada;
-    char *foto;
 };
 
 passageiro_t *passageiro_criar(const char *document_number, const char *primeiro_nome,
@@ -23,8 +18,7 @@ passageiro_t *passageiro_criar(const char *document_number, const char *primeiro
                                const char *email, const char *telefone,
                                const char *morada, const char *foto)
 {
-    if (!document_number || !primeiro_nome || !ultimo_nome || !dob ||
-        !nacionalidade || !genero || !email || !telefone || !morada)
+    if (!document_number || !primeiro_nome || !ultimo_nome || !dob || !nacionalidade)
         return NULL;
 
     passageiro_t *p = malloc(sizeof(passageiro_t));
@@ -36,15 +30,9 @@ passageiro_t *passageiro_criar(const char *document_number, const char *primeiro
     p->ultimo_nome = g_strdup(ultimo_nome);
     p->dob = g_strdup(dob);
     p->nacionalidade = g_strdup(nacionalidade);
-    p->genero = g_strdup(genero);
-    p->email = g_strdup(email);
-    p->telefone = g_strdup(telefone);
-    p->morada = g_strdup(morada);
-    p->foto = foto ? g_strdup(foto) : g_strdup("");
 
     if (!p->document_number || !p->primeiro_nome || !p->ultimo_nome ||
-        !p->dob || !p->nacionalidade || !p->genero || !p->email ||
-        !p->telefone || !p->morada || !p->foto)
+        !p->dob || !p->nacionalidade)
     {
         passageiro_destruir(p);
         return NULL;
@@ -63,11 +51,6 @@ void passageiro_destruir(passageiro_t *p)
     free(p->ultimo_nome);
     free(p->dob);
     free(p->nacionalidade);
-    free(p->genero);
-    free(p->email);
-    free(p->telefone);
-    free(p->morada);
-    free(p->foto);
     free(p);
 }
 
@@ -98,25 +81,25 @@ const char *passageiro_obter_nacionalidade(const passageiro_t *p)
 
 const char *passageiro_obter_genero(const passageiro_t *p)
 {
-    return p ? p->genero : NULL;
+    return p ? "" : NULL;
 }
 
 const char *passageiro_obter_email(const passageiro_t *p)
 {
-    return p ? p->email : NULL;
+    return p ? "" : NULL;
 }
 
 const char *passageiro_obter_telefone(const passageiro_t *p)
 {
-    return p ? p->telefone : NULL;
+    return p ? "" : NULL;
 }
 
 const char *passageiro_obter_morada(const passageiro_t *p)
 {
-    return p ? p->morada : NULL;
+    return p ? "" : NULL;
 }
 
 const char *passageiro_obter_foto(const passageiro_t *p)
 {
-    return p ? p->foto : NULL;
+    return p ? "" : NULL;
 }

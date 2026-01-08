@@ -10,11 +10,7 @@ struct reserva
     char **flight_ids;
     size_t num_voos;
     char *document_number;
-    char *seat;
     double preco;
-    bool extra_bagagem;
-    bool embarque_prioritario;
-    char *qr_code;
 };
 
 reserva_t *reserva_criar(const char *reservation_id, const char **flight_ids,
@@ -22,8 +18,7 @@ reserva_t *reserva_criar(const char *reservation_id, const char **flight_ids,
                          const char *seat, double preco, bool extra_bagagem,
                          bool embarque_prioritario, const char *qr_code)
 {
-    if (!reservation_id || !flight_ids || num_flights == 0 ||
-        !document_number || !seat || !qr_code)
+    if (!reservation_id || !flight_ids || num_flights == 0 || !document_number)
         return NULL;
 
     reserva_t *r = malloc(sizeof(reserva_t));
@@ -34,16 +29,10 @@ reserva_t *reserva_criar(const char *reservation_id, const char **flight_ids,
     r->num_voos = 0;
     r->reservation_id = NULL;
     r->document_number = NULL;
-    r->seat = NULL;
-    r->qr_code = NULL;
 
     r->reservation_id = g_strdup(reservation_id);
     r->document_number = g_strdup(document_number);
-    r->seat = g_strdup(seat);
-    r->qr_code = g_strdup(qr_code);
     r->preco = preco;
-    r->extra_bagagem = extra_bagagem;
-    r->embarque_prioritario = embarque_prioritario;
     r->num_voos = num_flights;
 
     r->flight_ids = malloc(sizeof(char *) * num_flights);
@@ -63,7 +52,7 @@ reserva_t *reserva_criar(const char *reservation_id, const char **flight_ids,
         }
     }
 
-    if (!r->reservation_id || !r->document_number || !r->seat || !r->qr_code)
+    if (!r->reservation_id || !r->document_number)
     {
         reserva_destruir(r);
         return NULL;
@@ -81,10 +70,6 @@ void reserva_destruir(reserva_t *r)
         g_free(r->reservation_id);
     if (r->document_number)
         g_free(r->document_number);
-    if (r->seat)
-        g_free(r->seat);
-    if (r->qr_code)
-        g_free(r->qr_code);
 
     if (r->flight_ids)
     {
@@ -121,7 +106,7 @@ const char *reserva_obter_document_number(const reserva_t *r)
 
 const char *reserva_obter_seat(const reserva_t *r)
 {
-    return r ? r->seat : NULL;
+    return r ? "" : NULL;
 }
 
 double reserva_obter_preco(const reserva_t *r)
@@ -131,21 +116,22 @@ double reserva_obter_preco(const reserva_t *r)
 
 bool reserva_obter_extra_bagagem(const reserva_t *r)
 {
-    return r ? r->extra_bagagem : false;
+    return false;
 }
 
 bool reserva_obter_embarque_prioritario(const reserva_t *r)
 {
-    return r ? r->embarque_prioritario : false;
+    return false;
 }
 
 const char *reserva_obter_qr_code(const reserva_t *r)
 {
-    return r ? r->qr_code : NULL;
+    return r ? "" : NULL;
 }
+
 size_t reserva_obter_num_passageiros(const reserva_t *r)
 {
-    return r ? 1 : 0; // cada reserva tem 1 passageiro
+    return r ? 1 : 0;
 }
 
 const char **reserva_obter_documentos(const reserva_t *r)
@@ -153,7 +139,7 @@ const char **reserva_obter_documentos(const reserva_t *r)
     if (!r)
         return NULL;
 
-    static const char *docs[1]; // usamos static para simplificar
+    static const char *docs[1];
     docs[0] = r->document_number;
     return docs;
 }

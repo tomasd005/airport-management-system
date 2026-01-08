@@ -8,9 +8,7 @@ struct aviao
     char *identificador;
     char *fabricante;
     char *modelo;
-    int ano;
-    int capacidade;
-    int alcance_km;
+    int contagem_voos;
 };
 
 aviao_t *aviao_criar(const char *identificador, const char *fabricante,
@@ -26,9 +24,7 @@ aviao_t *aviao_criar(const char *identificador, const char *fabricante,
     a->identificador = g_strdup(identificador);
     a->fabricante = g_strdup(fabricante);
     a->modelo = g_strdup(modelo);
-    a->ano = ano;
-    a->capacidade = capacidade;
-    a->alcance_km = alcance_km;
+    a->contagem_voos = 0;
 
     if (!a->identificador || !a->fabricante || !a->modelo)
     {
@@ -67,15 +63,27 @@ const char *aviao_obter_modelo(const aviao_t *a)
 
 int aviao_obter_ano(const aviao_t *a)
 {
-    return a ? a->ano : 0;
+    return 0;
 }
 
 int aviao_obter_capacidade(const aviao_t *a)
 {
-    return a ? a->capacidade : 0;
+    return 0;
 }
 
 int aviao_obter_alcance_km(const aviao_t *a)
 {
-    return a ? a->alcance_km : 0;
+    return 0;
+}
+
+int aviao_obter_contagem_voos(const aviao_t *a)
+{
+    return a ? a->contagem_voos : 0;
+}
+
+void aviao_incrementar_contagem_voos(aviao_t *a, int delta)
+{
+    if (!a)
+        return;
+    a->contagem_voos += delta;
 }

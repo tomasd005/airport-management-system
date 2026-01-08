@@ -1,6 +1,8 @@
 # Ignorar apenas os datasets locais
 com_erros/
 sem_erros/
+com_erros_grande/
+sem_erros_grande/
 
 # Ficheiros compilados
 *.o
@@ -10,9 +12,18 @@ main
 # Ficheiros de logs
 *.log
 
+# Ignorar scripts e ficheiro de resumo
+scripts/
+compare_summary.json
 
-
+# Outputs e relatórios
 last_test_report.txt
 out_after_debug_removal.txt
 out_after_fix.txt
 out.txt
+
+# Datasets grandes
+test.txt
+test_input.txt
+full_output.txt
+testar.sh

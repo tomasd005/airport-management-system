@@ -22,5 +22,14 @@ const char *voo_obter_aircraft(const voo_t *v);
 const char *voo_obter_airline(const voo_t *v);
 const char *voo_obter_tracking_url(const voo_t *v);
 double voo_calcular_atraso_minutos(const voo_t *v);
+int voo_obter_departure_dia(const voo_t *v);
+int voo_obter_actual_departure_dia(const voo_t *v);
+int voo_obter_semana(const voo_t *v);
+int voo_obter_status_codigo(const voo_t *v);
+int voo_obter_passageiros(const voo_t *v);
+void voo_incrementar_passageiros(voo_t *v, int delta);
+void voo_descartar_aircraft(voo_t *v);
+void voo_descartar_airline(voo_t *v);
+void voo_intern_pool_destruir(void);
 
 #endif

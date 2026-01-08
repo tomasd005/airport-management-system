@@ -2,78 +2,18 @@
 #include <string.h>
 #include <ctype.h>
 #include "../../include/gestores/gestor_aeroportos.h"
-#include "../../include/gestores/gestor_voos.h"
-#include "../../include/gestores/gestor_reservas.h"
 #include "../../include/entidades/aeroportos.h"
-#include "../../include/entidades/voos.h"
 #include "../../include/queries/querie1.h"
 
-static int usa_formato_alternativo(const char *comando)
+static inline int usa_formato_alternativo(const char *comando)
 {
     if (!comando)
         return 0;
-
     while (*comando && isspace(*comando))
         comando++;
     while (*comando && isdigit(*comando))
         comando++;
-
     return (*comando == 'S');
-}
-
-typedef struct
-{
-    gestor_reservas_t *gestor_reservas;
-    int total;
-} ContextoContagem;
-
-static void contar_passageiros_voo(voo_t *voo, void *user_data)
-{
-    ContextoContagem *ctx = user_data;
-
-    const char *status = voo_obter_status(voo);
-    if (!status || strcmp(status, "Cancelled") == 0)
-        return;
-
-    ctx->total += gestor_reservas_contar_passageiros_voo(
-        ctx->gestor_reservas,
-        voo_obter_id(voo));
-}
-
-static int conta_passageiros_chegada(
-    gestor_voos_t *gestor_voos,
-    gestor_reservas_t *gestor_reservas,
-    const char *airport_code)
-{
-    if (!gestor_voos || !gestor_reservas || !airport_code)
-        return 0;
-
-    ContextoContagem ctx = {
-        .gestor_reservas = gestor_reservas,
-        .total = 0};
-
-    gestor_voos_para_cada_destino(gestor_voos, airport_code,
-                                  contar_passageiros_voo, &ctx);
-
-    return ctx.total;
-}
-
-static int conta_passageiros_partida(
-    gestor_voos_t *gestor_voos,
-    gestor_reservas_t *gestor_reservas,
-    const char *airport_code)
-{
-    if (!gestor_voos || !gestor_reservas || !airport_code)
-        return 0;
-
-    ContextoContagem ctx = {
-        .gestor_reservas = gestor_reservas,
-        .total = 0};
-
-    gestor_voos_para_cada_origem(gestor_voos, airport_code,
-                                 contar_passageiros_voo, &ctx);
-
-    return ctx.total;
 }
 
 void query1(gestor_aeroportos_t *gestor_aeroportos,
@@ -93,22 +33,20 @@ void query1(gestor_aeroportos_t *gestor_aeroportos,
     snprintf(clean_code, sizeof(clean_code), "%s", airport_code);
     clean_code[strcspn(clean_code, "\r\n ")] = '\0';
 
-    int formato_alternativo = usa_formato_alternativo(comando_completo);
-    const char *separador = formato_alternativo ? "=" : ";";
-
-    aeroporto_t *aeroporto = gestor_aeroportos_obter_por_codigo(
-        gestor_aeroportos, clean_code);
-
+    aeroporto_t *aeroporto = gestor_aeroportos_obter_por_codigo(gestor_aeroportos, clean_code);
     if (!aeroporto)
     {
         fprintf(output, "\n");
         return;
     }
 
-    int arrival_count = conta_passageiros_chegada(
-        gestor_voos, gestor_reservas, clean_code);
-    int departure_count = conta_passageiros_partida(
-        gestor_voos, gestor_reservas, clean_code);
+    (void)gestor_voos;
+    (void)gestor_reservas;
+
+    int arrival_count = aeroporto_obter_chegadas(aeroporto);
+    int departure_count = aeroporto_obter_partidas(aeroporto);
+
+    const char *separador = usa_formato_alternativo(comando_completo) ? "=" : ";";
 
     fprintf(output, "%s%s%s%s%s%s%s%s%s%s%d%s%d\n",
             aeroporto_obter_codigo(aeroporto), separador,
