@@ -92,22 +92,10 @@ void parser_carrega(void *contexto,
         }
         colunas[numColunas] = NULL;
 
-        // ═══════════════════════════════════════════════════
-        // CORREÇÃO CRÍTICA: Remover aspas de TODOS os campos
-        // ═══════════════════════════════════════════════════
-        char *colunas_copia[MAX_COLUNAS + 1];
         for (int i = 0; i < numColunas; i++)
-        {
-            remove_aspas(colunas[i]); // ← NOVA LINHA
-            colunas_copia[i] = g_strdup(colunas[i]);
-        }
-        colunas_copia[numColunas] = NULL;
+            remove_aspas(colunas[i]);
 
-        gpointer objeto = linha_para_objeto(colunas_copia);
-
-        for (int i = 0; i < numColunas; i++)
-            if (colunas_copia[i])
-                g_free(colunas_copia[i]);
+        gpointer objeto = linha_para_objeto(colunas);
 
         if (objeto == NULL)
         {

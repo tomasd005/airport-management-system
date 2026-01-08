@@ -269,16 +269,19 @@ int gestor_testes_executar(
 
     int max_comandos = 0;
     FILE *f_count = fopen(ficheiro_input, "r");
-    if (f_count)
+    if (!f_count)
     {
-        char linha[256];
-        while (fgets(linha, sizeof(linha), f_count))
-        {
-            if (linha[0] != '\n' && linha[0] != '\r' && linha[0] != '\0')
-                max_comandos++;
-        }
-        fclose(f_count);
+        fprintf(stderr, "Erro ao abrir ficheiro de input: %s\n", ficheiro_input);
+        return 1;
     }
+
+    char linha[256];
+    while (fgets(linha, sizeof(linha), f_count))
+    {
+        if (linha[0] != '\n' && linha[0] != '\r' && linha[0] != '\0')
+            max_comandos++;
+    }
+    fclose(f_count);
 
     for (int i = 1; i <= max_comandos; i++)
     {

@@ -1,7 +1,16 @@
 CC = gcc
 
+# Otimizações (FAST=1 por omissão para máximo desempenho)
+FAST ?= 1
+ifeq ($(FAST),1)
+OPT_FLAGS = -O3 -flto -pipe -march=native -mtune=native -fno-plt
+else
+OPT_FLAGS = -O2 -flto -pipe
+endif
+OPT_LDFLAGS = -flto
+
 # Flags fixas (sempre usadas)
-CFLAGS = -w -O2 -funroll-all-loops -ftree-vectorize -Wextra -g \
+CFLAGS = -w $(OPT_FLAGS) -Wextra -g \
          -Iinclude \
          -Iinclude/entidades \
          -Iinclude/gestores \
@@ -12,7 +21,7 @@ CFLAGS = -w -O2 -funroll-all-loops -ftree-vectorize -Wextra -g \
          -Iinclude/validacoes \
          $(shell pkg-config --cflags glib-2.0)
 
-LDFLAGS = $(shell pkg-config --libs glib-2.0)
+LDFLAGS = $(OPT_LDFLAGS) $(shell pkg-config --libs glib-2.0)
 
 # Número de jobs paralelos (usa todos os cores)
 MAKEFLAGS += -j$(shell nproc)
