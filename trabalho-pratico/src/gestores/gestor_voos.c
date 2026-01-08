@@ -27,15 +27,23 @@ typedef struct
     double total_delay;
 } atraso_airline_t;
 
+static long long q5_round_millis(double v)
+{
+    if (v >= 0.0)
+        return (long long)(v * 1000.0 + 0.5);
+    return (long long)(v * 1000.0 - 0.5);
+}
+
 static gint q5_cache_cmp(gconstpointer a, gconstpointer b)
 {
     const gestor_voos_q5_t *ra = a;
     const gestor_voos_q5_t *rb = b;
 
-    double diff = ra->avg_delay - rb->avg_delay;
-    if (diff > 1e-9)
+    long long ra_ms = q5_round_millis(ra->avg_delay);
+    long long rb_ms = q5_round_millis(rb->avg_delay);
+    if (ra_ms > rb_ms)
         return -1;
-    if (diff < -1e-9)
+    if (ra_ms < rb_ms)
         return 1;
 
     return strcmp(ra->airline, rb->airline);

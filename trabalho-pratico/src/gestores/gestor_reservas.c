@@ -201,17 +201,63 @@ typedef struct
     gestor_passageiros_t *gestor_passageiros;
 } contexto_reservas_validacao_t;
 
+static gboolean reserva_valida_logica(reserva_t *reserva,
+                                      gestor_voos_t *gestor_voos,
+                                      gestor_passageiros_t *gestor_passageiros)
+{
+    if (!reserva)
+        return FALSE;
+
+    const char **flight_ids = reserva_obter_flight_ids(reserva);
+    size_t num_voos = reserva_obter_num_voos(reserva);
+    const char *doc = reserva_obter_document_number(reserva);
+
+    voo_t *voo1 = NULL;
+    voo_t *voo2 = NULL;
+
+    if (gestor_voos)
+    {
+        for (size_t i = 0; i < num_voos; i++)
+        {
+            const char *fid = (flight_ids ? flight_ids[i] : NULL);
+            if (!fid)
+                return FALSE;
+
+            voo_t *voo = gestor_voos_obter_por_id(gestor_voos, fid);
+            if (!voo)
+                return FALSE;
+
+            if (i == 0)
+                voo1 = voo;
+            else if (i == 1)
+                voo2 = voo;
+        }
+    }
+
+    if (gestor_passageiros && doc)
+    {
+        if (!gestor_passageiros_obter_por_documento(gestor_passageiros, doc))
+            return FALSE;
+    }
+
+    if (num_voos == 2 && gestor_voos && voo1 && voo2)
+    {
+        const char *dest1 = voo_obter_destination(voo1);
+        const char *orig2 = voo_obter_origin(voo2);
+        if (!dest1 || !orig2 || strcmp(dest1, orig2) != 0)
+            return FALSE;
+    }
+
+    return TRUE;
+}
+
 static gboolean _adiciona_reserva_validada(void *contexto, void *objeto)
 {
     contexto_reservas_validacao_t *ctx = contexto;
     reserva_t *reserva = objeto;
 
-    GPtrArray *erros = validar_reserva(reserva, ctx->gestor_voos, ctx->gestor_passageiros);
-    if (erros)
-    {
-        g_ptr_array_free(erros, TRUE);
+    if (!reserva_valida_logica(reserva, ctx->gestor_voos, ctx->gestor_passageiros))
         return FALSE;
-    }
 
     ctx->gestor_reservas->total_reservas++;
 
@@ -257,6 +303,24 @@ static gint cmp_gastos(gconstpointer a, gconstpointer b)
     return strcmp(ga->doc, gb->doc);
 }
 
+static void top10_inserir_ordenado(GArray *top, const gasto_t *novo)
+{
+    guint pos = 0;
+    while (pos < top->len)
+    {
+        gasto_t *cur = &g_array_index(top, gasto_t, pos);
+        if (cmp_gastos(novo, cur) < 0)
+            break;
+        pos++;
+    }
+
+    guint len = top->len;
+    g_array_set_size(top, len + 1);
+    for (guint i = len; i > pos; i--)
+        g_array_index(top, gasto_t, i) = g_array_index(top, gasto_t, i - 1);
+    g_array_index(top, gasto_t, pos) = *novo;
+}
+
 void gestor_reservas_finalizar(gestor_reservas_t *gestor)
 {
     if (!gestor)
@@ -272,8 +336,7 @@ void gestor_reservas_finalizar(gestor_reservas_t *gestor)
         {
             int semana = GPOINTER_TO_INT(skey);
             GHashTable *gastos = (GHashTable *)sval;
-            guint num = g_hash_table_size(gastos);
-            GArray *lista = g_array_sized_new(FALSE, FALSE, sizeof(gasto_t), num);
+            GArray *top = g_array_sized_new(FALSE, FALSE, sizeof(gasto_t), 10);
 
             GHashTableIter iter_g;
             gpointer k, v;
@@ -282,21 +345,30 @@ void gestor_reservas_finalizar(gestor_reservas_t *gestor)
             while (g_hash_table_iter_next(&iter_g, &k, &v))
             {
                 gasto_t g = {.doc = (const char *)k, .total = *(double *)v};
-                g_array_append_val(lista, g);
+                if (top->len < 10)
+                {
+                    top10_inserir_ordenado(top, &g);
+                }
+                else
+                {
+                    gasto_t *pior = &g_array_index(top, gasto_t, top->len - 1);
+                    if (cmp_gastos(&g, pior) < 0)
+                    {
+                        top10_inserir_ordenado(top, &g);
+                        g_array_set_size(top, 10);
+                    }
+                }
             }
 
-            g_array_sort(lista, cmp_gastos);
-
             GPtrArray *top10 = g_ptr_array_new();
-            guint limite = (lista->len < 10) ? lista->len : 10;
-            for (guint i = 0; i < limite; i++)
+            for (guint i = 0; i < top->len; i++)
             {
-                gasto_t *g = &g_array_index(lista, gasto_t, i);
+                gasto_t *g = &g_array_index(top, gasto_t, i);
                 g_ptr_array_add(top10, (gpointer)g->doc);
             }
 
             g_hash_table_insert(gestor->top10_por_semana, GINT_TO_POINTER(semana), top10);
-            g_array_free(lista, TRUE);
+            g_array_free(top, TRUE);
         }
 
         g_hash_table_destroy(gestor->gastos_por_semana);
