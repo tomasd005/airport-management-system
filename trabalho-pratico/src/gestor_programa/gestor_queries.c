@@ -11,6 +11,13 @@
 #include <string.h>
 #include <ctype.h>
 
+/**
+ * @struct gestor_queries
+ * @brief Estrutura responsável por gerir o processamento das queries.
+ *
+ * Contém referências para todos os gestores de dados necessários
+ * à execução das diferentes queries.
+ */
 struct gestor_queries
 {
     gestor_aeroportos_t *aeroportos;
@@ -20,6 +27,16 @@ struct gestor_queries
     gestor_reservas_t *reservas;
 };
 
+/**
+ * @brief Cria um novo gestor de queries.
+ *
+ * @param aeroportos Gestor de aeroportos
+ * @param avioes Gestor de aviões
+ * @param voos Gestor de voos
+ * @param passageiros Gestor de passageiros
+ * @param reservas Gestor de reservas
+ * @return Ponteiro para o gestor de queries criado
+ */
 gestor_queries_t *gestor_queries_criar(
     gestor_aeroportos_t *aeroportos,
     gestor_avioes_t *avioes,
@@ -36,6 +53,11 @@ gestor_queries_t *gestor_queries_criar(
     return g;
 }
 
+/**
+ * @brief Liberta a memória associada ao gestor de queries.
+ *
+ * @param gestor Ponteiro para o gestor de queries
+ */
 void gestor_queries_destruir(gestor_queries_t *gestor)
 {
     if (!gestor)
@@ -43,6 +65,14 @@ void gestor_queries_destruir(gestor_queries_t *gestor)
     g_free(gestor);
 }
 
+/**
+ * @brief Obtém o número da query a partir de uma linha de input.
+ *
+ * Ignora espaços iniciais e lê o primeiro número encontrado.
+ *
+ * @param linha Linha do ficheiro de input
+ * @return Número da query ou -1 em caso de erro
+ */
 static int obter_numero_query(const char *linha)
 {
     if (!linha)
@@ -57,10 +87,18 @@ static int obter_numero_query(const char *linha)
     return atoi(linha);
 }
 
+/**
+ * @brief Processa a query 1.
+ *
+ * @param g Gestor de queries
+ * @param linha Linha original da query
+ * @param output Ficheiro de saída
+ */
 static void processar_query1(gestor_queries_t *g, const char *linha, FILE *output)
 {
     char *copia = g_strdup(linha);
     char *token = strtok(copia, " \t");
+
     if (!token)
     {
         fprintf(output, "\n");
@@ -91,11 +129,19 @@ static void processar_query1(gestor_queries_t *g, const char *linha, FILE *outpu
     g_free(copia);
 }
 
+/**
+ * @brief Processa a query 2.
+ *
+ * @param g Gestor de queries
+ * @param linha Linha original da query
+ * @param output Ficheiro de saída
+ */
 static void processar_query2(gestor_queries_t *g, const char *linha, FILE *output)
 {
     char *copia = g_strdup(linha);
     char *saveptr = NULL;
     char *token = strtok_r(copia, " \t", &saveptr);
+
     if (!token)
     {
         fprintf(output, "\n");
@@ -123,21 +169,26 @@ static void processar_query2(gestor_queries_t *g, const char *linha, FILE *outpu
     }
 
     int N = atoi(token);
-
     const char *fabricante = saveptr ? saveptr : "";
+
     char *fab_copy = g_strdup(fabricante);
     fab_copy[strcspn(fab_copy, "\r\n")] = '\0';
 
     query2(g->avioes, g->voos, N, fab_copy, linha, output);
+
     g_free(fab_copy);
     g_free(copia);
 }
 
+/**
+ * @brief Processa a query 3.
+ */
 static void processar_query3(gestor_queries_t *g, const char *linha, FILE *output)
 {
     char *copia = g_strdup(linha);
     char *saveptr = NULL;
     char *token = strtok_r(copia, " \t", &saveptr);
+
     if (!token)
     {
         fprintf(output, "\n");
@@ -165,8 +216,8 @@ static void processar_query3(gestor_queries_t *g, const char *linha, FILE *outpu
     }
 
     char *data_inicio = g_strdup(token);
-
     token = strtok_r(NULL, " \t\r\n", &saveptr);
+
     if (!token)
     {
         fprintf(output, "\n");
@@ -174,19 +225,24 @@ static void processar_query3(gestor_queries_t *g, const char *linha, FILE *outpu
         g_free(copia);
         return;
     }
-    char *data_fim = g_strdup(token);
 
+    char *data_fim = g_strdup(token);
     query3(g->aeroportos, g->voos, data_inicio, data_fim, linha, output);
+
     g_free(data_inicio);
     g_free(data_fim);
     g_free(copia);
 }
 
+/**
+ * @brief Processa a query 4.
+ */
 static void processar_query4(gestor_queries_t *g, const char *linha, FILE *output)
 {
     char *copia = g_strdup(linha);
     char *saveptr = NULL;
     char *token = strtok_r(copia, " \t", &saveptr);
+
     if (!token)
     {
         fprintf(output, "\n");
@@ -214,8 +270,8 @@ static void processar_query4(gestor_queries_t *g, const char *linha, FILE *outpu
     }
 
     char *data_inicio = g_strdup(token);
-
     token = strtok_r(NULL, " \t\r\n", &saveptr);
+
     if (!token)
     {
         fprintf(output, "\n");
@@ -223,19 +279,24 @@ static void processar_query4(gestor_queries_t *g, const char *linha, FILE *outpu
         g_free(copia);
         return;
     }
-    char *data_fim = g_strdup(token);
 
+    char *data_fim = g_strdup(token);
     query4(g->reservas, g->voos, g->passageiros, data_inicio, data_fim, linha, output);
+
     g_free(data_inicio);
     g_free(data_fim);
     g_free(copia);
 }
 
+/**
+ * @brief Processa a query 5.
+ */
 static void processar_query5(gestor_queries_t *g, const char *linha, FILE *output)
 {
     char *copia = g_strdup(linha);
     char *saveptr = NULL;
     char *token = strtok_r(copia, " \t", &saveptr);
+
     if (!token)
     {
         fprintf(output, "\n");
@@ -263,11 +324,14 @@ static void processar_query5(gestor_queries_t *g, const char *linha, FILE *outpu
     }
 
     int N = atoi(token);
-
     query5(g->voos, N, linha, output);
+
     g_free(copia);
 }
 
+/**
+ * @brief Processa a query 6.
+ */
 static void processar_query6(gestor_queries_t *g, const char *linha, FILE *output)
 {
     const char *p = linha;
@@ -299,6 +363,15 @@ static void processar_query6(gestor_queries_t *g, const char *linha, FILE *outpu
     g_free(nacionalidade);
 }
 
+/**
+ * @brief Processa todas as queries de um ficheiro de input.
+ *
+ * Cada linha do ficheiro é interpretada como um comando e o resultado
+ * é escrito num ficheiro separado na pasta `resultados`.
+ *
+ * @param gestor Gestor de queries
+ * @param ficheiro_input Caminho para o ficheiro de queries
+ */
 void gestor_queries_processar_ficheiro(gestor_queries_t *gestor, const char *ficheiro_input)
 {
     if (!gestor || !ficheiro_input)
@@ -321,7 +394,8 @@ void gestor_queries_processar_ficheiro(gestor_queries_t *gestor, const char *fic
         int numero_query = obter_numero_query(linha);
 
         char nome_output[256];
-        snprintf(nome_output, sizeof(nome_output), "resultados/command%d_output.txt", numero_comando);
+        snprintf(nome_output, sizeof(nome_output),
+                 "resultados/command%d_output.txt", numero_comando);
 
         FILE *output = fopen(nome_output, "w");
         if (!output)
@@ -332,24 +406,12 @@ void gestor_queries_processar_ficheiro(gestor_queries_t *gestor, const char *fic
 
         switch (numero_query)
         {
-        case 1:
-            processar_query1(gestor, linha, output);
-            break;
-        case 2:
-            processar_query2(gestor, linha, output);
-            break;
-        case 3:
-            processar_query3(gestor, linha, output);
-            break;
-        case 4:
-            processar_query4(gestor, linha, output);
-            break;
-        case 5:
-            processar_query5(gestor, linha, output);
-            break;
-        case 6:
-            processar_query6(gestor, linha, output);
-            break;
+        case 1: processar_query1(gestor, linha, output); break;
+        case 2: processar_query2(gestor, linha, output); break;
+        case 3: processar_query3(gestor, linha, output); break;
+        case 4: processar_query4(gestor, linha, output); break;
+        case 5: processar_query5(gestor, linha, output); break;
+        case 6: processar_query6(gestor, linha, output); break;
         default:
             fprintf(output, "\n");
             break;
