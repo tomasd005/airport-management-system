@@ -5,6 +5,15 @@
 #include "../../include/entidades/aeroportos.h"
 #include "../../include/queries/querie1.h"
 
+/**
+ * @brief Verifica se o comando indica uso do formato alternativo.
+ *
+ * O formato alternativo é usado quando, após dígitos iniciais, existe
+ * a letra 'S'.
+ *
+ * @param comando String do comando completo.
+ * @return 1 se deve usar formato alternativo, 0 caso contrário.
+ */
 static inline int usa_formato_alternativo(const char *comando)
 {
     if (!comando)
@@ -16,6 +25,16 @@ static inline int usa_formato_alternativo(const char *comando)
     return (*comando == 'S');
 }
 
+/**
+ * @brief Executa a Query 1.
+ *
+ * @param gestor_aeroportos Gestor de aeroportos.
+ * @param gestor_voos Gestor de voos (não utilizado nesta query).
+ * @param gestor_reservas Gestor de reservas (não utilizado nesta query).
+ * @param comando_completo Comando completo, usado para definir formato alternativo.
+ * @param airport_code Código do aeroporto a consultar.
+ * @param output Ponteiro para arquivo onde será escrita a saída.
+ */
 void query1(gestor_aeroportos_t *gestor_aeroportos,
             gestor_voos_t *gestor_voos,
             gestor_reservas_t *gestor_reservas,

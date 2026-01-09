@@ -6,14 +6,24 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+/**
+ * @brief Estrutura auxiliar para armazenar dados do avião e contagem de voos.
+ */
 typedef struct
 {
-    const char *id;
+    const char *id;        
     const char *fabricante;
-    const char *modelo;
-    guint count;
+    const char *modelo;    
+    guint count;           
 } ContadorVoos;
 
+/**
+ * @brief Verifica se o avião corresponde ao filtro de fabricante.
+ *
+ * @param fabricante Nome do fabricante do avião.
+ * @param filtro Nome do fabricante a filtrar. NULL ou string vazia significa sem filtro.
+ * @return TRUE se corresponder ou não houver filtro, FALSE caso contrário.
+ */
 static inline gboolean fabricante_match(const char *fabricante, const char *filtro)
 {
     if (!filtro || !*filtro)
@@ -23,6 +33,17 @@ static inline gboolean fabricante_match(const char *fabricante, const char *filt
     return strcmp(fabricante, filtro) == 0;
 }
 
+/**
+ * @brief Função de comparação para ordenar os contadores de voos.
+ *
+ * Ordena em ordem decrescente pelo número de voos. Em caso de empate,
+ * ordena pelo identificador do avião em ordem alfabética.
+ *
+ * @param a Primeiro elemento.
+ * @param b Segundo elemento.
+ * @param user_data Não usado.
+ * @return Valor <0, 0 ou >0 conforme comparação.
+ */
 static gint compara_contadores(gconstpointer a, gconstpointer b, gpointer user_data)
 {
     (void)user_data;
@@ -35,6 +56,12 @@ static gint compara_contadores(gconstpointer a, gconstpointer b, gpointer user_d
     return strcmp(ca->id, cb->id);
 }
 
+/**
+ * @brief Processa cada avião do gestor, adicionando à lista de resultados se válido.
+ *
+ * @param aviao Ponteiro para o avião.
+ * @param user_data Array de ponteiros com: [0]=GArray resultados, [2]=filtro de fabricante.
+ */
 static void processar_aviao(aviao_t *aviao, gpointer user_data)
 {
     if (!aviao)
@@ -66,6 +93,15 @@ static void processar_aviao(aviao_t *aviao, gpointer user_data)
     g_array_append_val(resultados, c);
 }
 
+/**
+ * @brief Verifica se o comando indica uso do formato alternativo.
+ *
+ * O formato alternativo é indicado quando, após dígitos iniciais, existe
+ * a letra 'S'.
+ *
+ * @param comando Comando completo.
+ * @return 1 se usar formato alternativo, 0 caso contrário.
+ */
 static inline int usa_formato_alternativo(const char *comando)
 {
     if (!comando)
@@ -77,6 +113,16 @@ static inline int usa_formato_alternativo(const char *comando)
     return (*comando == 'S');
 }
 
+/**
+ * @brief Executa a Query 2.
+ *
+ * @param gestor_avioes Gestor de aviões.
+ * @param gestor_voos Gestor de voos (não utilizado nesta query).
+ * @param N Número máximo de aviões a listar.
+ * @param fabricante Filtro opcional de fabricante. NULL ou string vazia significa sem filtro.
+ * @param comando_completo Comando completo, usado para definir formato alternativo.
+ * @param output Ponteiro para arquivo onde será escrita a saída.
+ */
 void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
             int N, const char *fabricante, const char *comando_completo, FILE *output)
 {

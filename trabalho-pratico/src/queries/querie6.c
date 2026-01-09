@@ -4,6 +4,15 @@
 #include <string.h>
 #include <ctype.h>
 
+/**
+ * @brief Verifica se o comando indica uso do formato alternativo.
+ *
+ * O formato alternativo é indicado quando, após dígitos e espaços iniciais,
+ * aparece 'S' ou 's', seguido de espaço, tabulação ou fim da string.
+ *
+ * @param cmd Comando completo.
+ * @return 1 se usar formato alternativo, 0 caso contrário.
+ */
 static inline int usa_formato_alternativo(const char *cmd)
 {
     if (!cmd)
@@ -15,12 +24,21 @@ static inline int usa_formato_alternativo(const char *cmd)
         p++;
     while (*p && isspace(*p))
         p++;
-    // Só é formato alternativo se for 'S' SOZINHO seguido de espaço
     if ((*p == 'S' || *p == 's') && (*(p + 1) == ' ' || *(p + 1) == '\t' || *(p + 1) == '\0'))
         return 1;
     return 0;
 }
 
+/**
+ * @brief Executa a Query 6.
+ *
+ * @param gestor_reservas Gestor de reservas.
+ * @param gestor_voos Gestor de voos (não usado nesta query, pode ser NULL).
+ * @param gestor_passageiros Gestor de passageiros (não usado nesta query, pode ser NULL).
+ * @param nacionalidade Nacionalidade dos passageiros a filtrar.
+ * @param comando_completo Comando completo, usado para definir formato alternativo.
+ * @param output Ponteiro para arquivo onde será escrita a saída.
+ */
 void query6(gestor_reservas_t *gestor_reservas,
             gestor_voos_t *gestor_voos,
             gestor_passageiros_t *gestor_passageiros,

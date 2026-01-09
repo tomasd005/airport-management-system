@@ -7,6 +7,15 @@
 #include <string.h>
 #include <ctype.h>
 
+/**
+ * @brief Verifica se o comando indica uso do formato alternativo.
+ *
+ * O formato alternativo é indicado quando, após dígitos iniciais e espaços,
+ * aparece 'S' ou 's'.
+ *
+ * @param cmd Comando completo.
+ * @return 1 se usar formato alternativo, 0 caso contrário.
+ */
 static inline int usa_formato_alternativo(const char *cmd)
 {
     if (!cmd)
@@ -20,11 +29,23 @@ static inline int usa_formato_alternativo(const char *cmd)
     return (*cmd == 'S' || *cmd == 's');
 }
 
+/**
+ * @brief Estrutura auxiliar para contar aparições no top10 de reservas.
+ */
 typedef struct
 {
-    GHashTable *contador;
+    GHashTable *contador; /**< Hash table para contar aparições de cada passageiro */
 } ContadorTop10Ctx;
 
+/**
+ * @brief Callback para contar passageiros no top10 de cada semana.
+ *
+ * Incrementa a contagem de cada passageiro presente no top10 de uma semana.
+ *
+ * @param semana Número da semana (não utilizado aqui).
+ * @param top10 Array de strings contendo documentos dos passageiros no top10.
+ * @param user_data Ponteiro para ContadorTop10Ctx.
+ */
 static void contar_semana_top10(int semana, const GPtrArray *top10, void *user_data)
 {
     (void)semana;
@@ -47,6 +68,17 @@ static void contar_semana_top10(int semana, const GPtrArray *top10, void *user_d
     }
 }
 
+/**
+ * @brief Executa a Query 4.
+ *
+ * @param gestor_reservas Gestor de reservas.
+ * @param gestor_voos Gestor de voos (não utilizado nesta query).
+ * @param gestor_passageiros Gestor de passageiros.
+ * @param data_inicio Data de início no formato "YYYY-MM-DD" (opcional).
+ * @param data_fim Data de fim no formato "YYYY-MM-DD" (opcional).
+ * @param comando_completo Comando completo, usado para definir formato alternativo.
+ * @param output Ponteiro para arquivo onde será escrita a saída.
+ */
 void query4(gestor_reservas_t *gestor_reservas,
             gestor_voos_t *gestor_voos,
             gestor_passageiros_t *gestor_passageiros,

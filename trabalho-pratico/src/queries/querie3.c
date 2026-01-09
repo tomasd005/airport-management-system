@@ -9,6 +9,15 @@
 #include <stdio.h>
 #include <ctype.h>
 
+/**
+ * @brief Verifica se o comando indica uso do formato alternativo.
+ *
+ * O formato alternativo é indicado quando, após dígitos iniciais, existe
+ * a letra 'S'.
+ *
+ * @param comando Comando completo.
+ * @return 1 se usar formato alternativo, 0 caso contrário.
+ */
 static inline int usa_formato_alternativo(const char *comando)
 {
     if (!comando)
@@ -20,6 +29,16 @@ static inline int usa_formato_alternativo(const char *comando)
     return (*comando == 'S');
 }
 
+/**
+ * @brief Executa a Query 3.
+ *
+ * @param gestor_aeroportos Gestor de aeroportos.
+ * @param gestor_voos Gestor de voos.
+ * @param data_inicio Data de início no formato "YYYY-MM-DD".
+ * @param data_fim Data de fim no formato "YYYY-MM-DD".
+ * @param comando_completo Comando completo, usado para definir formato alternativo.
+ * @param output Ponteiro para arquivo onde será escrita a saída.
+ */
 void query3(gestor_aeroportos_t *gestor_aeroportos,
             gestor_voos_t *gestor_voos,
             const char *data_inicio,
