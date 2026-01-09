@@ -6,10 +6,19 @@
 #include <stdio.h>
 #include "utils.h"
 
+/** Ano de referência atual para validações temporais */
 #define ANO_ATUAL 2025
+/** Mês de referência atual */
 #define MES_ATUAL 9
+/** Dia de referência atual */
 #define DIA_ATUAL 30
 
+/**
+ * @brief Verifica se uma string contém caracteres de espaço.
+ *
+ * @param str String a analisar
+ * @return TRUE se contiver espaços, FALSE caso contrário
+ */
 gboolean contem_espacos(const char *str)
 {
     if (!str)
@@ -20,6 +29,15 @@ gboolean contem_espacos(const char *str)
     return FALSE;
 }
 
+/**
+ * @brief Valida um ano no formato YYYY.
+ *
+ * O ano deve estar entre 1900 e o ano atual.
+ *
+ * @param str String com o ano
+ * @param out_ano Ponteiro onde é guardado o ano validado (opcional)
+ * @return TRUE se válido, FALSE caso contrário
+ */
 gboolean validacao_ano(const char *str, int *out_ano)
 {
     if (!str || strlen(str) != 4 || contem_espacos(str))
@@ -41,6 +59,12 @@ gboolean validacao_ano(const char *str, int *out_ano)
     return TRUE;
 }
 
+/**
+ * @brief Valida uma data no formato YYYY-MM-DD.
+ *
+ * @param str String da data
+ * @return TRUE se a data for válida, FALSE caso contrário
+ */
 gboolean validacao_data(const char *str)
 {
     if (!str || strlen(str) != 10 || contem_espacos(str))
@@ -72,15 +96,24 @@ gboolean validacao_data(const char *str)
         dia = dia * 10 + (str[i] - '0');
     }
 
-    return (ano >= 1900 && ano <= 2100 && mes >= 1 && mes <= 12 && dia >= 1 && dia <= 31);
+    return (ano >= 1900 && ano <= 2100 &&
+            mes >= 1 && mes <= 12 &&
+            dia >= 1 && dia <= 31);
 }
 
+/**
+ * @brief Valida se uma data está no passado ou presente.
+ *
+ * @param str Data no formato YYYY-MM-DD
+ * @return TRUE se a data não for futura, FALSE caso contrário
+ */
 gboolean validacao_data_passado(const char *str)
 {
     if (!validacao_data(str))
         return FALSE;
 
-    int ano = (str[0] - '0') * 1000 + (str[1] - '0') * 100 + (str[2] - '0') * 10 + (str[3] - '0');
+    int ano = (str[0] - '0') * 1000 + (str[1] - '0') * 100 +
+              (str[2] - '0') * 10 + (str[3] - '0');
     int mes = (str[5] - '0') * 10 + (str[6] - '0');
     int dia = (str[8] - '0') * 10 + (str[9] - '0');
 
@@ -94,6 +127,12 @@ gboolean validacao_data_passado(const char *str)
     return TRUE;
 }
 
+/**
+ * @brief Valida uma data e hora no formato YYYY-MM-DD HH:MM.
+ *
+ * @param str String datetime
+ * @return TRUE se válida, FALSE caso contrário
+ */
 gboolean validacao_datetime(const char *str)
 {
     if (!str || strlen(str) != 16)
@@ -112,14 +151,24 @@ gboolean validacao_datetime(const char *str)
     char data[11];
     memcpy(data, str, 10);
     data[10] = '\0';
+
     if (!validacao_data_passado(data))
         return FALSE;
 
     int h = (str[11] - '0') * 10 + (str[12] - '0');
     int m = (str[14] - '0') * 10 + (str[15] - '0');
+
     return (h <= 23 && m <= 59);
 }
 
+/**
+ * @brief Valida um identificador de voo.
+ *
+ * Formato esperado: duas letras maiúsculas seguidas de 5 a 7 dígitos.
+ *
+ * @param str String do flight_id
+ * @return TRUE se válido, FALSE caso contrário
+ */
 gboolean validacao_flight_id(const char *str)
 {
     if (!str)
@@ -160,6 +209,14 @@ gboolean validacao_flight_id(const char *str)
     return TRUE;
 }
 
+/**
+ * @brief Valida uma coordenada geográfica.
+ *
+ * @param str String da coordenada
+ * @param lat_mode TRUE para latitude, FALSE para longitude
+ * @param out_valor Ponteiro para guardar o valor convertido (opcional)
+ * @return TRUE se válida, FALSE caso contrário
+ */
 gboolean validacao_coordenada(const char *str, gboolean lat_mode, double *out_valor)
 {
     if (!str || !*str || contem_espacos(str))
@@ -207,11 +264,29 @@ gboolean validacao_coordenada(const char *str, gboolean lat_mode, double *out_va
     return TRUE;
 }
 
-gboolean coordenadas_validas(const char *lat, const char *lon, double *out_lat, double *out_lon)
+/**
+ * @brief Valida latitude e longitude em simultâneo.
+ *
+ * @param lat String da latitude
+ * @param lon String da longitude
+ * @param out_lat Ponteiro para latitude convertida
+ * @param out_lon Ponteiro para longitude convertida
+ * @return TRUE se ambas forem válidas, FALSE caso contrário
+ */
+gboolean coordenadas_validas(const char *lat, const char *lon,
+                             double *out_lat, double *out_lon)
 {
-    return validacao_coordenada(lat, TRUE, out_lat) && validacao_coordenada(lon, FALSE, out_lon);
+    return validacao_coordenada(lat, TRUE, out_lat) &&
+           validacao_coordenada(lon, FALSE, out_lon);
 }
 
+/**
+ * @brief Valida um inteiro positivo (> 0).
+ *
+ * @param str String a validar
+ * @param out_val Ponteiro onde guardar o valor convertido (opcional)
+ * @return TRUE se válido, FALSE caso contrário
+ */
 gboolean validacao_inteiro_positivo(const char *str, int *out_val)
 {
     if (!str || !*str || contem_espacos(str))
@@ -227,11 +302,19 @@ gboolean validacao_inteiro_positivo(const char *str, int *out_val)
 
     if (val <= 0)
         return FALSE;
+
     if (out_val)
         *out_val = (int)val;
     return TRUE;
 }
 
+/**
+ * @brief Compara duas strings datetime.
+ *
+ * @param dt1 Datetime 1 no formato YYYY-MM-DD HH:MM
+ * @param dt2 Datetime 2 no formato YYYY-MM-DD HH:MM
+ * @return Valor negativo, zero ou positivo conforme dt1 <, = ou > dt2
+ */
 int comparar_datetime(const char *dt1, const char *dt2)
 {
     if (!dt1 || !dt2)
@@ -245,13 +328,9 @@ int comparar_datetime(const char *dt1, const char *dt2)
     if (sscanf(dt2, "%d-%d-%d %d:%d", &y2, &m2, &d2, &h2, &min2) != 5)
         return 0;
 
-    if (y1 != y2)
-        return y1 - y2;
-    if (m1 != m2)
-        return m1 - m2;
-    if (d1 != d2)
-        return d1 - d2;
-    if (h1 != h2)
-        return h1 - h2;
+    if (y1 != y2) return y1 - y2;
+    if (m1 != m2) return m1 - m2;
+    if (d1 != d2) return d1 - d2;
+    if (h1 != h2) return h1 - h2;
     return min1 - min2;
 }

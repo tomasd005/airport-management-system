@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
+/** Índices das colunas do CSV de reservas */
 #define IDX_RES_ID 0
 #define IDX_FLIGHT_IDS 1
 #define IDX_DOC 2
@@ -15,6 +16,14 @@
 #define IDX_PRIORITY 6
 #define IDX_QR 7
 
+/**
+ * @brief Valida o ID da reserva.
+ *
+ * Deve começar com 'R' seguido de 9 dígitos.
+ *
+ * @param res_id ID da reserva
+ * @return TRUE se válido, FALSE caso contrário
+ */
 static gboolean valida_reservation_id(const char *res_id)
 {
     if (!res_id || strlen(res_id) != 10)
@@ -27,6 +36,14 @@ static gboolean valida_reservation_id(const char *res_id)
     return TRUE;
 }
 
+/**
+ * @brief Valida o número de documento do passageiro.
+ *
+ * Deve conter exatamente 9 dígitos.
+ *
+ * @param doc Número de documento
+ * @return TRUE se válido, FALSE caso contrário
+ */
 static gboolean valida_document_number(const char *doc)
 {
     if (!doc || strlen(doc) != 9)
@@ -37,6 +54,15 @@ static gboolean valida_document_number(const char *doc)
     return TRUE;
 }
 
+/**
+ * @brief Processa a string de flight IDs de uma reserva.
+ *
+ * Remove caracteres não relevantes e valida cada ID.
+ *
+ * @param flight_str String com flight IDs
+ * @param out_count Ponteiro para armazenar o número de IDs válidos
+ * @return Array de strings com os IDs válidos (deve ser liberado com g_strfreev)
+ */
 static char **processar_flight_ids(const char *flight_str, size_t *out_count)
 {
     if (!flight_str || !out_count)
@@ -87,55 +113,15 @@ static char **processar_flight_ids(const char *flight_str, size_t *out_count)
     }
 
     *out_count = count;
-
     return ids;
 }
 
-static size_t processar_flight_ids_inplace(char *flight_str, const char **out_ids)
-{
-    if (!flight_str || !out_ids)
-        return 0;
-
-    size_t len = strlen(flight_str);
-    if (len < 2 || flight_str[0] != '[' || flight_str[len - 1] != ']')
-        return 0;
-
-    flight_str[len - 1] = '\0';
-    char *p = flight_str + 1;
-    size_t count = 0;
-
-    while (*p)
-    {
-        while (*p && (isspace((unsigned char)*p) || *p == '\'' || *p == '"'))
-            p++;
-        if (!*p)
-            break;
-
-        char *start = p;
-        while (*p && *p != ',' && *p != ';')
-            p++;
-        char *end = p;
-
-        while (end > start && isspace((unsigned char)end[-1]))
-            end--;
-        while (end > start && (end[-1] == '\'' || end[-1] == '"'))
-            end--;
-        *end = '\0';
-
-        if (!*start || !validacao_flight_id(start))
-            return 0;
-
-        if (count >= 2)
-            return 0;
-        out_ids[count++] = start;
-
-        if (*p)
-            p++;
-    }
-
-    return count;
-}
-
+/**
+ * @brief Valida os campos de uma reserva a partir de um CSV.
+ *
+ * @param colunas Array de strings com os campos da reserva
+ * @return ponteiro para reserva criada se válido, NULL caso contrário
+ */
 reserva_t *valida_reserva_from_csv(char **colunas)
 {
     if (!colunas)
@@ -153,30 +139,13 @@ reserva_t *valida_reserva_from_csv(char **colunas)
 
     if (!valida_reservation_id(colunas[IDX_RES_ID]))
         return NULL;
-
     if (!valida_document_number(colunas[IDX_DOC]))
-        return NULL;
-
-    size_t len = strlen(colunas[IDX_FLIGHT_IDS]);
-    if (len < 2 || colunas[IDX_FLIGHT_IDS][0] != '[' || colunas[IDX_FLIGHT_IDS][len - 1] != ']')
         return NULL;
 
     size_t num_flights = 0;
     char **flight_ids = processar_flight_ids(colunas[IDX_FLIGHT_IDS], &num_flights);
-    if (!flight_ids)
+    if (!flight_ids || num_flights < 1 || num_flights > 2)
         return NULL;
-
-    if (num_flights < 1 || num_flights > 2)
-    {
-        g_strfreev(flight_ids);
-        return NULL;
-    }
-
-    if (!colunas[IDX_SEAT] || colunas[IDX_SEAT][0] == '\0')
-    {
-        g_strfreev(flight_ids);
-        return NULL;
-    }
 
     char *end;
     double price = strtod(colunas[IDX_PRICE], &end);
@@ -186,26 +155,8 @@ reserva_t *valida_reserva_from_csv(char **colunas)
         return NULL;
     }
 
-    if (strcmp(colunas[IDX_EXTRA_BAG], "true") != 0 && strcmp(colunas[IDX_EXTRA_BAG], "false") != 0)
-    {
-        g_strfreev(flight_ids);
-        return NULL;
-    }
-
-    if (strcmp(colunas[IDX_PRIORITY], "true") != 0 && strcmp(colunas[IDX_PRIORITY], "false") != 0)
-    {
-        g_strfreev(flight_ids);
-        return NULL;
-    }
-
     gboolean extra_bag = (strcmp(colunas[IDX_EXTRA_BAG], "true") == 0);
     gboolean priority = (strcmp(colunas[IDX_PRIORITY], "true") == 0);
-
-    if (!colunas[IDX_QR] || colunas[IDX_QR][0] == '\0')
-    {
-        g_strfreev(flight_ids);
-        return NULL;
-    }
 
     reserva_t *r = reserva_criar(colunas[IDX_RES_ID],
                                  (const char **)flight_ids,
@@ -221,6 +172,16 @@ reserva_t *valida_reserva_from_csv(char **colunas)
     return r;
 }
 
+/**
+ * @brief Valida os campos de uma reserva e retorna informações importantes.
+ *
+ * @param colunas Array de strings com os campos da reserva
+ * @param out_flight_ids Array para retornar os flight IDs
+ * @param out_num_voos Ponteiro para número de voos
+ * @param out_document_number Ponteiro para número de documento
+ * @param out_preco Ponteiro para preço
+ * @return TRUE se os campos são válidos, FALSE caso contrário
+ */
 gboolean valida_reserva_campos(char **colunas,
                                const char **out_flight_ids,
                                size_t *out_num_voos,
@@ -242,7 +203,6 @@ gboolean valida_reserva_campos(char **colunas,
 
     if (!valida_reservation_id(colunas[IDX_RES_ID]))
         return FALSE;
-
     if (!valida_document_number(colunas[IDX_DOC]))
         return FALSE;
 
@@ -273,7 +233,19 @@ gboolean valida_reserva_campos(char **colunas,
     return TRUE;
 }
 
-/* Validação lógica conforme enunciado */
+/**
+ * @brief Valida logicamente uma reserva, retornando erros se houver.
+ *
+ * Regras:
+ * - Flight IDs existem
+ * - Passageiro existe
+ * - Se dois voos, destino do primeiro = origem do segundo
+ *
+ * @param r Reserva a validar
+ * @param gestor_voos Gestor de voos
+ * @param gestor_passageiros Gestor de passageiros
+ * @return GPtrArray com strings de erros ou NULL se válido
+ */
 GPtrArray *validar_reserva(const reserva_t *r,
                            gestor_voos_t *gestor_voos,
                            gestor_passageiros_t *gestor_passageiros)
@@ -282,12 +254,10 @@ GPtrArray *validar_reserva(const reserva_t *r,
         return NULL;
 
     GPtrArray *erros = g_ptr_array_new_with_free_func(g_free);
-
     const char **flight_ids = reserva_obter_flight_ids(r);
     size_t num_voos = reserva_obter_num_voos(r);
     const char *doc = reserva_obter_document_number(r);
 
-    // Validação: flight_ids devem corresponder a voos existentes
     if (gestor_voos)
     {
         for (size_t i = 0; i < num_voos; i++)
@@ -300,7 +270,6 @@ GPtrArray *validar_reserva(const reserva_t *r,
         }
     }
 
-    // Validação: document_number deve corresponder a passageiro existente
     if (gestor_passageiros && doc)
     {
         if (!gestor_passageiros_obter_por_documento(gestor_passageiros, doc))
@@ -310,7 +279,6 @@ GPtrArray *validar_reserva(const reserva_t *r,
         }
     }
 
-    // Validação: se há dois voos, destination do primeiro = origin do segundo
     if (num_voos == 2 && gestor_voos)
     {
         voo_t *voo1 = gestor_voos_obter_por_id(gestor_voos, flight_ids[0]);
@@ -329,7 +297,6 @@ GPtrArray *validar_reserva(const reserva_t *r,
         }
     }
 
-    // Se não há erros, retorna NULL (sucesso)
     if (erros->len == 0)
     {
         g_ptr_array_free(erros, TRUE);
@@ -339,6 +306,11 @@ GPtrArray *validar_reserva(const reserva_t *r,
     return erros;
 }
 
+/**
+ * @brief Liberta a memória de um array de erros de validação.
+ *
+ * @param erros GPtrArray com erros
+ */
 void validar_reserva_imprimir_erros(GPtrArray *erros)
 {
     if (!erros)
