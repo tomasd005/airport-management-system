@@ -9,6 +9,17 @@
 
 #define MAX_COLUNAS 100
 
+/**
+ * @brief Divide uma linha CSV em colunas, respeitando aspas.
+ *
+ * Esta função trata campos entre aspas corretamente e substitui
+ * vírgulas por '\0' para delimitar strings.
+ *
+ * @param linha Linha do CSV a ser dividida.
+ * @param colunas Vetor de ponteiros onde cada coluna será armazenada.
+ * @param max_colunas Número máximo de colunas a processar.
+ * @return Número de colunas obtidas.
+ */
 int parser_dividir_csv(char *linha, char **colunas, int max_colunas)
 {
     if (!linha || !colunas || max_colunas <= 0)
@@ -46,6 +57,18 @@ int parser_dividir_csv(char *linha, char **colunas, int max_colunas)
     return numColunas;
 }
 
+/**
+ * @brief Carrega um ficheiro CSV e processa cada linha.
+ *
+ * Lê linha a linha, converte para objeto com `linha_para_objeto`,
+ * adiciona ao contexto com `adiciona_objeto` e grava erros.
+ *
+ * @param contexto Contexto onde os objetos serão adicionados.
+ * @param ficheiro_csv Caminho para o ficheiro CSV.
+ * @param adiciona_objeto Função que adiciona um objeto ao contexto.
+ * @param linha_para_objeto Função que converte uma linha em objeto.
+ * @param destroi_objeto Função que destrói o objeto se necessário.
+ */
 void parser_carrega(void *contexto,
                     const char *ficheiro_csv,
                     AdicionaObjeto adiciona_objeto,
@@ -75,6 +98,7 @@ void parser_carrega(void *contexto,
     size_t tamanho_parse = 0;
     ssize_t lidos;
 
+    // Copia cabeçalho para ficheiro de erros
     if ((lidos = getline(&linha, &tamanho, ficheiro)) != -1)
     {
         if (ficheiro_erros)
@@ -93,6 +117,7 @@ void parser_carrega(void *contexto,
             tamanho_parse = necessario;
         }
         memcpy(linha_parse, linha, necessario);
+
         char *colunas[MAX_COLUNAS + 1];
         int numColunas = parser_dividir_csv(linha_parse, colunas, MAX_COLUNAS);
         if (numColunas <= 0)
@@ -111,6 +136,7 @@ void parser_carrega(void *contexto,
         }
         else if (adiciona_objeto(contexto, objeto))
         {
+            // Objeto adicionado com sucesso
         }
         else
         {
@@ -126,6 +152,15 @@ void parser_carrega(void *contexto,
     if (ficheiro_erros)
         fclose(ficheiro_erros);
 }
+
+/**
+ * @brief Converte uma string datetime no formato "YYYY-MM-DD HH:MM" para time_t.
+ *
+ * Suporta apenas hífens como separadores de data.
+ *
+ * @param datetime String no formato "YYYY-MM-DD HH:MM"
+ * @return time_t equivalente ou -1 em caso de erro.
+ */
 time_t parser_datetime_para_time(const char *datetime)
 {
     if (!datetime)
@@ -133,7 +168,7 @@ time_t parser_datetime_para_time(const char *datetime)
 
     int y, m, d, hh, mm;
 
-    // APENAS hífens (REMOVER suporte a barras!)
+    // Apenas hífens suportados
     if (sscanf(datetime, "%d-%d-%d %d:%d", &y, &m, &d, &hh, &mm) != 5)
         return (time_t)-1;
 

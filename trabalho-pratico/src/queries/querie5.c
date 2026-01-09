@@ -5,6 +5,15 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+/**
+ * @brief Verifica se o comando indica uso do formato alternativo.
+ *
+ * O formato alternativo é indicado quando, após dígitos iniciais e espaços,
+ * aparece 'S'.
+ *
+ * @param cmd Comando completo.
+ * @return 1 se usar formato alternativo, 0 caso contrário.
+ */
 static inline int usa_formato_alternativo(const char *cmd)
 {
     while (*cmd && isspace(*cmd))
@@ -14,6 +23,14 @@ static inline int usa_formato_alternativo(const char *cmd)
     return (*cmd == 'S');
 }
 
+/**
+ * @brief Executa a Query 5.
+ *
+ * @param gestor_voos Gestor de voos.
+ * @param N Número máximo de companhias a imprimir.
+ * @param comando_completo Comando completo, usado para definir formato alternativo.
+ * @param output Ponteiro para arquivo onde será escrita a saída.
+ */
 void query5(gestor_voos_t *gestor_voos, int N, const char *comando_completo, FILE *output)
 {
     if (!gestor_voos || !output || N <= 0)

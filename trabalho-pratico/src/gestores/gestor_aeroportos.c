@@ -7,18 +7,39 @@
 #include <string.h>
 #include <stdio.h>
 
+/**
+ * @brief Estrutura que representa um gestor de aeroportos.
+ *
+ * Contém uma HashTable que mapeia códigos de aeroportos para as
+ * estruturas correspondentes.
+ */
 struct gestor_aeroportos
 {
     GHashTable *aeroportos;
 };
 
+/**
+ * @brief Cria um gestor de aeroportos.
+ *
+ * @return Ponteiro para o gestor criado.
+ */
 gestor_aeroportos_t *gestor_aeroportos_criar(void)
 {
     gestor_aeroportos_t *g = malloc(sizeof(gestor_aeroportos_t));
-    g->aeroportos = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)aeroporto_destruir);
+    g->aeroportos = g_hash_table_new_full(
+        g_str_hash,
+        g_str_equal,
+        g_free,
+        (GDestroyNotify)aeroporto_destruir
+    );
     return g;
 }
 
+/**
+ * @brief Destroi um gestor de aeroportos e libera a memória associada.
+ *
+ * @param gestor Ponteiro para o gestor a ser destruído.
+ */
 void gestor_aeroportos_destruir(gestor_aeroportos_t *gestor)
 {
     if (!gestor)
@@ -27,6 +48,14 @@ void gestor_aeroportos_destruir(gestor_aeroportos_t *gestor)
     free(gestor);
 }
 
+/**
+ * @brief Adiciona um aeroporto ao gestor.
+ *
+ * Se o aeroporto já existir, ele é destruído e não substitui o existente.
+ *
+ * @param gestor Ponteiro para o gestor de aeroportos.
+ * @param aeroporto Ponteiro para o aeroporto a ser adicionado.
+ */
 void gestor_aeroportos_adicionar(gestor_aeroportos_t *gestor, aeroporto_t *aeroporto)
 {
     if (!gestor || !aeroporto)
@@ -45,6 +74,13 @@ void gestor_aeroportos_adicionar(gestor_aeroportos_t *gestor, aeroporto_t *aerop
     g_hash_table_insert(gestor->aeroportos, g_strdup(id), aeroporto);
 }
 
+/**
+ * @brief Obtém um aeroporto pelo seu ID.
+ *
+ * @param gestor Ponteiro para o gestor de aeroportos.
+ * @param id Código do aeroporto.
+ * @return Ponteiro para o aeroporto correspondente, ou NULL se não encontrado.
+ */
 aeroporto_t *gestor_aeroportos_obter_por_id(gestor_aeroportos_t *gestor, const char *id)
 {
     if (!gestor || !id)
@@ -52,6 +88,13 @@ aeroporto_t *gestor_aeroportos_obter_por_id(gestor_aeroportos_t *gestor, const c
     return g_hash_table_lookup(gestor->aeroportos, id);
 }
 
+/**
+ * @brief Obtém um aeroporto pelo seu código.
+ *
+ * @param gestor Ponteiro para o gestor de aeroportos.
+ * @param codigo Código do aeroporto.
+ * @return Ponteiro para o aeroporto correspondente, ou NULL se não encontrado.
+ */
 aeroporto_t *gestor_aeroportos_obter_por_codigo(gestor_aeroportos_t *gestor, const char *codigo)
 {
     if (!gestor || !codigo)
@@ -59,11 +102,24 @@ aeroporto_t *gestor_aeroportos_obter_por_codigo(gestor_aeroportos_t *gestor, con
     return g_hash_table_lookup(gestor->aeroportos, codigo);
 }
 
+/**
+ * @brief Retorna o número de aeroportos no gestor.
+ *
+ * @param gestor Ponteiro para o gestor de aeroportos.
+ * @return Número de aeroportos armazenados.
+ */
 unsigned gestor_aeroportos_contar(const gestor_aeroportos_t *gestor)
 {
     return gestor && gestor->aeroportos ? g_hash_table_size(gestor->aeroportos) : 0;
 }
 
+/**
+ * @brief Executa uma função de callback para cada aeroporto do gestor.
+ *
+ * @param gestor Ponteiro para o gestor de aeroportos.
+ * @param callback Função que será chamada para cada aeroporto.
+ * @param user_data Dados do usuário que serão passados para o callback.
+ */
 void gestor_aeroportos_para_cada(gestor_aeroportos_t *gestor, void (*callback)(aeroporto_t *, void *), void *user_data)
 {
     if (!gestor || !callback)
@@ -79,6 +135,13 @@ void gestor_aeroportos_para_cada(gestor_aeroportos_t *gestor, void (*callback)(a
     }
 }
 
+/**
+ * @brief Callback interno usado para adicionar aeroportos ao gestor durante o carregamento.
+ *
+ * @param contexto Ponteiro para o gestor de aeroportos.
+ * @param objeto Ponteiro para o aeroporto a ser adicionado.
+ * @return Sempre retorna TRUE para continuar a iteração.
+ */
 static gboolean _adiciona_aeroporto_callback(void *contexto, void *objeto)
 {
     gestor_aeroportos_t *gestor = (gestor_aeroportos_t *)contexto;
@@ -86,9 +149,21 @@ static gboolean _adiciona_aeroporto_callback(void *contexto, void *objeto)
     return TRUE;
 }
 
+/**
+ * @brief Carrega aeroportos de um ficheiro CSV e adiciona ao gestor.
+ *
+ * @param gestor Ponteiro para o gestor de aeroportos.
+ * @param ficheiro_csv Caminho para o ficheiro CSV contendo os aeroportos.
+ */
 void gestor_aeroportos_carregar(gestor_aeroportos_t *gestor, const char *ficheiro_csv)
 {
     if (!gestor || !ficheiro_csv)
         return;
-    parser_carrega(gestor, ficheiro_csv, _adiciona_aeroporto_callback, (LinhaParaObjeto)valida_aeroporto, (DestroiObjeto)aeroporto_destruir);
+    parser_carrega(
+        gestor,
+        ficheiro_csv,
+        _adiciona_aeroporto_callback,
+        (LinhaParaObjeto)valida_aeroporto,
+        (DestroiObjeto)aeroporto_destruir
+    );
 }
