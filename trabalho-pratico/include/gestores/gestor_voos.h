@@ -4,10 +4,22 @@
 #include "../entidades/voos.h"
 #include <glib.h>
 
+/**
+ * @file gestor_voos.h
+ * @brief Gestão centralizada de voos.
+ *
+ * Este módulo permite criar, destruir e gerir um conjunto de voos,
+ * incluindo inserção, carregamento com ou sem validação, consultas
+ * estatísticas e atualização de contagens relacionadas a aeroportos e companhias.
+ */
+
 typedef struct gestor_voos gestor_voos_t;
 typedef struct gestor_avioes gestor_avioes_t;
 typedef struct gestor_aeroportos gestor_aeroportos_t;
 
+/**
+ * @brief Estrutura para armazenar estatísticas de uma companhia aérea (para query 5).
+ */
 typedef struct
 {
     char *airline;

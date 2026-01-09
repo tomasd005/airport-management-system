@@ -4,6 +4,14 @@
 #include "../entidades/passageiros.h"
 #include <glib.h>
 
+/**
+ * @file gestor_passageiros.h
+ * @brief Gestão centralizada de passageiros.
+ *
+ * Este módulo permite criar, destruir e gerir um conjunto de passageiros,
+ * incluindo inserção, consulta, carregamento a partir de CSV e iteração.
+ */
+
 typedef struct gestor_passageiros gestor_passageiros_t;
 
 gestor_passageiros_t *gestor_passageiros_criar(void);

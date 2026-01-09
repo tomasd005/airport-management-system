@@ -4,6 +4,14 @@
 #include "../entidades/avioes.h"
 #include <glib.h>
 
+/**
+ * @file gestor_avioes.h
+ * @brief Gestão centralizada de aviões.
+ *
+ * Este módulo permite criar, destruir e gerir um conjunto de aviões,
+ * incluindo inserção, consulta, carregamento a partir de CSV e iteração.
+ */
+
 typedef struct gestor_avioes gestor_avioes_t;
 
 gestor_avioes_t *gestor_avioes_criar(void);
