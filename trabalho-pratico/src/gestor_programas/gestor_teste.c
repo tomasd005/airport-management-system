@@ -216,8 +216,11 @@ static int detectar_tipo_query(
         if (contador == comando_num)
         {
             char *tipo = strtok(linha, " ,\t;\r\n");
-            fclose(f);
-            return tipo ? atoi(tipo) : -1;
+            if (tipo)
+            {
+                fclose(f);
+                return atoi(tipo);
+            }
         }
         contador++;
     }
@@ -250,7 +253,13 @@ static void imprimir_resumo_queries(gestor_testes_t *gestor)
                    gestor->stats[i].total,
                    (gestor->stats[i].corretos == gestor->stats[i].total) ? "[OK]" : "[FAIL]");
 
-            printf("    Tempo medio: %8.2f ms\n", media);
+            if (gestor->stats[i].corretos == gestor->stats[i].total)
+                printf(" [OK]");
+            else
+                printf(" [FAIL]");
+
+            printf("\n");
+            printf("    Tempo medio: %8.2f ms\n", tempo_medio);
             printf("    Tempo min:   %8.2f ms\n", gestor->stats[i].tempo_min);
             printf("    Tempo max:   %8.2f ms\n", gestor->stats[i].tempo_max);
             printf("    Total:       %8.2f ms\n\n", gestor->stats[i].tempo_total);
@@ -286,9 +295,9 @@ static void imprimir_queries_lentas(gestor_testes_t *gestor)
     for (int i = 0; i < limite; i++)
     {
         InfoQueryIndividual *q = &gestor->queries_individuais[i];
+        const char *status = q->correto ? "[OK]" : "[FAIL]";
         printf("%2d. Command %3d (Q%d): %8.2f ms %s\n",
-               i + 1, q->comando_num, q->tipo_query,
-               q->tempo_ms, q->correto ? "[OK]" : "[FAIL]");
+               i + 1, q->comando_num, q->tipo_query, q->tempo_ms, status);
     }
     printf("\n");
 }

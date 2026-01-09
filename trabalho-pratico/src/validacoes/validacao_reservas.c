@@ -113,7 +113,53 @@ static char **processar_flight_ids(const char *flight_str, size_t *out_count)
     }
 
     *out_count = count;
+
     return ids;
+}
+
+static size_t processar_flight_ids_inplace(char *flight_str, const char **out_ids)
+{
+    if (!flight_str || !out_ids)
+        return 0;
+
+    size_t len = strlen(flight_str);
+    if (len < 2 || flight_str[0] != '[' || flight_str[len - 1] != ']')
+        return 0;
+
+    flight_str[len - 1] = '\0';
+    char *p = flight_str + 1;
+    size_t count = 0;
+
+    while (*p)
+    {
+        while (*p && (isspace((unsigned char)*p) || *p == '\'' || *p == '"'))
+            p++;
+        if (!*p)
+            break;
+
+        char *start = p;
+        while (*p && *p != ',' && *p != ';')
+            p++;
+        char *end = p;
+
+        while (end > start && isspace((unsigned char)end[-1]))
+            end--;
+        while (end > start && (end[-1] == '\'' || end[-1] == '"'))
+            end--;
+        *end = '\0';
+
+        if (!*start || !validacao_flight_id(start))
+            return 0;
+
+        if (count >= 2)
+            return 0;
+        out_ids[count++] = start;
+
+        if (*p)
+            p++;
+    }
+
+    return count;
 }
 
 /**
@@ -139,13 +185,30 @@ reserva_t *valida_reserva_from_csv(char **colunas)
 
     if (!valida_reservation_id(colunas[IDX_RES_ID]))
         return NULL;
+
     if (!valida_document_number(colunas[IDX_DOC]))
+        return NULL;
+
+    size_t len = strlen(colunas[IDX_FLIGHT_IDS]);
+    if (len < 2 || colunas[IDX_FLIGHT_IDS][0] != '[' || colunas[IDX_FLIGHT_IDS][len - 1] != ']')
         return NULL;
 
     size_t num_flights = 0;
     char **flight_ids = processar_flight_ids(colunas[IDX_FLIGHT_IDS], &num_flights);
-    if (!flight_ids || num_flights < 1 || num_flights > 2)
+    if (!flight_ids)
         return NULL;
+
+    if (num_flights < 1 || num_flights > 2)
+    {
+        g_strfreev(flight_ids);
+        return NULL;
+    }
+
+    if (!colunas[IDX_SEAT] || colunas[IDX_SEAT][0] == '\0')
+    {
+        g_strfreev(flight_ids);
+        return NULL;
+    }
 
     char *end;
     double price = strtod(colunas[IDX_PRICE], &end);
@@ -155,8 +218,26 @@ reserva_t *valida_reserva_from_csv(char **colunas)
         return NULL;
     }
 
+    if (strcmp(colunas[IDX_EXTRA_BAG], "true") != 0 && strcmp(colunas[IDX_EXTRA_BAG], "false") != 0)
+    {
+        g_strfreev(flight_ids);
+        return NULL;
+    }
+
+    if (strcmp(colunas[IDX_PRIORITY], "true") != 0 && strcmp(colunas[IDX_PRIORITY], "false") != 0)
+    {
+        g_strfreev(flight_ids);
+        return NULL;
+    }
+
     gboolean extra_bag = (strcmp(colunas[IDX_EXTRA_BAG], "true") == 0);
     gboolean priority = (strcmp(colunas[IDX_PRIORITY], "true") == 0);
+
+    if (!colunas[IDX_QR] || colunas[IDX_QR][0] == '\0')
+    {
+        g_strfreev(flight_ids);
+        return NULL;
+    }
 
     reserva_t *r = reserva_criar(colunas[IDX_RES_ID],
                                  (const char **)flight_ids,
@@ -203,6 +284,7 @@ gboolean valida_reserva_campos(char **colunas,
 
     if (!valida_reservation_id(colunas[IDX_RES_ID]))
         return FALSE;
+
     if (!valida_document_number(colunas[IDX_DOC]))
         return FALSE;
 
@@ -254,10 +336,12 @@ GPtrArray *validar_reserva(const reserva_t *r,
         return NULL;
 
     GPtrArray *erros = g_ptr_array_new_with_free_func(g_free);
+
     const char **flight_ids = reserva_obter_flight_ids(r);
     size_t num_voos = reserva_obter_num_voos(r);
     const char *doc = reserva_obter_document_number(r);
 
+    // Validação: flight_ids devem corresponder a voos existentes
     if (gestor_voos)
     {
         for (size_t i = 0; i < num_voos; i++)
@@ -270,6 +354,7 @@ GPtrArray *validar_reserva(const reserva_t *r,
         }
     }
 
+    // Validação: document_number deve corresponder a passageiro existente
     if (gestor_passageiros && doc)
     {
         if (!gestor_passageiros_obter_por_documento(gestor_passageiros, doc))
@@ -279,6 +364,7 @@ GPtrArray *validar_reserva(const reserva_t *r,
         }
     }
 
+    // Validação: se há dois voos, destination do primeiro = origin do segundo
     if (num_voos == 2 && gestor_voos)
     {
         voo_t *voo1 = gestor_voos_obter_por_id(gestor_voos, flight_ids[0]);
@@ -297,6 +383,7 @@ GPtrArray *validar_reserva(const reserva_t *r,
         }
     }
 
+    // Se não há erros, retorna NULL (sucesso)
     if (erros->len == 0)
     {
         g_ptr_array_free(erros, TRUE);
