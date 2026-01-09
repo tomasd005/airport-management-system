@@ -15,6 +15,13 @@
 #include <string.h>
 #include <ctype.h>
 
+/**
+ * @struct GestorPrincipal
+ * @brief Estrutura principal do modo batch.
+ *
+ * Contém todos os gestores de dados necessários para a execução
+ * das queries a partir de um ficheiro de input.
+ */
 struct GestorPrincipal
 {
     gestor_aeroportos_t *aeroportos;
@@ -24,6 +31,11 @@ struct GestorPrincipal
     gestor_reservas_t *reservas;
 };
 
+/**
+ * @brief Cria e inicializa o gestor principal.
+ *
+ * @return Ponteiro para o gestor criado ou NULL em caso de erro
+ */
 gestor_principal_t *gestor_principal_criar(void)
 {
     gestor_principal_t *gestor = malloc(sizeof(gestor_principal_t));
@@ -39,6 +51,11 @@ gestor_principal_t *gestor_principal_criar(void)
     return gestor;
 }
 
+/**
+ * @brief Liberta toda a memória associada ao gestor principal.
+ *
+ * @param gestor Ponteiro para o gestor principal
+ */
 void gestor_principal_destruir(gestor_principal_t *gestor)
 {
     if (!gestor)
@@ -53,6 +70,11 @@ void gestor_principal_destruir(gestor_principal_t *gestor)
     free(gestor);
 }
 
+/**
+ * @brief Remove espaços em branco no início e fim de uma string.
+ *
+ * @param str String a limpar
+ */
 static void trim_string(char *str)
 {
     if (!str)
@@ -73,6 +95,12 @@ static void trim_string(char *str)
         memmove(str, start, strlen(start) + 1);
 }
 
+/**
+ * @brief Carrega todos os ficheiros CSV do dataset.
+ *
+ * @param gestor Gestor principal
+ * @param pasta Caminho para a pasta do dataset
+ */
 static void carregar_dados(gestor_principal_t *gestor, const char *pasta)
 {
     char caminho[512];
@@ -109,6 +137,17 @@ static void carregar_dados(gestor_principal_t *gestor, const char *pasta)
     gestor_voos_preparar_q3(gestor->voos);
 }
 
+
+/**
+ * @brief Executa uma única query a partir de uma linha de input.
+ *
+ * A função identifica o tipo da query e encaminha para a função
+ * correspondente.
+ *
+ * @param gestor Gestor principal
+ * @param linha_completa Linha completa da query
+ * @param output Ficheiro de saída
+ */
 static void executar_query(
     gestor_principal_t *gestor,
     const char *linha_completa,
@@ -294,6 +333,17 @@ static void executar_query(
     }
 }
 
+
+/**
+ * @brief Executa o modo batch do programa.
+ *
+ * Carrega os dados, lê o ficheiro de queries e gera um ficheiro
+ * de output por comando.
+ *
+ * @param gestor Gestor principal
+ * @param pasta_dados Caminho para o dataset
+ * @param ficheiro_input Caminho para o ficheiro de queries
+ */
 void gestor_principal_executar(
     gestor_principal_t *gestor,
     const char *pasta_dados,

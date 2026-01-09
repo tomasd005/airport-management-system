@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <stdio.h>
 
+/** Índices das colunas do CSV de voos */
 #define IDX_ID 0
 #define IDX_DEP 1
 #define IDX_ACT_DEP 2
@@ -18,6 +19,20 @@
 #define IDX_AIRLINE 10
 #define IDX_URL 11
 
+/**
+ * @brief Valida um voo a partir de um array de colunas CSV.
+ *
+ * Valida todos os campos obrigatórios, bem como regras lógicas:
+ * - Flight ID deve estar no formato correto
+ * - Origem e destino devem ser diferentes e ter códigos de 3 letras maiúsculas
+ * - Datas previstas e reais devem estar corretas e consistentes
+ * - Status do voo deve ser "On Time", "Delayed" ou "Cancelled"
+ * - Se cancelado, datas reais devem ser "N/A"
+ * - Se atrasado, datas reais >= datas previstas
+ *
+ * @param colunas Array de strings com os campos do voo
+ * @return Ponteiro para voo_t criado se válido, NULL caso contrário
+ */
 voo_t *valida_voo(char **colunas)
 {
     if (!colunas || !colunas[IDX_ID])
@@ -64,6 +79,7 @@ voo_t *valida_voo(char **colunas)
     if (strcmp(colunas[IDX_STATUS], "Cancelled") == 0 &&
         (strcmp(colunas[IDX_ACT_DEP], "N/A") != 0 || strcmp(colunas[IDX_ACT_ARR], "N/A") != 0))
         return NULL;
+
     if (strcmp(colunas[IDX_STATUS], "Cancelled") != 0)
     {
         if (!validacao_datetime(colunas[IDX_ACT_DEP]) || !validacao_datetime(colunas[IDX_ACT_ARR]))

@@ -8,6 +8,14 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
+/**
+ * @struct gestor_programa
+ * @brief Estrutura principal que agrega todos os gestores do sistema.
+ *
+ * Esta estrutura contém ponteiros para todos os gestores responsáveis
+ * pelos diferentes tipos de dados (aeroportos, aviões, voos, passageiros
+ * e reservas)
+ */
 struct gestor_programa
 {
     gestor_aeroportos_t *aeroportos;
@@ -18,6 +26,15 @@ struct gestor_programa
     gboolean modoEconomiaMemoria;
 };
 
+/**
+ * @brief Cria e inicializa um novo gestor de programa.
+ *
+ * Aloca memória para o gestor principal e cria todos os gestores
+ * internos necessários ao funcionamento do programa.
+ *
+ * @param modoEconomiaMemoria Indica se o programa deve usar menos memória
+ * @return Ponteiro para o novo GestorDePrograma
+ */
 GestorDePrograma *gestor_programa_novo(gboolean modoEconomiaMemoria)
 {
     GestorDePrograma *g = g_new0(GestorDePrograma, 1);
@@ -32,11 +49,22 @@ GestorDePrograma *gestor_programa_novo(gboolean modoEconomiaMemoria)
     return g;
 }
 
+/**
+ * @brief Executa o fluxo principal do programa.
+ *
+ * Esta função carrega todos os dados a partir dos ficheiros CSV,
+ * valida a consistência da informação, prepara as estruturas
+ * necessárias e processa as queries presentes no ficheiro de input.
+ *
+ * @param gestor Ponteiro para o gestor de programa
+ * @param pastaDados Caminho para a pasta que contém os ficheiros CSV
+ * @param ficheiroInput Caminho para o ficheiro de queries
+ */
 void gestor_programa_executa(GestorDePrograma *gestor, const char *pastaDados, const char *ficheiroInput)
 {
     char caminho[512];
 
-    // Criar pasta resultados se não existir
+    /* Criar pasta de resultados caso não exista */
     mkdir("resultados", 0755);
 
     fprintf(stderr, "Carregando dados de: %s\n", pastaDados);
@@ -68,6 +96,7 @@ void gestor_programa_executa(GestorDePrograma *gestor, const char *pastaDados, c
     unsigned int reservas = gestor_reservas_numero(gestor->reservas);
     fprintf(stderr, "  Reservas: %u\n", reservas);
 
+    /* Pós-processamento dos dados */
     gestor_reservas_finalizar(gestor->reservas);
     gestor_voos_atualizar_contagens_aeroportos(gestor->voos, gestor->aeroportos);
     gestor_voos_preparar_q3(gestor->voos);
@@ -88,12 +117,18 @@ void gestor_programa_executa(GestorDePrograma *gestor, const char *pastaDados, c
         gestor->reservas);
 
     gestor_queries_processar_ficheiro(gestor_queries, ficheiroInput);
-
     gestor_queries_destruir(gestor_queries);
 
     fprintf(stderr, "Processamento concluído!\n");
 }
 
+/**
+ * @brief Liberta toda a memória associada ao gestor de programa.
+ *
+ * Destrói todos os gestores internos e liberta a estrutura principal.
+ *
+ * @param gestor Ponteiro para o gestor de programa a destruir
+ */
 void gestor_programa_destroi(GestorDePrograma *gestor)
 {
     if (!gestor)

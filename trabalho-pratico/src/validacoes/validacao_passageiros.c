@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 
+/** Índices das colunas do CSV de passageiros */
 #define IDX_DOC 0
 #define IDX_FIRST 1
 #define IDX_LAST 2
@@ -15,6 +16,14 @@
 #define IDX_ADDR 8
 #define IDX_PHOTO 9
 
+/**
+ * @brief Valida o número de documento do passageiro.
+ *
+ * Formato esperado: 9 dígitos sem espaços.
+ *
+ * @param doc Número de documento
+ * @return TRUE se válido, FALSE caso contrário
+ */
 static inline gboolean valida_document_number(const char *doc)
 {
     if (!doc || strlen(doc) != 9 || contem_espacos(doc))
@@ -26,11 +35,31 @@ static inline gboolean valida_document_number(const char *doc)
     return TRUE;
 }
 
+/**
+ * @brief Valida o género do passageiro.
+ *
+ * Valores válidos: 'M', 'F', 'O'.
+ *
+ * @param gen String do género
+ * @return TRUE se válido, FALSE caso contrário
+ */
 static inline gboolean valida_genero(const char *gen)
 {
     return gen && strlen(gen) == 1 && (gen[0] == 'M' || gen[0] == 'F' || gen[0] == 'O');
 }
 
+/**
+ * @brief Valida o email do passageiro.
+ *
+ * Regras básicas:
+ * - Contém exatamente um '@'
+ * - Username antes do '@' contém letras minúsculas, números ou '.'
+ * - Domínio contém letras minúsculas
+ * - Extensão tem 2 a 3 letras minúsculas
+ *
+ * @param email String do email
+ * @return TRUE se válido, FALSE caso contrário
+ */
 static gboolean valida_email(const char *email)
 {
     if (!email)
@@ -65,11 +94,21 @@ static gboolean valida_email(const char *email)
     return TRUE;
 }
 
+/**
+ * @brief Valida todas as colunas de um passageiro.
+ *
+ * Realiza validação do número de documento, data de nascimento,
+ * género, email e campos obrigatórios.
+ *
+ * @param colunas Array de strings contendo os campos do passageiro
+ * @return ponteiro para um passageiro criado se válido, NULL caso contrário
+ */
 passageiro_t *valida_passageiro(char **colunas)
 {
     if (!colunas)
         return NULL;
 
+    /* Remove aspas das colunas */
     for (int i = 0; i <= IDX_PHOTO; i++)
         if (colunas[i])
             utils_remove_aspas(colunas[i]);
@@ -77,15 +116,22 @@ passageiro_t *valida_passageiro(char **colunas)
     if (!valida_document_number(colunas[IDX_DOC]))
         return NULL;
 
+    /* Remove espaços em excesso */
     for (int i = 0; i <= IDX_PHOTO; i++)
         if (colunas[i])
             utils_trim(colunas[i]);
 
-    if (!validacao_data_passado(colunas[IDX_DOB]) || !valida_genero(colunas[IDX_GEN]) || !valida_email(colunas[IDX_EMAIL]))
+    /* Valida data, género e email */
+    if (!validacao_data_passado(colunas[IDX_DOB]) ||
+        !valida_genero(colunas[IDX_GEN]) ||
+        !valida_email(colunas[IDX_EMAIL]))
         return NULL;
 
-    if (!colunas[IDX_FIRST] || !*colunas[IDX_FIRST] || !colunas[IDX_LAST] || !*colunas[IDX_LAST] ||
-        !colunas[IDX_NAT] || !*colunas[IDX_NAT] || !colunas[IDX_PHONE] || !*colunas[IDX_PHONE] ||
+    /* Campos obrigatórios */
+    if (!colunas[IDX_FIRST] || !*colunas[IDX_FIRST] ||
+        !colunas[IDX_LAST] || !*colunas[IDX_LAST] ||
+        !colunas[IDX_NAT] || !*colunas[IDX_NAT] ||
+        !colunas[IDX_PHONE] || !*colunas[IDX_PHONE] ||
         !colunas[IDX_ADDR] || !*colunas[IDX_ADDR])
         return NULL;
 

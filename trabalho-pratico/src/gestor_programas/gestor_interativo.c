@@ -18,7 +18,7 @@
 #define BUFFER_SIZE 512
 #define DEFAULT_DATASET "./dataset"
 
-// Cores ANSI
+/* Códigos ANSI para cores no terminal */
 #define RESET "\033[0m"
 #define BOLD "\033[1m"
 #define RED "\033[31m"
@@ -27,6 +27,13 @@
 #define BLUE "\033[34m"
 #define CYAN "\033[36m"
 
+/**
+ * @struct GestorInterativo
+ * @brief Estrutura do gestor do modo interativo.
+ *
+ * Contém os gestores de dados necessários à execução das queries
+ * e um indicador que sinaliza se os dados já foram carregados.
+ */
 struct GestorInterativo
 {
     gestor_aeroportos_t *aeroportos;
@@ -37,6 +44,13 @@ struct GestorInterativo
     int dados_carregados;
 };
 
+/**
+ * @brief Cria um novo gestor para o modo interativo.
+ *
+ * Inicializa todos os gestores de dados necessários.
+ *
+ * @return Ponteiro para o gestor interativo criado ou NULL em erro
+ */
 gestor_interativo_t *gestor_interativo_criar(void)
 {
     gestor_interativo_t *gestor = malloc(sizeof(gestor_interativo_t));
@@ -53,6 +67,11 @@ gestor_interativo_t *gestor_interativo_criar(void)
     return gestor;
 }
 
+/**
+ * @brief Destrói o gestor interativo e liberta a memória associada.
+ *
+ * @param gestor Ponteiro para o gestor interativo
+ */
 void gestor_interativo_destruir(gestor_interativo_t *gestor)
 {
     if (!gestor)
@@ -67,6 +86,11 @@ void gestor_interativo_destruir(gestor_interativo_t *gestor)
     free(gestor);
 }
 
+/**
+ * @brief Remove espaços e quebras de linha de uma string.
+ *
+ * @param str String a limpar
+ */
 static void limpar_input(char *str)
 {
     if (!str)
@@ -94,6 +118,12 @@ static void limpar_input(char *str)
         memmove(str, start, strlen(start) + 1);
 }
 
+/**
+ * @brief Carrega todos os ficheiros CSV do dataset.
+ *
+ * @param gestor Gestor interativo
+ * @param pasta Caminho para a pasta do dataset
+ */
 static void carregar_dataset(gestor_interativo_t *gestor, const char *pasta)
 {
     printf(CYAN "Carregando dataset de: %s\n" RESET, pasta);
@@ -137,6 +167,9 @@ static void carregar_dataset(gestor_interativo_t *gestor, const char *pasta)
     printf("   Reservas: %u\n\n", gestor_reservas_numero(gestor->reservas));
 }
 
+/**
+ * @brief Apresenta o menu principal do modo interativo.
+ */
 static void mostrar_menu(void)
 {
     printf(BOLD BLUE "\n╔═══════════════════════════════════════════════╗\n" RESET);
@@ -323,6 +356,14 @@ static void executar_query6(gestor_interativo_t *gestor)
            nacionalidade, comando, stdout);
 }
 
+/**
+ * @brief Executa o ciclo principal do modo interativo.
+ *
+ * Solicita o caminho do dataset, carrega os dados e apresenta
+ * o menu de queries até o utilizador escolher sair.
+ *
+ * @param gestor Gestor interativo
+ */
 void gestor_interativo_executar(gestor_interativo_t *gestor)
 {
     char caminho_dataset[BUFFER_SIZE];
