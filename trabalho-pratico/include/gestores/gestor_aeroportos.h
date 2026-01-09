@@ -4,6 +4,14 @@
 #include "../entidades/aeroportos.h"
 #include <glib.h>
 
+/**
+ * @file gestor_aeroportos.h
+ * @brief Gestão centralizada de aeroportos.
+ *
+ * Este módulo fornece funções para criar, destruir e gerir um conjunto
+ * de aeroportos, permitindo inserção, consulta e iteração sobre os dados.
+ */
+
 typedef struct gestor_aeroportos gestor_aeroportos_t;
 
 gestor_aeroportos_t *gestor_aeroportos_criar(void);

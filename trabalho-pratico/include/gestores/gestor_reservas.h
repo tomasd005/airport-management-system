@@ -3,6 +3,15 @@
 
 #include <glib.h>
 
+/**
+ * @file gestor_reservas.h
+ * @brief Gestão centralizada de reservas de voos.
+ *
+ * Este módulo permite criar, destruir e gerir um conjunto de reservas,
+ * incluindo inserção com validação, consultas e estatísticas como top10 ou
+ * destinos mais populares por nacionalidade.
+ */
+
 typedef struct gestor_reservas gestor_reservas_t;
 typedef struct gestor_voos gestor_voos_t;
 typedef struct gestor_passageiros gestor_passageiros_t;
