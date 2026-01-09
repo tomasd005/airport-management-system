@@ -3,6 +3,14 @@
 
 #include <glib.h>
 
+/**
+ * @file validacao_comum.h
+ * @brief Funções comuns de validação de dados para aeroportos, voos, reservas, etc.
+ *
+ * Este módulo contém funções genéricas que validam formatos de strings,
+ * datas, horários, códigos de voo, coordenadas e números inteiros positivos.
+ */
+
 gboolean contem_espacos(const char *str);
 gboolean validacao_ano(const char *str, int *out_ano);
 gboolean validacao_data(const char *str);
