@@ -10,23 +10,34 @@
 #include <stdio.h>
 #include <limits.h>
 
+/**
+ * @struct gestor_voos
+ * @brief Estrutura que mantém todos os voos e estatísticas.
+ */
 struct gestor_voos
 {
-    GHashTable *tabela;
-    GHashTable *q3_contagens;
-    int q3_min_day;
-    int q3_max_day;
-    int q3_range;
-    GHashTable *atrasos_airline;
-    GArray *q5_cache;
+    GHashTable *tabela;           /**< Tabela de voos (id -> voo_t*) */
+    GHashTable *q3_contagens;     /**< Contagens para query 3 (origem -> array de contagens por dia) */
+    int q3_min_day;               /**< Menor dia de voo processado */
+    int q3_max_day;               /**< Maior dia de voo processado */
+    int q3_range;                 /**< Range de dias processados */
+    GHashTable *atrasos_airline;  /**< Atrasos acumulados por companhia aérea */
+    GArray *q5_cache;             /**< Cache para query 5 (média de atrasos por airline) */
 };
 
+/**
+ * @struct atraso_airline_t
+ * @brief Estatísticas de atraso por companhia aérea.
+ */
 typedef struct
 {
-    guint count;
-    double total_delay;
+    guint count;        
+    double total_delay; 
 } atraso_airline_t;
 
+/**
+ * @brief Arredonda um valor de atraso para milissegundos.
+ */
 static long long q5_round_millis(double v)
 {
     if (v >= 0.0)
@@ -34,6 +45,9 @@ static long long q5_round_millis(double v)
     return (long long)(v * 1000.0 - 0.5);
 }
 
+/**
+ * @brief Função de comparação para ordenar o cache de atrasos.
+ */
 static gint q5_cache_cmp(gconstpointer a, gconstpointer b)
 {
     const gestor_voos_q5_t *ra = a;
@@ -49,6 +63,9 @@ static gint q5_cache_cmp(gconstpointer a, gconstpointer b)
     return strcmp(ra->airline, rb->airline);
 }
 
+/**
+ * @brief Liberta a memória do cache de query 5.
+ */
 static void q5_cache_destruir(GArray *cache)
 {
     if (!cache)
@@ -63,11 +80,18 @@ static void q5_cache_destruir(GArray *cache)
     g_array_free(cache, TRUE);
 }
 
+/**
+ * @brief Callback para destruir contagens de origem de Q3.
+ */
 static void contagens_origem_destruir(gpointer data)
 {
     g_free(data);
 }
 
+/**
+ * @brief Cria e inicializa um gestor de voos.
+ * @return Ponteiro para gestor_voos_t criado.
+ */
 gestor_voos_t *gestor_voos_criar(void)
 {
     gestor_voos_t *g = malloc(sizeof(gestor_voos_t));
@@ -81,6 +105,9 @@ gestor_voos_t *gestor_voos_criar(void)
     return g;
 }
 
+/**
+ * @brief Liberta toda a memória associada a um gestor de voos.
+ */
 void gestor_voos_destruir(gestor_voos_t *gestor)
 {
     if (!gestor)
@@ -95,6 +122,9 @@ void gestor_voos_destruir(gestor_voos_t *gestor)
     free(gestor);
 }
 
+/**
+ * @brief Adiciona um voo ao gestor, atualizando estatísticas.
+ */
 void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
 {
     if (!gestor || !voo)
@@ -139,21 +169,33 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
     voo_descartar_airline(voo);
 }
 
+/**
+ * @brief Obtém um voo pelo ID.
+ */
 voo_t *gestor_voos_obter_por_id(gestor_voos_t *gestor, const char *flight_id)
 {
     return (gestor && flight_id) ? g_hash_table_lookup(gestor->tabela, flight_id) : NULL;
 }
 
+/**
+ * @brief Retorna a tabela interna de voos.
+ */
 GHashTable *gestor_voos_obter_tabela(gestor_voos_t *gestor)
 {
     return gestor ? gestor->tabela : NULL;
 }
 
+/**
+ * @brief Retorna o número de voos no gestor.
+ */
 unsigned gestor_voos_contar(const gestor_voos_t *gestor)
 {
     return gestor ? g_hash_table_size(gestor->tabela) : 0;
 }
 
+/**
+ * @brief Executa uma função para cada voo do gestor.
+ */
 void gestor_voos_para_cada(gestor_voos_t *gestor, void (*func)(voo_t *, void *), void *user_data)
 {
     if (!gestor || !func)
@@ -167,18 +209,28 @@ void gestor_voos_para_cada(gestor_voos_t *gestor, void (*func)(voo_t *, void *),
         func(value, user_data);
 }
 
+/**
+ * @brief Callback interno para adicionar voos.
+ */
 static gboolean _adiciona_voo_callback(void *contexto, void *objeto)
 {
     gestor_voos_adicionar(contexto, objeto);
     return TRUE;
 }
 
+/**
+ * @struct contexto_voos_validacao_t
+ * @brief Contexto usado ao carregar voos com validação.
+ */
 typedef struct
 {
-    gestor_voos_t *gestor_voos;
-    gestor_avioes_t *gestor_avioes;
+    gestor_voos_t *gestor_voos; 
+    gestor_avioes_t *gestor_avioes; 
 } contexto_voos_validacao_t;
 
+/**
+ * @brief Callback interno para adicionar voos validados.
+ */
 static gboolean _adiciona_voo_validado(void *contexto, void *objeto)
 {
     contexto_voos_validacao_t *ctx = contexto;
@@ -199,12 +251,18 @@ static gboolean _adiciona_voo_validado(void *contexto, void *objeto)
     return TRUE;
 }
 
+/**
+ * @brief Carrega voos de um CSV sem validação extra.
+ */
 void gestor_voos_carregar(gestor_voos_t *gestor, const char *ficheiro_csv)
 {
     if (gestor && ficheiro_csv)
         parser_carrega(gestor, ficheiro_csv, _adiciona_voo_callback, (LinhaParaObjeto)valida_voo, (DestroiObjeto)voo_destruir);
 }
 
+/**
+ * @brief Carrega voos de um CSV com validação de aeronaves.
+ */
 void gestor_voos_carregar_com_validacao(gestor_voos_t *gestor, const char *ficheiro_csv, gestor_avioes_t *gestor_avioes)
 {
     if (gestor && ficheiro_csv)
@@ -216,6 +274,9 @@ void gestor_voos_carregar_com_validacao(gestor_voos_t *gestor, const char *fiche
     }
 }
 
+/**
+ * @brief Prepara estruturas de contagem para Q3.
+ */
 void gestor_voos_preparar_q3(gestor_voos_t *gestor)
 {
     if (!gestor || gestor->q3_contagens)
@@ -272,6 +333,9 @@ void gestor_voos_preparar_q3(gestor_voos_t *gestor)
     }
 }
 
+/**
+ * @brief Calcula a melhor origem de voos em um intervalo de dias.
+ */
 gboolean gestor_voos_melhor_origem_intervalo(gestor_voos_t *gestor, int dia_inicio, int dia_fim, const char **out_origem, guint *out_contagem)
 {
     if (!gestor || !out_origem || !out_contagem)
@@ -325,6 +389,9 @@ gboolean gestor_voos_melhor_origem_intervalo(gestor_voos_t *gestor, int dia_inic
     return TRUE;
 }
 
+/**
+ * @brief Executa um callback para cada atraso por companhia aérea.
+ */
 void gestor_voos_para_cada_atraso(gestor_voos_t *gestor, void (*callback)(const char *airline, guint count, double total_delay, void *), void *user_data)
 {
     if (!gestor || !callback)
@@ -342,6 +409,9 @@ void gestor_voos_para_cada_atraso(gestor_voos_t *gestor, void (*callback)(const 
     }
 }
 
+/**
+ * @brief Retorna o cache de Q5 (média de atrasos por companhia aérea), gerando se necessário.
+ */
 const GArray *gestor_voos_obter_q5_cache(gestor_voos_t *gestor)
 {
     if (!gestor)
@@ -375,6 +445,9 @@ const GArray *gestor_voos_obter_q5_cache(gestor_voos_t *gestor)
     return gestor->q5_cache;
 }
 
+/**
+ * @brief Atualiza contagens de chegadas e partidas nos aeroportos.
+ */
 void gestor_voos_atualizar_contagens_aeroportos(gestor_voos_t *gestor_voos, gestor_aeroportos_t *gestor_aeroportos)
 {
     if (!gestor_voos || !gestor_aeroportos)

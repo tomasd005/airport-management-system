@@ -11,40 +11,64 @@
 #include <string.h>
 #include <stdio.h>
 
+/**
+ * @struct melhor_destino_t
+ * @brief Armazena o destino mais frequente para uma nacionalidade.
+ */
 typedef struct
 {
-    const char *destino;
-    guint count;
+    const char *destino; 
+    guint count;         
 } melhor_destino_t;
 
+/**
+ * @struct gasto_t
+ * @brief Estrutura para armazenar o gasto total de um passageiro.
+ */
 typedef struct
 {
-    const char *doc;
-    double total;
+    const char *doc; 
+    double total;    
 } gasto_t;
 
-#define MAX_COLUNAS_RESERVAS 16
-#define RESERVA_COLS 8
+#define MAX_COLUNAS_RESERVAS 16 
+#define RESERVA_COLS 8          
 
+/**
+ * @struct gestor_reservas
+ * @brief Estrutura principal para gerenciar reservas.
+ */
 struct gestor_reservas
 {
-    guint total_reservas;
-    GHashTable *gastos_por_semana;
-    GHashTable *top10_por_semana;
-    GHashTable *destinos_por_nacionalidade;
-    GHashTable *melhor_dest_por_nacionalidade;
+    guint total_reservas;                         
+    GHashTable *gastos_por_semana;               
+    GHashTable *top10_por_semana;             
+    GHashTable *destinos_por_nacionalidade;   
+    GHashTable *melhor_dest_por_nacionalidade; 
 };
 
+/**
+ * @brief Cria um mapa de gastos (documento -> total gasto).
+ * @return Novo GHashTable.
+ */
 static GHashTable *criar_mapa_gastos(void)
 {
     return g_hash_table_new_full(g_str_hash, g_str_equal, NULL, g_free);
 }
 
+/**
+ * @brief Cria um mapa de destinos (destino -> número de reservas).
+ * @return Novo GHashTable.
+ */
 static GHashTable *criar_mapa_destinos(void)
 {
     return g_hash_table_new_full(g_str_hash, g_str_equal, NULL, g_free);
 }
 
+/**
+ * @brief Cria e inicializa um gestor de reservas.
+ * @return Ponteiro para gestor_reservas_t criado.
+ */
 gestor_reservas_t *gestor_reservas_criar(void)
 {
     gestor_reservas_t *g = malloc(sizeof(*g));
@@ -56,6 +80,10 @@ gestor_reservas_t *gestor_reservas_criar(void)
     return g;
 }
 
+/**
+ * @brief Liberta toda a memória associada a um gestor de reservas.
+ * @param gestor Ponteiro para gestor_reservas_t.
+ */
 void gestor_reservas_destruir(gestor_reservas_t *gestor)
 {
     if (!gestor)
@@ -72,11 +100,19 @@ void gestor_reservas_destruir(gestor_reservas_t *gestor)
     free(gestor);
 }
 
+/**
+ * @brief Retorna o número total de reservas processadas.
+ * @param gestor Ponteiro para gestor_reservas_t.
+ * @return Total de reservas.
+ */
 unsigned int gestor_reservas_numero(gestor_reservas_t *gestor)
 {
     return gestor ? gestor->total_reservas : 0;
 }
 
+/**
+ * @brief Acumula gastos de um passageiro para a semana de um voo.
+ */
 static void acumular_gastos_semana(gestor_reservas_t *gestor,
                                    const char *doc,
                                    double preco,
@@ -119,6 +155,9 @@ static void acumular_gastos_semana(gestor_reservas_t *gestor,
     }
 }
 
+/**
+ * @brief Acumula destinos visitados por nacionalidade.
+ */
 static void acumular_destinos_nacionalidade(gestor_reservas_t *gestor,
                                             const char *doc,
                                             const char **flight_ids,
@@ -172,6 +211,9 @@ static void acumular_destinos_nacionalidade(gestor_reservas_t *gestor,
     }
 }
 
+/**
+ * @brief Incrementa o número de passageiros em cada voo.
+ */
 static void acumular_passageiros_voos(gestor_voos_t *gestor_voos, const char **flight_ids, size_t num_voos)
 {
     if (!gestor_voos || !flight_ids || num_voos == 0)
@@ -188,6 +230,9 @@ static void acumular_passageiros_voos(gestor_voos_t *gestor_voos, const char **f
     }
 }
 
+/**
+ * @brief Verifica a validade lógica de uma reserva antes do carregamento.
+ */
 static gboolean reserva_valida_logica_view(const char **flight_ids,
                                            size_t num_voos,
                                            const char *document_number,
@@ -236,6 +281,9 @@ static gboolean reserva_valida_logica_view(const char **flight_ids,
     return TRUE;
 }
 
+/**
+ * @brief Carrega reservas de um CSV e aplica validação.
+ */
 void gestor_reservas_carregar_com_validacao(
     gestor_reservas_t *gestor,
     const char *ficheiro_csv,
@@ -323,6 +371,9 @@ void gestor_reservas_carregar_com_validacao(
         fclose(ficheiro_erros);
 }
 
+/**
+ * @brief Compara dois gastos para ordenação decrescente.
+ */
 static gint cmp_gastos(gconstpointer a, gconstpointer b)
 {
     const gasto_t *ga = a;
@@ -334,6 +385,9 @@ static gint cmp_gastos(gconstpointer a, gconstpointer b)
     return strcmp(ga->doc, gb->doc);
 }
 
+/**
+ * @brief Insere um gasto na posição correta de um array ordenado.
+ */
 static void top10_inserir_ordenado(GArray *top, const gasto_t *novo)
 {
     guint pos = 0;
@@ -352,11 +406,15 @@ static void top10_inserir_ordenado(GArray *top, const gasto_t *novo)
     g_array_index(top, gasto_t, pos) = *novo;
 }
 
+/**
+ * @brief Finaliza o gestor, calculando top 10 por semana e melhor destino por nacionalidade.
+ */
 void gestor_reservas_finalizar(gestor_reservas_t *gestor)
 {
     if (!gestor)
         return;
 
+    // Processa top 10 por semana
     if (gestor->gastos_por_semana)
     {
         GHashTableIter iter_sem;
@@ -406,6 +464,7 @@ void gestor_reservas_finalizar(gestor_reservas_t *gestor)
         gestor->gastos_por_semana = NULL;
     }
 
+    // Processa melhor destino por nacionalidade
     if (gestor->destinos_por_nacionalidade)
     {
         GHashTableIter iter_nac;
@@ -449,6 +508,9 @@ void gestor_reservas_finalizar(gestor_reservas_t *gestor)
     }
 }
 
+/**
+ * @brief Retorna o top10 de uma semana.
+ */
 const GPtrArray *gestor_reservas_obter_top10_semana(gestor_reservas_t *gestor, int semana)
 {
     if (!gestor || !gestor->top10_por_semana)
@@ -456,6 +518,9 @@ const GPtrArray *gestor_reservas_obter_top10_semana(gestor_reservas_t *gestor, i
     return g_hash_table_lookup(gestor->top10_por_semana, GINT_TO_POINTER(semana));
 }
 
+/**
+ * @brief Obtém o melhor destino para uma nacionalidade.
+ */
 gboolean gestor_reservas_obter_melhor_destino_nacionalidade(gestor_reservas_t *gestor, const char *nac, const char **destino, guint *count)
 {
     if (!gestor || !nac || !destino || !count)
@@ -470,6 +535,9 @@ gboolean gestor_reservas_obter_melhor_destino_nacionalidade(gestor_reservas_t *g
     return TRUE;
 }
 
+/**
+ * @brief Executa uma função callback para cada top10 por semana.
+ */
 void gestor_reservas_para_cada_top10(gestor_reservas_t *gestor, void (*callback)(int semana, const GPtrArray *top10, void *user_data), void *user_data)
 {
     if (!gestor || !callback || !gestor->top10_por_semana)

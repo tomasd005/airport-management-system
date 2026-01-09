@@ -5,18 +5,39 @@
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * @brief Estrutura que representa um gestor de passageiros.
+ *
+ * Contém uma HashTable que mapeia números de documento para as
+ * estruturas de passageiros correspondentes.
+ */
 struct gestor_passageiros
 {
     GHashTable *por_documento;
 };
 
+/**
+ * @brief Cria um gestor de passageiros.
+ *
+ * @return Ponteiro para o gestor criado.
+ */
 gestor_passageiros_t *gestor_passageiros_criar(void)
 {
     gestor_passageiros_t *g = malloc(sizeof(*g));
-    g->por_documento = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, (GDestroyNotify)passageiro_destruir);
+    g->por_documento = g_hash_table_new_full(
+        g_str_hash,
+        g_str_equal,
+        NULL,
+        (GDestroyNotify)passageiro_destruir
+    );
     return g;
 }
 
+/**
+ * @brief Destroi um gestor de passageiros e libera a memória associada.
+ *
+ * @param gestor Ponteiro para o gestor a ser destruído.
+ */
 void gestor_passageiros_destruir(gestor_passageiros_t *gestor)
 {
     if (!gestor)
@@ -25,6 +46,15 @@ void gestor_passageiros_destruir(gestor_passageiros_t *gestor)
     free(gestor);
 }
 
+/**
+ * @brief Adiciona um passageiro ao gestor.
+ *
+ * Se o passageiro já existir no gestor (mesmo número de documento),
+ * é destruído e não substitui o existente.
+ *
+ * @param gestor Ponteiro para o gestor de passageiros.
+ * @param p Ponteiro para o passageiro a ser adicionado.
+ */
 void gestor_passageiros_adicionar(gestor_passageiros_t *gestor, passageiro_t *p)
 {
     if (!gestor || !p)
@@ -40,16 +70,36 @@ void gestor_passageiros_adicionar(gestor_passageiros_t *gestor, passageiro_t *p)
     g_hash_table_insert(gestor->por_documento, (gpointer)doc, p);
 }
 
+/**
+ * @brief Obtém um passageiro pelo número de documento.
+ *
+ * @param gestor Ponteiro para o gestor de passageiros.
+ * @param document_number Número do documento do passageiro.
+ * @return Ponteiro para o passageiro correspondente, ou NULL se não encontrado.
+ */
 passageiro_t *gestor_passageiros_obter_por_documento(gestor_passageiros_t *gestor, const char *document_number)
 {
     return (gestor && document_number) ? g_hash_table_lookup(gestor->por_documento, document_number) : NULL;
 }
 
+/**
+ * @brief Retorna o número de passageiros no gestor.
+ *
+ * @param gestor Ponteiro para o gestor de passageiros.
+ * @return Número de passageiros armazenados.
+ */
 unsigned int gestor_passageiros_numero(gestor_passageiros_t *gestor)
 {
     return gestor ? g_hash_table_size(gestor->por_documento) : 0;
 }
 
+/**
+ * @brief Callback interno usado para adicionar passageiros ao gestor durante o carregamento.
+ *
+ * @param contexto Ponteiro para o gestor de passageiros.
+ * @param objeto Ponteiro para o passageiro a ser adicionado.
+ * @return Sempre retorna TRUE para continuar a iteração.
+ */
 static gboolean adiciona_passageiro_callback(void *contexto, void *objeto)
 {
     if (contexto && objeto)
@@ -57,13 +107,31 @@ static gboolean adiciona_passageiro_callback(void *contexto, void *objeto)
     return TRUE;
 }
 
+/**
+ * @brief Carrega passageiros de um ficheiro CSV e adiciona ao gestor.
+ *
+ * @param gestor Ponteiro para o gestor de passageiros.
+ * @param ficheiro_csv Caminho para o ficheiro CSV contendo os passageiros.
+ */
 void gestor_passageiros_carregar(gestor_passageiros_t *gestor, const char *ficheiro_csv)
 {
     if (gestor && ficheiro_csv)
-        parser_carrega(gestor, ficheiro_csv, adiciona_passageiro_callback,
-                       (LinhaParaObjeto)valida_passageiro, (DestroiObjeto)passageiro_destruir);
+        parser_carrega(
+            gestor,
+            ficheiro_csv,
+            adiciona_passageiro_callback,
+            (LinhaParaObjeto)valida_passageiro,
+            (DestroiObjeto)passageiro_destruir
+        );
 }
 
+/**
+ * @brief Executa uma função de callback para cada passageiro do gestor.
+ *
+ * @param gestor Ponteiro para o gestor de passageiros.
+ * @param func Função que será chamada para cada passageiro.
+ * @param user_data Dados do usuário que serão passados para o callback.
+ */
 void gestor_passageiros_para_cada(gestor_passageiros_t *gestor, void (*func)(passageiro_t *, void *), void *user_data)
 {
     if (!gestor || !func)
