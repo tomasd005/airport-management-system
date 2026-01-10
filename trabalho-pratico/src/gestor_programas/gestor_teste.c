@@ -236,7 +236,8 @@ static int detectar_tipo_query(
  */
 static void imprimir_resumo_queries(gestor_testes_t *gestor)
 {
-    printf("\n==============================================================\n");
+    printf("\n");
+    printf("==============================================================\n");
     printf("                RESUMO POR TIPO DE QUERY\n");
     printf("==============================================================\n\n");
 
@@ -244,14 +245,9 @@ static void imprimir_resumo_queries(gestor_testes_t *gestor)
     {
         if (gestor->stats[i].total > 0)
         {
-            double media = gestor->stats[i].tempo_total /
-                            gestor->stats[i].total;
+            double tempo_medio = gestor->stats[i].tempo_total / gestor->stats[i].total;
 
-            printf("Q%d: %d/%d corretos %s\n",
-                   i,
-                   gestor->stats[i].corretos,
-                   gestor->stats[i].total,
-                   (gestor->stats[i].corretos == gestor->stats[i].total) ? "[OK]" : "[FAIL]");
+            printf("Q%d: %d/%d corretos", i, gestor->stats[i].corretos, gestor->stats[i].total);
 
             if (gestor->stats[i].corretos == gestor->stats[i].total)
                 printf(" [OK]");
