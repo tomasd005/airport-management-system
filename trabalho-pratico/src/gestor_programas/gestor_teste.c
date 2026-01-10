@@ -123,8 +123,7 @@ static int comparar_ficheiros(
         linha++;
     }
 
-    if (fgets(l1, sizeof(l1), f1) ||
-        fgets(l2, sizeof(l2), f2))
+    if ((fgets(l1, sizeof(l1), f1) != NULL) || (fgets(l2, sizeof(l2), f2) != NULL))
     {
         *linha_diferente = linha;
         fclose(f1);
@@ -275,19 +274,20 @@ static void imprimir_queries_lentas(gestor_testes_t *gestor)
     printf("==============================================================\n\n");
 
     for (int i = 0; i < gestor->num_queries_individuais - 1; i++)
+    {
         for (int j = 0; j < gestor->num_queries_individuais - i - 1; j++)
+        {
             if (gestor->queries_individuais[j].tempo_ms <
                 gestor->queries_individuais[j + 1].tempo_ms)
             {
-                InfoQueryIndividual tmp = gestor->queries_individuais[j];
+                InfoQueryIndividual temp = gestor->queries_individuais[j];
                 gestor->queries_individuais[j] = gestor->queries_individuais[j + 1];
-                gestor->queries_individuais[j + 1] = tmp;
+                gestor->queries_individuais[j + 1] = temp;
             }
+        }
+    }
 
-    int limite = gestor->num_queries_individuais < 10
-                 ? gestor->num_queries_individuais
-                 : 10;
-
+    int limite = gestor->num_queries_individuais < 10 ? gestor->num_queries_individuais : 10;
     for (int i = 0; i < limite; i++)
     {
         InfoQueryIndividual *q = &gestor->queries_individuais[i];
