@@ -3,11 +3,18 @@ com_erros/
 sem_erros/
 com_erros_grande/
 sem_erros_grande/
+trabalho-pratico/com_erros/
+trabalho-pratico/sem_erros/
+trabalho-pratico/com_erros_grande/
+trabalho-pratico/sem_erros_grande/
 
 # Ficheiros compilados
 *.o
 main
 *.out
+trabalho-pratico/programa-principal
+trabalho-pratico/programa-testes
+trabalho-pratico/programa-interativo
 
 # Ficheiros de logs
 *.log
@@ -15,15 +22,26 @@ main
 # Ignorar scripts e ficheiro de resumo
 scripts/
 compare_summary.json
+trabalho-pratico/scripts/
+trabalho-pratico/compare_summary.json
 
 # Outputs e relatórios
 last_test_report.txt
 out_after_debug_removal.txt
 out_after_fix.txt
 out.txt
+trabalho-pratico/resultados/
+trabalho-pratico/last_test_report.txt
+trabalho-pratico/out_after_debug_removal.txt
+trabalho-pratico/out_after_fix.txt
+trabalho-pratico/out.txt
 
 # Datasets grandes
 test.txt
 test_input.txt
 full_output.txt
 testar.sh
+trabalho-pratico/test.txt
+trabalho-pratico/test_input.txt
+trabalho-pratico/full_output.txt
+trabalho-pratico/testar.sh
