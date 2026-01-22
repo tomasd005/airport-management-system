@@ -38,100 +38,17 @@ aeroporto_t *aeroporto_criar(const char *codigo, const char *nome, const char *c
  */
 void aeroporto_destruir(aeroporto_t *a);
 
-/**
- * @brief Obtém o código IATA do aeroporto.
- *
- * @param a Aeroporto.
- * @return Código IATA ou NULL se a for NULL.
- */
 const char *aeroporto_obter_codigo(const aeroporto_t *a);
-
-/**
- * @brief Obtém o nome do aeroporto.
- *
- * @param a Aeroporto.
- * @return Nome do aeroporto ou NULL se a for NULL.
- */
 const char *aeroporto_obter_nome(const aeroporto_t *a);
-
-/**
- * @brief Obtém a cidade do aeroporto.
- *
- * @param a Aeroporto.
- * @return Cidade do aeroporto ou NULL se a for NULL.
- */
 const char *aeroporto_obter_cidade(const aeroporto_t *a);
-
-/**
- * @brief Obtém o país do aeroporto.
- *
- * @param a Aeroporto.
- * @return País do aeroporto ou NULL se a for NULL.
- */
 const char *aeroporto_obter_pais(const aeroporto_t *a);
-
-/**
- * @brief Obtém a latitude do aeroporto.
- *
- * @param a Aeroporto.
- * @return Latitude em graus.
- */
 double aeroporto_obter_latitude(const aeroporto_t *a);
-
-/**
- * @brief Obtém a longitude do aeroporto.
- *
- * @param a Aeroporto.
- * @return Longitude em graus.
- */
 double aeroporto_obter_longitude(const aeroporto_t *a);
-
-/**
- * @brief Obtém o código ICAO do aeroporto.
- *
- * @param a Aeroporto.
- * @return Código ICAO ou NULL se a for NULL.
- */
 const char *aeroporto_obter_icao(const aeroporto_t *a);
-
-/**
- * @brief Obtém o tipo do aeroporto.
- *
- * @param a Aeroporto.
- * @return Tipo do aeroporto ou NULL se a for NULL.
- */
 const char *aeroporto_obter_tipo(const aeroporto_t *a);
-
-/**
- * @brief Obtém o total de partidas registadas no aeroporto.
- *
- * @param a Aeroporto.
- * @return Número de partidas.
- */
 int aeroporto_obter_partidas(const aeroporto_t *a);
-
-/**
- * @brief Obtém o total de chegadas registadas no aeroporto.
- *
- * @param a Aeroporto.
- * @return Número de chegadas.
- */
 int aeroporto_obter_chegadas(const aeroporto_t *a);
-
-/**
- * @brief Incrementa o contador de partidas do aeroporto.
- *
- * @param a Aeroporto.
- * @param delta Valor a somar (pode ser negativo).
- */
 void aeroporto_incrementar_partidas(aeroporto_t *a, int delta);
-
-/**
- * @brief Incrementa o contador de chegadas do aeroporto.
- *
- * @param a Aeroporto.
- * @param delta Valor a somar (pode ser negativo).
- */
 void aeroporto_incrementar_chegadas(aeroporto_t *a, int delta);
 
 #endif

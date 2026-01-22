@@ -36,68 +36,13 @@ aviao_t *aviao_criar(const char *identificador, const char *fabricante, const ch
  */
 void aviao_destruir(aviao_t *a);
 
-/**
- * @brief Obtém o identificador do avião.
- *
- * @param a Avião.
- * @return Identificador ou NULL se a for NULL.
- */
 const char *aviao_obter_identificador(const aviao_t *a);
-
-/**
- * @brief Obtém o fabricante do avião.
- *
- * @param a Avião.
- * @return Fabricante ou NULL se a for NULL.
- */
 const char *aviao_obter_fabricante(const aviao_t *a);
-
-/**
- * @brief Obtém o modelo do avião.
- *
- * @param a Avião.
- * @return Modelo ou NULL se a for NULL.
- */
 const char *aviao_obter_modelo(const aviao_t *a);
-
-/**
- * @brief Obtém o ano de fabrico do avião.
- *
- * @param a Avião.
- * @return Ano de fabrico.
- */
 int aviao_obter_ano(const aviao_t *a);
-
-/**
- * @brief Obtém a capacidade do avião.
- *
- * @param a Avião.
- * @return Capacidade de assentos.
- */
 int aviao_obter_capacidade(const aviao_t *a);
-
-/**
- * @brief Obtém o alcance do avião em quilómetros.
- *
- * @param a Avião.
- * @return Alcance máximo em km.
- */
 int aviao_obter_alcance_km(const aviao_t *a);
-
-/**
- * @brief Obtém a contagem de voos associados ao avião.
- *
- * @param a Avião.
- * @return Número de voos.
- */
 int aviao_obter_contagem_voos(const aviao_t *a);
-
-/**
- * @brief Incrementa a contagem de voos do avião.
- *
- * @param a Avião.
- * @param delta Valor a somar (pode ser negativo).
- */
 void aviao_incrementar_contagem_voos(aviao_t *a, int delta);
 
 #endif

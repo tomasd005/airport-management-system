@@ -41,92 +41,17 @@ reserva_t *reserva_criar(const char *reservation_id, const char **flight_ids, si
  */
 void reserva_destruir(reserva_t *r);
 
-/**
- * @brief Obtém o identificador da reserva.
- *
- * @param r Reserva.
- * @return Identificador ou NULL se r for NULL.
- */
 const char *reserva_obter_id(const reserva_t *r);
-
-/**
- * @brief Obtém o número de voos associados à reserva.
- *
- * @param r Reserva.
- * @return Número de voos.
- */
 size_t reserva_obter_num_voos(const reserva_t *r);
-
-/**
- * @brief Obtém os IDs dos voos associados à reserva.
- *
- * @param r Reserva.
- * @return Array de IDs ou NULL se r for NULL.
- */
 const char **reserva_obter_flight_ids(const reserva_t *r);
-
-/**
- * @brief Obtém o número do documento do passageiro.
- *
- * @param r Reserva.
- * @return Documento ou NULL se r for NULL.
- */
 const char *reserva_obter_document_number(const reserva_t *r);
-
-/**
- * @brief Obtém o assento da reserva.
- *
- * @param r Reserva.
- * @return Assento ou NULL se r for NULL.
- */
 const char *reserva_obter_seat(const reserva_t *r);
-
-/**
- * @brief Obtém o preço da reserva.
- *
- * @param r Reserva.
- * @return Preço da reserva.
- */
 double reserva_obter_preco(const reserva_t *r);
-
-/**
- * @brief Indica se a reserva inclui bagagem extra.
- *
- * @param r Reserva.
- * @return true se inclui bagagem extra, false caso contrário.
- */
 bool reserva_obter_extra_bagagem(const reserva_t *r);
-
-/**
- * @brief Indica se a reserva inclui embarque prioritário.
- *
- * @param r Reserva.
- * @return true se inclui embarque prioritário, false caso contrário.
- */
 bool reserva_obter_embarque_prioritario(const reserva_t *r);
-
-/**
- * @brief Obtém o código QR da reserva.
- *
- * @param r Reserva.
- * @return Código QR ou NULL se r for NULL.
- */
 const char *reserva_obter_qr_code(const reserva_t *r);
-
-/**
- * @brief Obtém o número de passageiros associados à reserva (Q6).
- *
- * @param r Reserva.
- * @return Número de passageiros.
- */
+/* Para query6 */
 size_t reserva_obter_num_passageiros(const reserva_t *r);
-
-/**
- * @brief Obtém os documentos dos passageiros associados (Q6).
- *
- * @param r Reserva.
- * @return Array de documentos ou NULL se r for NULL.
- */
 const char **reserva_obter_documentos(const reserva_t *r);
 
 #endif
