@@ -29,3 +29,12 @@ full_output.txt
 testar.sh
 
 guiao-defesa.md
+
+# Artefactos gerados dentro de trabalho-pratico/
+trabalho-pratico/programa-*
+trabalho-pratico/test_validacoes
+trabalho-pratico/verificador-csv
+trabalho-pratico/resultados/
+*.pdf
+enunciado-*.pdf
+relatorio-*.pdf

@@ -3,6 +3,7 @@
 
 #include "../entidades/voos.h"
 #include <glib.h>
+#include <stdint.h>
 
 /**
  * @file gestor_voos.h
@@ -29,8 +30,9 @@ typedef struct
 
 gestor_voos_t *gestor_voos_criar(void);
 void gestor_voos_destruir(gestor_voos_t *gestor);
-void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo);
+void gestor_voos_adicionar(gestor_voos_t *gestor, voo_info_t *info);
 voo_t *gestor_voos_obter_por_id(gestor_voos_t *gestor, const char *flight_id);
+voo_t *gestor_voos_obter_por_key(gestor_voos_t *gestor, uint64_t key);
 unsigned int gestor_voos_contar(const gestor_voos_t *gestor);
 void gestor_voos_carregar(gestor_voos_t *gestor, const char *ficheiro_csv);
 void gestor_voos_carregar_com_validacao(gestor_voos_t *gestor, const char *ficheiro_csv, gestor_avioes_t *gestor_avioes);

@@ -1,5 +1,6 @@
 #include "validacao_voos.h"
 #include "validacao_comum.h"
+#include "parsers/parser.h"
 #include "../../include/utils.h"
 #include <string.h>
 #include <ctype.h>
@@ -33,8 +34,27 @@
  * @param colunas Array de strings com os campos do voo
  * @return Ponteiro para voo_t criado se válido, NULL caso contrário
  */
-voo_t *valida_voo(char **colunas)
+voo_info_t *valida_voo(char **colunas)
 {
+    if (parser_mmap_em_uso() || parser_sem_erros_ativo()) {
+        if (!colunas || !colunas[IDX_ID])
+            return NULL;
+
+        for (int i = 0; i <= IDX_URL; i++)
+            if (colunas[i])
+                utils_remove_aspas_somente(colunas[i]);
+
+        if (!colunas[IDX_ID] || !*colunas[IDX_ID] || !colunas[IDX_ORIG] || !*colunas[IDX_ORIG] ||
+            !colunas[IDX_DEST] || !*colunas[IDX_DEST] || !colunas[IDX_AIR] || !*colunas[IDX_AIR] ||
+            !colunas[IDX_STATUS] || !*colunas[IDX_STATUS] || !colunas[IDX_DEP] ||
+            !*colunas[IDX_DEP])
+            return NULL;
+
+        return voo_info_criar(colunas[IDX_ID], colunas[IDX_DEP], colunas[IDX_ACT_DEP],
+                              colunas[IDX_STATUS], colunas[IDX_ORIG], colunas[IDX_DEST],
+                              colunas[IDX_AIR], colunas[IDX_AIRLINE]);
+    }
+
     if (!colunas || !colunas[IDX_ID])
         return NULL;
 
@@ -57,13 +77,14 @@ voo_t *valida_voo(char **colunas)
         if (colunas[i])
             utils_trim(colunas[i]);
 
-    if (!*colunas[IDX_ID] || !*colunas[IDX_ORIG] || !*colunas[IDX_DEST] ||
-        !*colunas[IDX_AIR] || !*colunas[IDX_STATUS] || !*colunas[IDX_DEP] || !*colunas[IDX_ARR])
+    if (!*colunas[IDX_ID] || !*colunas[IDX_ORIG] || !*colunas[IDX_DEST] || !*colunas[IDX_AIR] ||
+        !*colunas[IDX_STATUS] || !*colunas[IDX_DEP] || !*colunas[IDX_ARR])
         return NULL;
 
     if (strlen(colunas[IDX_ORIG]) != 3 || strlen(colunas[IDX_DEST]) != 3 ||
-        !isupper(colunas[IDX_ORIG][0]) || !isupper(colunas[IDX_ORIG][1]) || !isupper(colunas[IDX_ORIG][2]) ||
-        !isupper(colunas[IDX_DEST][0]) || !isupper(colunas[IDX_DEST][1]) || !isupper(colunas[IDX_DEST][2]) ||
+        !isupper(colunas[IDX_ORIG][0]) || !isupper(colunas[IDX_ORIG][1]) ||
+        !isupper(colunas[IDX_ORIG][2]) || !isupper(colunas[IDX_DEST][0]) ||
+        !isupper(colunas[IDX_DEST][1]) || !isupper(colunas[IDX_DEST][2]) ||
         strcmp(colunas[IDX_ORIG], colunas[IDX_DEST]) == 0 ||
         !validacao_datetime(colunas[IDX_DEP]) || !validacao_datetime(colunas[IDX_ARR]))
         return NULL;
@@ -80,14 +101,12 @@ voo_t *valida_voo(char **colunas)
         (strcmp(colunas[IDX_ACT_DEP], "N/A") != 0 || strcmp(colunas[IDX_ACT_ARR], "N/A") != 0))
         return NULL;
 
-    if (strcmp(colunas[IDX_STATUS], "Cancelled") != 0)
-    {
+    if (strcmp(colunas[IDX_STATUS], "Cancelled") != 0) {
         if (!validacao_datetime(colunas[IDX_ACT_DEP]) || !validacao_datetime(colunas[IDX_ACT_ARR]))
             return NULL;
     }
 
-    if (strcmp(colunas[IDX_STATUS], "Delayed") == 0)
-    {
+    if (strcmp(colunas[IDX_STATUS], "Delayed") == 0) {
         if (comparar_datetime(colunas[IDX_ACT_DEP], colunas[IDX_DEP]) < 0)
             return NULL;
         if (comparar_datetime(colunas[IDX_ACT_ARR], colunas[IDX_ARR]) < 0)
@@ -98,8 +117,7 @@ voo_t *valida_voo(char **colunas)
         comparar_datetime(colunas[IDX_ACT_ARR], colunas[IDX_ACT_DEP]) < 0)
         return NULL;
 
-    return voo_criar(colunas[IDX_ID], colunas[IDX_DEP], colunas[IDX_ACT_DEP],
-                     colunas[IDX_ARR], colunas[IDX_ACT_ARR], colunas[IDX_GATE],
-                     colunas[IDX_STATUS], colunas[IDX_ORIG], colunas[IDX_DEST],
-                     colunas[IDX_AIR], colunas[IDX_AIRLINE], colunas[IDX_URL]);
+    return voo_info_criar(colunas[IDX_ID], colunas[IDX_DEP], colunas[IDX_ACT_DEP],
+                          colunas[IDX_STATUS], colunas[IDX_ORIG], colunas[IDX_DEST],
+                          colunas[IDX_AIR], colunas[IDX_AIRLINE]);
 }

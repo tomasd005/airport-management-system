@@ -136,11 +136,13 @@ static gboolean _adiciona_aviao_callback(void *contexto, void *objeto)
 void gestor_avioes_carregar(gestor_avioes_t *gestor, const char *ficheiro_csv)
 {
     if (gestor && ficheiro_csv)
-        parser_carrega(
-            gestor,
-            ficheiro_csv,
-            _adiciona_aviao_callback,
-            (LinhaParaObjeto)valida_aviao,
-            (DestroiObjeto)aviao_destruir
-        );
+    parser_carrega(
+        gestor,
+        ficheiro_csv,
+        _adiciona_aviao_callback,
+        (LinhaParaObjeto)valida_aviao,
+        (DestroiObjeto)aviao_destruir,
+        6,
+        6
+    );
 }

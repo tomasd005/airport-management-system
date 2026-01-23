@@ -1,5 +1,6 @@
 #include "validacao_passageiros.h"
 #include "validacao_comum.h"
+#include "parsers/parser.h"
 #include "../../include/utils.h"
 #include <string.h>
 #include <ctype.h>
@@ -94,6 +95,52 @@ static gboolean valida_email(const char *email)
     return TRUE;
 }
 
+static passageiro_t *valida_passageiro_fast(char **colunas)
+{
+    if (!colunas)
+        return NULL;
+
+    for (int i = 0; i <= IDX_PHOTO; i++)
+        if (colunas[i])
+            utils_remove_aspas_somente(colunas[i]);
+
+    uint32_t key = 0;
+    if (!utils_document_number_key(colunas[IDX_DOC], &key))
+        return NULL;
+
+    if (!colunas[IDX_FIRST] || !*colunas[IDX_FIRST] || !colunas[IDX_LAST] || !*colunas[IDX_LAST] ||
+        !colunas[IDX_DOB] || !*colunas[IDX_DOB] || !colunas[IDX_NAT] || !*colunas[IDX_NAT])
+        return NULL;
+
+    return passageiro_criar_borrowed(colunas[IDX_DOC], colunas[IDX_FIRST], colunas[IDX_LAST],
+                                     colunas[IDX_DOB], colunas[IDX_NAT], colunas[IDX_GEN],
+                                     colunas[IDX_EMAIL], colunas[IDX_PHONE], colunas[IDX_ADDR],
+                                     colunas[IDX_PHOTO]);
+}
+
+static passageiro_t *valida_passageiro_sem_erros(char **colunas)
+{
+    if (!colunas)
+        return NULL;
+
+    for (int i = 0; i <= IDX_PHOTO; i++)
+        if (colunas[i])
+            utils_remove_aspas_somente(colunas[i]);
+
+    uint32_t key = 0;
+    if (!utils_document_number_key(colunas[IDX_DOC], &key))
+        return NULL;
+
+    if (!colunas[IDX_FIRST] || !*colunas[IDX_FIRST] || !colunas[IDX_LAST] || !*colunas[IDX_LAST] ||
+        !colunas[IDX_DOB] || !*colunas[IDX_DOB] || !colunas[IDX_NAT] || !*colunas[IDX_NAT])
+        return NULL;
+
+    return passageiro_criar(colunas[IDX_DOC], colunas[IDX_FIRST], colunas[IDX_LAST],
+                            colunas[IDX_DOB], colunas[IDX_NAT], colunas[IDX_GEN],
+                            colunas[IDX_EMAIL], colunas[IDX_PHONE], colunas[IDX_ADDR],
+                            colunas[IDX_PHOTO]);
+}
+
 /**
  * @brief Valida todas as colunas de um passageiro.
  *
@@ -105,6 +152,11 @@ static gboolean valida_email(const char *email)
  */
 passageiro_t *valida_passageiro(char **colunas)
 {
+    if (parser_mmap_em_uso())
+        return valida_passageiro_fast(colunas);
+    if (parser_sem_erros_ativo())
+        return valida_passageiro_sem_erros(colunas);
+
     if (!colunas)
         return NULL;
 
@@ -122,16 +174,13 @@ passageiro_t *valida_passageiro(char **colunas)
             utils_trim(colunas[i]);
 
     /* Valida data, género e email */
-    if (!validacao_data_passado(colunas[IDX_DOB]) ||
-        !valida_genero(colunas[IDX_GEN]) ||
+    if (!validacao_data_passado(colunas[IDX_DOB]) || !valida_genero(colunas[IDX_GEN]) ||
         !valida_email(colunas[IDX_EMAIL]))
         return NULL;
 
     /* Campos obrigatórios */
-    if (!colunas[IDX_FIRST] || !*colunas[IDX_FIRST] ||
-        !colunas[IDX_LAST] || !*colunas[IDX_LAST] ||
-        !colunas[IDX_NAT] || !*colunas[IDX_NAT] ||
-        !colunas[IDX_PHONE] || !*colunas[IDX_PHONE] ||
+    if (!colunas[IDX_FIRST] || !*colunas[IDX_FIRST] || !colunas[IDX_LAST] || !*colunas[IDX_LAST] ||
+        !colunas[IDX_NAT] || !*colunas[IDX_NAT] || !colunas[IDX_PHONE] || !*colunas[IDX_PHONE] ||
         !colunas[IDX_ADDR] || !*colunas[IDX_ADDR])
         return NULL;
 

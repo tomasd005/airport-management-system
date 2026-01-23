@@ -4,6 +4,10 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #define MAX_LINHA 1024
 #define MAX_QUERIES 10
@@ -189,6 +193,160 @@ static double memoria_pico_MB(void)
 }
 
 /**
+ * @brief Gera um pequeno relatório JSON/HTML com métricas principais.
+ */
+static void escrever_relatorio_benchmark(const gestor_testes_t *gestor,
+                                         const char *pasta_dataset,
+                                         const char *ficheiro_input,
+                                         const char *pasta_esperados,
+                                         double tempo_execucao,
+                                         double memoria_pico_mb,
+                                         int total_ok,
+                                         int total_testes)
+{
+    if (!gestor || !pasta_dataset || !ficheiro_input || !pasta_esperados)
+        return;
+
+    FILE *fjson = fopen("resultados/benchmark.json", "w");
+    if (fjson)
+    {
+        fprintf(fjson,
+                "{\n"
+                "  \"dataset\": \"%s\",\n"
+                "  \"input\": \"%s\",\n"
+                "  \"esperados\": \"%s\",\n"
+                "  \"tempo_execucao_s\": %.3f,\n"
+                "  \"memoria_pico_mb\": %.1f,\n"
+                "  \"testes_ok\": %d,\n"
+                "  \"testes_total\": %d,\n"
+                "  \"queries\": [\n",
+                pasta_dataset, ficheiro_input, pasta_esperados,
+                tempo_execucao, memoria_pico_mb, total_ok, total_testes);
+
+        int first = 1;
+        for (int i = 1; i < MAX_QUERIES; i++)
+        {
+            if (gestor->stats[i].total <= 0)
+                continue;
+            double tempo_medio = gestor->stats[i].tempo_total / gestor->stats[i].total;
+            double perc = (gestor->stats[i].total > 0) ? (100.0 * gestor->stats[i].corretos / gestor->stats[i].total) : 0.0;
+
+            fprintf(fjson,
+                    "%s    {\"query\": %d, \"corretos\": %d, \"total\": %d, \"percentagem\": %.2f, \"tempo_medio_ms\": %.3f, \"tempo_min_ms\": %.3f, \"tempo_max_ms\": %.3f}\n",
+                    first ? "" : ",\n",
+                    i,
+                    gestor->stats[i].corretos,
+                    gestor->stats[i].total,
+                    perc,
+                    tempo_medio,
+                    gestor->stats[i].tempo_min,
+                    gestor->stats[i].tempo_max);
+            first = 0;
+        }
+
+        fprintf(fjson, "  ]\n}\n");
+        fclose(fjson);
+    }
+
+    FILE *fhtml = fopen("resultados/benchmark.html", "w");
+    if (fhtml)
+    {
+        fprintf(fhtml,
+                "<!doctype html>\n"
+                "<html><head><meta charset=\"utf-8\"><title>Benchmark LI3</title>\n"
+                "<style>body{font-family:Arial, sans-serif;padding:24px;}table{border-collapse:collapse;}td,th{border:1px solid #ccc;padding:8px;}</style>\n"
+                "</head><body>\n"
+                "<h2>Benchmark LI3</h2>\n"
+                "<table>\n"
+                "<tr><th>Dataset</th><td>%s</td></tr>\n"
+                "<tr><th>Input</th><td>%s</td></tr>\n"
+                "<tr><th>Esperados</th><td>%s</td></tr>\n"
+                "<tr><th>Tempo execucao (s)</th><td>%.3f</td></tr>\n"
+                "<tr><th>Memoria pico (MB)</th><td>%.1f</td></tr>\n"
+                "<tr><th>Testes</th><td>%d/%d</td></tr>\n"
+                "</table>\n",
+                pasta_dataset, ficheiro_input, pasta_esperados,
+                tempo_execucao, memoria_pico_mb, total_ok, total_testes);
+
+        fprintf(fhtml,
+                "<h3>Resultados por query</h3>\n"
+                "<table>\n"
+                "<tr><th>Query</th><th>Corretos</th><th>Total</th><th>Percentagem</th><th>Tempo médio (ms)</th><th>Tempo min (ms)</th><th>Tempo max (ms)</th></tr>\n");
+
+        for (int i = 1; i < MAX_QUERIES; i++)
+        {
+            if (gestor->stats[i].total <= 0)
+                continue;
+            double tempo_medio = gestor->stats[i].tempo_total / gestor->stats[i].total;
+            double perc = (gestor->stats[i].total > 0) ? (100.0 * gestor->stats[i].corretos / gestor->stats[i].total) : 0.0;
+            fprintf(fhtml,
+                    "<tr><td>Q%d</td><td>%d</td><td>%d</td><td>%.2f%%</td><td>%.3f</td><td>%.3f</td><td>%.3f</td></tr>\n",
+                    i,
+                    gestor->stats[i].corretos,
+                    gestor->stats[i].total,
+                    perc,
+                    tempo_medio,
+                    gestor->stats[i].tempo_min,
+                    gestor->stats[i].tempo_max);
+        }
+
+        fprintf(fhtml, "</table>\n</body></html>\n");
+        fclose(fhtml);
+    }
+}
+
+/**
+ * @brief Executa o programa-principal e devolve tempo e memória do processo filho.
+ *
+ * @param pasta_dataset Pasta do dataset.
+ * @param ficheiro_input Ficheiro de input.
+ * @param tempo_execucao_s Output do tempo em segundos.
+ * @param memoria_pico_mb Output do pico de memória do processo filho (MB).
+ * @return 0 em sucesso, -1 em erro.
+ */
+static int executar_programa_principal(const char *pasta_dataset,
+                                       const char *ficheiro_input,
+                                       double *tempo_execucao_s,
+                                       double *memoria_pico_mb)
+{
+    if (!pasta_dataset || !ficheiro_input || !tempo_execucao_s || !memoria_pico_mb)
+        return -1;
+
+    double inicio = tempo_ms();
+    pid_t pid = fork();
+    if (pid < 0)
+        return -1;
+
+    if (pid == 0)
+    {
+        int devnull = open("/dev/null", O_WRONLY);
+        if (devnull >= 0)
+        {
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            close(devnull);
+        }
+
+        execl("./programa-principal", "programa-principal", pasta_dataset, ficheiro_input, (char *)NULL);
+        _exit(127);
+    }
+
+    int status = 0;
+    struct rusage usage;
+    if (wait4(pid, &status, 0, &usage) < 0)
+        return -1;
+
+    double fim = tempo_ms();
+    *tempo_execucao_s = (fim - inicio) / 1000.0;
+    *memoria_pico_mb = usage.ru_maxrss / 1024.0;
+
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+        return -1;
+
+    return 0;
+}
+
+/**
  * @brief Determina o tipo de query de um comando específico.
  *
  * @param ficheiro_input Ficheiro de input das queries
@@ -324,28 +482,19 @@ int gestor_testes_executar(
     printf("Input: %s\n", ficheiro_input);
     printf("Esperados: %s\n\n", pasta_esperados);
 
-    /* Construção do comando para executar o programa principal */
-    char comando[512];
-    snprintf(comando, sizeof(comando),
-             "./programa-principal %s %s > /dev/null 2>&1",
-             pasta_dataset, ficheiro_input);
-
     printf("A executar programa-principal...\n");
-
-    double tempo_exec_inicio = tempo_ms();
-    double mem_antes = memoria_atual_MB();
-
-    /* Execução do programa principal */
-    system(comando);
-
-    double tempo_exec_fim = tempo_ms();
-    double tempo_execucao = (tempo_exec_fim - tempo_exec_inicio) / 1000.0;
-    double mem_pico = memoria_pico_MB();
+    double tempo_execucao = 0.0;
+    double mem_pico = 0.0;
+    if (executar_programa_principal(pasta_dataset, ficheiro_input, &tempo_execucao, &mem_pico) != 0)
+    {
+        fprintf(stderr, "Erro ao executar programa-principal.\n");
+        return 1;
+    }
 
     gestor->memoria_pico_MB = mem_pico;
 
     printf("Execucao completa em %.2f segundos\n", tempo_execucao);
-    printf("Memoria pico: %.1f MB\n\n", mem_pico);
+    printf("Memoria pico (processo principal): %.1f MB\n\n", mem_pico);
 
     printf("==============================================================\n");
     printf("                  COMPARANDO RESULTADOS\n");
@@ -454,14 +603,17 @@ int gestor_testes_executar(
         printf(" (%d falhas)\n",
                gestor->total_testes - gestor->total_ok);
 
-    printf("Memoria atual: %.1f MB\n", mem_final);
-    printf("Memoria pico: %.1f MB\n", gestor->memoria_pico_MB);
+    printf("Memoria atual (programa-testes): %.1f MB\n", mem_final);
+    printf("Memoria pico (processo principal): %.1f MB\n", gestor->memoria_pico_MB);
     printf("Tempo execucao: %.2f s\n", tempo_execucao);
     printf("Tempo total: %.2f s\n",
            (tempo_fim_total - tempo_inicio_total) / 1000.0);
+
+    escrever_relatorio_benchmark(gestor, pasta_dataset, ficheiro_input, pasta_esperados,
+                                 tempo_execucao, gestor->memoria_pico_MB,
+                                 gestor->total_ok, gestor->total_testes);
 
     printf("\n==============================================================\n\n");
 
     return (gestor->total_ok == gestor->total_testes) ? 0 : 1;
 }
-

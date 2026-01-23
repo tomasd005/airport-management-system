@@ -34,8 +34,7 @@
  * Contém os gestores de dados necessários à execução das queries
  * e um indicador que sinaliza se os dados já foram carregados.
  */
-struct GestorInterativo
-{
+struct GestorInterativo {
     gestor_aeroportos_t *aeroportos;
     gestor_avioes_t *avioes;
     gestor_voos_t *voos;
@@ -97,15 +96,13 @@ static void limpar_input(char *str)
         return;
 
     size_t len = strlen(str);
-    while (len > 0 && (str[len - 1] == '\n' || str[len - 1] == '\r'))
-    {
+    while (len > 0 && (str[len - 1] == '\n' || str[len - 1] == '\r')) {
         str[len - 1] = '\0';
         len--;
     }
 
     char *end = str + strlen(str) - 1;
-    while (end >= str && isspace(*end))
-    {
+    while (end >= str && isspace(*end)) {
         *end = '\0';
         end--;
     }
@@ -116,6 +113,13 @@ static void limpar_input(char *str)
 
     if (start != str)
         memmove(str, start, strlen(start) + 1);
+}
+
+static void copiar_dataset_padrao(char *dest, size_t dest_size)
+{
+    if (!dest || dest_size == 0)
+        return;
+    snprintf(dest, dest_size, "%s", DEFAULT_DATASET);
 }
 
 /**
@@ -149,9 +153,8 @@ static void carregar_dataset(gestor_interativo_t *gestor, const char *pasta)
 
     printf("  [5/5] Carregando reservas...\n");
     snprintf(caminho, sizeof(caminho), "%s/reservations.csv", pasta);
-    gestor_reservas_carregar_com_validacao(
-        gestor->reservas, caminho,
-        gestor->voos, gestor->passageiros);
+    gestor_reservas_carregar_com_validacao(gestor->reservas, caminho, gestor->voos,
+                                           gestor->passageiros);
 
     gestor_reservas_finalizar(gestor->reservas);
     gestor_voos_atualizar_contagens_aeroportos(gestor->voos, gestor->aeroportos);
@@ -175,16 +178,26 @@ static void mostrar_menu(void)
     printf(BOLD BLUE "\n╔═══════════════════════════════════════════════╗\n" RESET);
     printf(BOLD BLUE "║" RESET "      SISTEMA DE GESTÃO DE VOOS - LI3      " BOLD BLUE "║\n" RESET);
     printf(BOLD BLUE "╠═══════════════════════════════════════════════╣\n" RESET);
-    printf(BOLD BLUE "║" RESET " " BOLD "Queries Disponíveis:" RESET "                        " BOLD BLUE "║\n" RESET);
-    printf(BOLD BLUE "║" RESET "                                            " BOLD BLUE "║\n" RESET);
-    printf(BOLD BLUE "║" RESET " " GREEN "1" RESET " - Resumo de aeroporto                    " BOLD BLUE "║\n" RESET);
-    printf(BOLD BLUE "║" RESET " " GREEN "2" RESET " - Top N aviões com mais voos             " BOLD BLUE "║\n" RESET);
-    printf(BOLD BLUE "║" RESET " " GREEN "3" RESET " - Aeroporto com mais partidas (período)  " BOLD BLUE "║\n" RESET);
-    printf(BOLD BLUE "║" RESET " " GREEN "4" RESET " - Passageiro no top 10 mais vezes        " BOLD BLUE "║\n" RESET);
-    printf(BOLD BLUE "║" RESET " " GREEN "5" RESET " - Companhias com mais atrasos            " BOLD BLUE "║\n" RESET);
-    printf(BOLD BLUE "║" RESET " " GREEN "6" RESET " - Destino mais comum (nacionalidade)     " BOLD BLUE "║\n" RESET);
-    printf(BOLD BLUE "║" RESET "                                            " BOLD BLUE "║\n" RESET);
-    printf(BOLD BLUE "║" RESET " " YELLOW "0" RESET " - Sair                                   " BOLD BLUE "║\n" RESET);
+    printf(BOLD BLUE "║" RESET " " BOLD "Queries Disponíveis:" RESET
+                     "                        " BOLD BLUE "║\n" RESET);
+    printf(BOLD BLUE "║" RESET "                                            " BOLD BLUE
+                     "║\n" RESET);
+    printf(BOLD BLUE "║" RESET " " GREEN "1" RESET
+                     " - Resumo de aeroporto                    " BOLD BLUE "║\n" RESET);
+    printf(BOLD BLUE "║" RESET " " GREEN "2" RESET
+                     " - Top N aviões com mais voos             " BOLD BLUE "║\n" RESET);
+    printf(BOLD BLUE "║" RESET " " GREEN "3" RESET
+                     " - Aeroporto com mais partidas (período)  " BOLD BLUE "║\n" RESET);
+    printf(BOLD BLUE "║" RESET " " GREEN "4" RESET
+                     " - Passageiro no top 10 mais vezes        " BOLD BLUE "║\n" RESET);
+    printf(BOLD BLUE "║" RESET " " GREEN "5" RESET
+                     " - Companhias com mais atrasos            " BOLD BLUE "║\n" RESET);
+    printf(BOLD BLUE "║" RESET " " GREEN "6" RESET
+                     " - Destino mais comum (nacionalidade)     " BOLD BLUE "║\n" RESET);
+    printf(BOLD BLUE "║" RESET "                                            " BOLD BLUE
+                     "║\n" RESET);
+    printf(BOLD BLUE "║" RESET " " YELLOW "0" RESET
+                     " - Sair                                   " BOLD BLUE "║\n" RESET);
     printf(BOLD BLUE "╚═══════════════════════════════════════════════╝\n" RESET);
 }
 
@@ -198,8 +211,7 @@ static void executar_query1(gestor_interativo_t *gestor)
         return;
     limpar_input(codigo);
 
-    if (strlen(codigo) == 0)
-    {
+    if (strlen(codigo) == 0) {
         printf(RED "✗ Código inválido!\n" RESET);
         return;
     }
@@ -222,8 +234,7 @@ static void executar_query2(gestor_interativo_t *gestor)
     limpar_input(input_n);
 
     int N = atoi(input_n);
-    if (N <= 0)
-    {
+    if (N <= 0) {
         printf(RED "✗ Número inválido!\n" RESET);
         return;
     }
@@ -257,8 +268,7 @@ static void executar_query3(gestor_interativo_t *gestor)
         return;
     limpar_input(data_fim);
 
-    if (strlen(data_inicio) < 10 || strlen(data_fim) < 10)
-    {
+    if (strlen(data_inicio) < 10 || strlen(data_fim) < 10) {
         printf(RED "✗ Datas inválidas!\n" RESET);
         return;
     }
@@ -282,8 +292,7 @@ static void executar_query4(gestor_interativo_t *gestor)
 
     char *di = NULL, *df = NULL;
 
-    if (resposta[0] == 's' || resposta[0] == 'S')
-    {
+    if (resposta[0] == 's' || resposta[0] == 'S') {
         printf("Data inicial (YYYY-MM-DD): ");
         if (!fgets(data_inicio, sizeof(data_inicio), stdin))
             return;
@@ -320,8 +329,7 @@ static void executar_query5(gestor_interativo_t *gestor)
     limpar_input(input_n);
 
     int N = atoi(input_n);
-    if (N <= 0)
-    {
+    if (N <= 0) {
         printf(RED "✗ Número inválido!\n" RESET);
         return;
     }
@@ -343,8 +351,7 @@ static void executar_query6(gestor_interativo_t *gestor)
         return;
     limpar_input(nacionalidade);
 
-    if (strlen(nacionalidade) == 0)
-    {
+    if (strlen(nacionalidade) == 0) {
         printf(RED "✗ Nacionalidade inválida!\n" RESET);
         return;
     }
@@ -352,8 +359,7 @@ static void executar_query6(gestor_interativo_t *gestor)
     printf("\n" BOLD "Resultado:\n" RESET);
     char comando[128];
     snprintf(comando, sizeof(comando), "6 %s", nacionalidade);
-    query6(gestor->reservas, gestor->voos, gestor->passageiros,
-           nacionalidade, comando, stdout);
+    query6(gestor->reservas, gestor->voos, gestor->passageiros, nacionalidade, comando, stdout);
 }
 
 /**
@@ -383,26 +389,21 @@ void gestor_interativo_executar(gestor_interativo_t *gestor)
     printf("Introduza o caminho dos ficheiros de dados\n");
     printf("(deixe vazio para usar '%s'): ", DEFAULT_DATASET);
 
-    if (fgets(caminho_dataset, sizeof(caminho_dataset), stdin))
-    {
+    if (fgets(caminho_dataset, sizeof(caminho_dataset), stdin)) {
         limpar_input(caminho_dataset);
 
-        if (strlen(caminho_dataset) == 0)
-        {
-            strcpy(caminho_dataset, DEFAULT_DATASET);
+        if (strlen(caminho_dataset) == 0) {
+            copiar_dataset_padrao(caminho_dataset, sizeof(caminho_dataset));
         }
-    }
-    else
-    {
-        strcpy(caminho_dataset, DEFAULT_DATASET);
+    } else {
+        copiar_dataset_padrao(caminho_dataset, sizeof(caminho_dataset));
     }
 
     // Carregar dataset
     carregar_dataset(gestor, caminho_dataset);
 
     // Loop principal
-    while (1)
-    {
+    while (1) {
         mostrar_menu();
         printf(BOLD "Escolha uma opção: " RESET);
 
@@ -417,8 +418,7 @@ void gestor_interativo_executar(gestor_interativo_t *gestor)
 
         printf("\n");
 
-        switch (escolha)
-        {
+        switch (escolha) {
         case 0:
             printf(YELLOW "Encerrando programa...\n" RESET);
             printf(GREEN "\n✓ Programa encerrado. Até breve!\n" RESET);

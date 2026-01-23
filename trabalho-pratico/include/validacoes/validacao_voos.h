@@ -4,7 +4,7 @@
 #include "../entidades/voos.h"
 
 /**
- * @brief Valida uma linha CSV e cria um objeto voo.
+ * @brief Valida uma linha CSV e cria um objeto voo_info.
  *
  * Recebe um array de strings representando os campos de um voo e valida:
  * - Flight ID
@@ -13,8 +13,8 @@
  * - Aeronave, companhia aérea e URL de rastreamento
  *
  * @param colunas Array de strings com os campos do voo.
- * @return Ponteiro para `voo_t` se válido, NULL caso algum campo seja inválido.
+ * @return Ponteiro para `voo_info_t` se válido, NULL caso algum campo seja inválido.
  */
-voo_t *valida_voo(char **colunas);
+voo_info_t *valida_voo(char **colunas);
 
 #endif

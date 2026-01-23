@@ -18,6 +18,7 @@ gestor_aeroportos_t *gestor_aeroportos_criar(void);
 void gestor_aeroportos_destruir(gestor_aeroportos_t *gestor);
 void gestor_aeroportos_adicionar(gestor_aeroportos_t *gestor, aeroporto_t *aeroporto);
 aeroporto_t *gestor_aeroportos_obter_por_codigo(gestor_aeroportos_t *gestor, const char *codigo);
+aeroporto_t *gestor_aeroportos_obter_por_idx(gestor_aeroportos_t *gestor, int idx);
 unsigned int gestor_aeroportos_numero(gestor_aeroportos_t *gestor);
 unsigned int gestor_aeroportos_contar(const gestor_aeroportos_t *gestor);
 unsigned int gestor_aeroportos_total(const gestor_aeroportos_t *gestor);

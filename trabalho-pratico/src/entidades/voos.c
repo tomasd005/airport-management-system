@@ -1,8 +1,8 @@
 #include "voos.h"
 #include "utils.h"
-#include <glib.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 /**
  * @struct voo
@@ -13,16 +13,14 @@
  */
 struct voo
 {
-    char *flight_id;
-    const char *origin;
-    const char *destination;
-    char *aircraft;
-    char *airline;
-    int dep_day;
-    int act_dep_day;
-    int semana;
-    int passageiros;
-    int atraso_min;
+    uint64_t key;
+    int32_t dep_day;
+    int32_t act_dep_day;
+    int32_t atraso_min;
+    int32_t semana;
+    uint16_t orig_idx;
+    uint16_t dest_idx;
+    uint32_t passageiros;
     unsigned char status;
 };
 
@@ -36,31 +34,6 @@ enum
     VOO_STATUS_DELAYED = 1,
     VOO_STATUS_CANCELLED = 2
 };
-
-/** @brief Pool de strings internas para otimização de memória */
-static GHashTable *intern_pool = NULL;
-
-/**
- * @brief Interna uma string para reutilização em vários voos.
- * @param s String a ser internada
- * @return Ponteiro para a string internada
- */
-static const char *voo_intern_string(const char *s)
-{
-    if (!s)
-        return NULL;
-
-    if (!intern_pool)
-        intern_pool = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-
-    gpointer existente = g_hash_table_lookup(intern_pool, s);
-    if (existente)
-        return existente;
-
-    char *dup = g_strdup(s);
-    g_hash_table_insert(intern_pool, dup, dup);
-    return dup;
-}
 
 /**
  * @brief Converte uma string de status para código interno.
@@ -122,37 +95,48 @@ voo_t *voo_criar(const char *flight_id, const char *departure,
     if (!flight_id || !departure || !status || !origin || !destination || !aircraft)
         return NULL;
 
+    (void)arrival;
+    (void)actual_arrival;
+    (void)gate;
+    (void)tracking_url;
+    (void)airline;
+    (void)aircraft;
+
+    voo_info_t *info = voo_info_criar(flight_id, departure, actual_departure,
+                                      status, origin, destination, aircraft, airline);
+    if (!info)
+        return NULL;
+
     voo_t *v = malloc(sizeof(voo_t));
     if (!v)
+    {
+        voo_info_destruir(info);
         return NULL;
+    }
 
-    v->flight_id = g_strdup(flight_id);
-    v->origin = voo_intern_string(origin);
-    v->destination = voo_intern_string(destination);
-    v->aircraft = aircraft ? g_strdup(aircraft) : NULL;
-    v->airline = airline ? g_strdup(airline) : NULL;
-    v->status = status_from_str(status);
-    v->dep_day = utils_parse_datetime_to_day(departure);
-    v->act_dep_day = utils_parse_datetime_to_day(actual_departure);
-    v->semana = utils_week_from_day(v->dep_day);
+    v->key = info->key;
+    v->orig_idx = info->orig_idx;
+    v->dest_idx = info->dest_idx;
+    v->dep_day = info->dep_day;
+    v->act_dep_day = info->act_dep_day;
+    v->atraso_min = info->atraso_min;
+    v->semana = info->semana;
+    v->status = info->status;
     v->passageiros = 0;
-    v->atraso_min = -1;
 
-    if (actual_departure && strcmp(actual_departure, "N/A") != 0)
-    {
-        int dep_min = utils_parse_datetime_to_minutes(departure);
-        int act_min = utils_parse_datetime_to_minutes(actual_departure);
-        if (dep_min >= 0 && act_min >= 0 && act_min >= dep_min)
-            v->atraso_min = act_min - dep_min;
-    }
-
-    if (!v->flight_id || !v->origin || !v->destination)
-    {
-        voo_destruir(v);
-        return NULL;
-    }
-
+    voo_info_destruir(info);
     return v;
+}
+
+voo_t *voo_criar_borrowed(const char *flight_id, const char *departure,
+                          const char *actual_departure, const char *arrival,
+                          const char *actual_arrival, const char *gate,
+                          const char *status, const char *origin,
+                          const char *destination, const char *aircraft,
+                          const char *airline, const char *tracking_url)
+{
+    return voo_criar(flight_id, departure, actual_departure, arrival, actual_arrival,
+                     gate, status, origin, destination, aircraft, airline, tracking_url);
 }
 
 /**
@@ -164,11 +148,6 @@ void voo_destruir(voo_t *v)
     if (!v)
         return;
 
-    free(v->flight_id);
-    if (v->aircraft)
-        free(v->aircraft);
-    if (v->airline)
-        free(v->airline);
     free(v);
 }
 
@@ -177,7 +156,7 @@ void voo_destruir(voo_t *v)
  * @param v Ponteiro para o voo
  * @return Identificador do voo ou NULL
  */
-const char *voo_obter_id(const voo_t *v) { return v ? v->flight_id : NULL; }
+uint64_t voo_obter_key(const voo_t *v) { return v ? v->key : 0; }
 
 /**
  * @brief Obtém a data de partida prevista como string.
@@ -226,28 +205,38 @@ const char *voo_obter_status(const voo_t *v) { return v ? status_to_str(v->statu
  * @param v Ponteiro para o voo
  * @return Aeroporto de origem
  */
-const char *voo_obter_origin(const voo_t *v) { return v ? v->origin : NULL; }
+const char *voo_obter_origin(const voo_t *v)
+{
+    if (!v)
+        return NULL;
+    return utils_aeroporto_codigo_const(voo_obter_origin_idx(v));
+}
 
 /**
  * @brief Obtém o aeroporto de destino do voo.
  * @param v Ponteiro para o voo
  * @return Aeroporto de destino
  */
-const char *voo_obter_destination(const voo_t *v) { return v ? v->destination : NULL; }
+const char *voo_obter_destination(const voo_t *v)
+{
+    if (!v)
+        return NULL;
+    return utils_aeroporto_codigo_const(voo_obter_destination_idx(v));
+}
 
-/**
- * @brief Obtém a aeronave do voo.
- * @param v Ponteiro para o voo
- * @return Aeronave
- */
-const char *voo_obter_aircraft(const voo_t *v) { return v ? v->aircraft : NULL; }
+int voo_obter_origin_idx(const voo_t *v)
+{
+    if (!v)
+        return -1;
+    return (v->orig_idx == 0xFFFF) ? -1 : (int)v->orig_idx;
+}
 
-/**
- * @brief Obtém a companhia aérea do voo.
- * @param v Ponteiro para o voo
- * @return Companhia aérea
- */
-const char *voo_obter_airline(const voo_t *v) { return v ? v->airline : NULL; }
+int voo_obter_destination_idx(const voo_t *v)
+{
+    if (!v)
+        return -1;
+    return (v->dest_idx == 0xFFFF) ? -1 : (int)v->dest_idx;
+}
 
 /**
  * @brief Obtém a URL de rastreamento do voo.
@@ -319,33 +308,75 @@ void voo_incrementar_passageiros(voo_t *v, int delta)
  * @brief Descarta a aeronave associada ao voo.
  * @param v Ponteiro para o voo
  */
-void voo_descartar_aircraft(voo_t *v)
+void voo_intern_pool_destruir(void) {}
+
+voo_info_t *voo_info_criar(const char *flight_id,
+                           const char *departure,
+                           const char *actual_departure,
+                           const char *status,
+                           const char *origin,
+                           const char *destination,
+                           const char *aircraft,
+                           const char *airline)
 {
-    if (!v || !v->aircraft)
-        return;
-    free(v->aircraft);
-    v->aircraft = NULL;
+    if (!flight_id || !departure || !status || !origin || !destination || !aircraft)
+        return NULL;
+
+    voo_info_t *info = malloc(sizeof(voo_info_t));
+    if (!info)
+        return NULL;
+
+    if (!utils_flight_id_key(flight_id, &info->key))
+    {
+        free(info);
+        return NULL;
+    }
+
+    info->dep_day = utils_parse_datetime_to_day_fast(departure);
+    info->act_dep_day = utils_parse_datetime_to_day_fast(actual_departure);
+    info->semana = utils_week_from_day(info->dep_day);
+    info->status = status_from_str(status);
+    info->atraso_min = -1;
+
+    if (actual_departure && strcmp(actual_departure, "N/A") != 0)
+    {
+        int dep_min = utils_parse_datetime_to_minutes_fast(departure);
+        int act_min = utils_parse_datetime_to_minutes_fast(actual_departure);
+        if (dep_min >= 0 && act_min >= 0 && act_min >= dep_min)
+            info->atraso_min = act_min - dep_min;
+    }
+
+    int orig_idx = utils_aeroporto_index(origin);
+    int dest_idx = utils_aeroporto_index(destination);
+    info->orig_idx = (orig_idx >= 0) ? (uint16_t)orig_idx : 0xFFFF;
+    info->dest_idx = (dest_idx >= 0) ? (uint16_t)dest_idx : 0xFFFF;
+    info->aircraft = aircraft;
+    info->airline = airline;
+    return info;
 }
 
-/**
- * @brief Descarta a companhia aérea associada ao voo.
- * @param v Ponteiro para o voo
- */
-void voo_descartar_airline(voo_t *v)
+void voo_info_destruir(voo_info_t *info)
 {
-    if (!v || !v->airline)
-        return;
-    free(v->airline);
-    v->airline = NULL;
+    free(info);
 }
 
-/**
- * @brief Destrói o pool de strings internas.
- */
-void voo_intern_pool_destruir(void)
+voo_t *voo_criar_from_info(const voo_info_t *info)
 {
-    if (!intern_pool)
-        return;
-    g_hash_table_destroy(intern_pool);
-    intern_pool = NULL;
+    if (!info || info->key == 0)
+        return NULL;
+
+    voo_t *v = malloc(sizeof(voo_t));
+    if (!v)
+        return NULL;
+
+    v->key = info->key;
+    v->orig_idx = info->orig_idx;
+    v->dest_idx = info->dest_idx;
+    v->dep_day = info->dep_day;
+    v->act_dep_day = info->act_dep_day;
+    v->atraso_min = info->atraso_min;
+    v->semana = info->semana;
+    v->status = info->status;
+    v->passageiros = 0;
+    return v;
 }

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <glib.h>
+#include <stdint.h>
 
 /**
  * @struct passageiro
@@ -14,6 +15,8 @@ struct passageiro
     char *ultimo_nome;      
     char *dob;              
     char *nacionalidade;    
+    uint32_t *destinos_counts;
+    unsigned char owns_strings;
 };
 
 /**
@@ -49,6 +52,8 @@ passageiro_t *passageiro_criar(const char *document_number, const char *primeiro
     p->ultimo_nome = g_strdup(ultimo_nome);
     p->dob = g_strdup(dob);
     p->nacionalidade = g_strdup(nacionalidade);
+    p->destinos_counts = NULL;
+    p->owns_strings = 1;
 
     if (!p->document_number || !p->primeiro_nome || !p->ultimo_nome ||
         !p->dob || !p->nacionalidade)
@@ -56,6 +61,36 @@ passageiro_t *passageiro_criar(const char *document_number, const char *primeiro
         passageiro_destruir(p);
         return NULL;
     }
+
+    return p;
+}
+
+passageiro_t *passageiro_criar_borrowed(const char *document_number, const char *primeiro_nome,
+                                        const char *ultimo_nome, const char *dob,
+                                        const char *nacionalidade, const char *genero,
+                                        const char *email, const char *telefone,
+                                        const char *morada, const char *foto)
+{
+    if (!document_number || !primeiro_nome || !ultimo_nome || !dob || !nacionalidade)
+        return NULL;
+
+    passageiro_t *p = malloc(sizeof(passageiro_t));
+    if (!p)
+        return NULL;
+
+    p->document_number = (char *)document_number;
+    p->primeiro_nome = (char *)primeiro_nome;
+    p->ultimo_nome = (char *)ultimo_nome;
+    p->dob = (char *)dob;
+    p->nacionalidade = (char *)nacionalidade;
+    p->destinos_counts = NULL;
+    p->owns_strings = 0;
+
+    (void)genero;
+    (void)email;
+    (void)telefone;
+    (void)morada;
+    (void)foto;
 
     return p;
 }
@@ -70,11 +105,14 @@ void passageiro_destruir(passageiro_t *p)
     if (!p)
         return;
 
-    free(p->document_number);
-    free(p->primeiro_nome);
-    free(p->ultimo_nome);
-    free(p->dob);
-    free(p->nacionalidade);
+    if (p->owns_strings)
+    {
+        free(p->document_number);
+        free(p->primeiro_nome);
+        free(p->ultimo_nome);
+        free(p->dob);
+        free(p->nacionalidade);
+    }
     free(p);
 }
 
@@ -176,4 +214,15 @@ const char *passageiro_obter_morada(const passageiro_t *p)
 const char *passageiro_obter_foto(const passageiro_t *p)
 {
     return p ? "" : NULL;
+}
+
+uint32_t *passageiro_obter_destinos_counts(const passageiro_t *p)
+{
+    return p ? p->destinos_counts : NULL;
+}
+
+void passageiro_definir_destinos_counts(passageiro_t *p, uint32_t *counts)
+{
+    if (p)
+        p->destinos_counts = counts;
 }

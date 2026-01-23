@@ -2,10 +2,13 @@
 #include "parsers/parser.h"
 #include "validacoes/validacao_aeroportos.h"
 #include "entidades/aeroportos.h"
+#include "utils.h"
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+#define NUM_AEROPORTOS (26 * 26 * 26)
 
 /**
  * @brief Estrutura que representa um gestor de aeroportos.
@@ -16,6 +19,7 @@
 struct gestor_aeroportos
 {
     GHashTable *aeroportos;
+    aeroporto_t **por_idx;
 };
 
 /**
@@ -32,6 +36,7 @@ gestor_aeroportos_t *gestor_aeroportos_criar(void)
         g_free,
         (GDestroyNotify)aeroporto_destruir
     );
+    g->por_idx = g_malloc0(sizeof(aeroporto_t *) * NUM_AEROPORTOS);
     return g;
 }
 
@@ -45,6 +50,7 @@ void gestor_aeroportos_destruir(gestor_aeroportos_t *gestor)
     if (!gestor)
         return;
     g_hash_table_destroy(gestor->aeroportos);
+    g_free(gestor->por_idx);
     free(gestor);
 }
 
@@ -72,6 +78,9 @@ void gestor_aeroportos_adicionar(gestor_aeroportos_t *gestor, aeroporto_t *aerop
     }
 
     g_hash_table_insert(gestor->aeroportos, g_strdup(id), aeroporto);
+    int idx = utils_aeroporto_index(id);
+    if (idx >= 0 && idx < NUM_AEROPORTOS && gestor->por_idx)
+        gestor->por_idx[idx] = aeroporto;
 }
 
 /**
@@ -99,7 +108,21 @@ aeroporto_t *gestor_aeroportos_obter_por_codigo(gestor_aeroportos_t *gestor, con
 {
     if (!gestor || !codigo)
         return NULL;
+    if (strlen(codigo) != 3)
+        return NULL;
+    int idx = utils_aeroporto_index(codigo);
+    if (idx >= 0 && idx < NUM_AEROPORTOS && gestor->por_idx)
+        return gestor->por_idx[idx];
     return g_hash_table_lookup(gestor->aeroportos, codigo);
+}
+
+aeroporto_t *gestor_aeroportos_obter_por_idx(gestor_aeroportos_t *gestor, int idx)
+{
+    if (!gestor || !gestor->por_idx)
+        return NULL;
+    if (idx < 0 || idx >= NUM_AEROPORTOS)
+        return NULL;
+    return gestor->por_idx[idx];
 }
 
 /**
@@ -164,6 +187,8 @@ void gestor_aeroportos_carregar(gestor_aeroportos_t *gestor, const char *ficheir
         ficheiro_csv,
         _adiciona_aeroporto_callback,
         (LinhaParaObjeto)valida_aeroporto,
-        (DestroiObjeto)aeroporto_destruir
+        (DestroiObjeto)aeroporto_destruir,
+        8,
+        8
     );
 }

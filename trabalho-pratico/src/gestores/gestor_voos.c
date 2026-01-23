@@ -1,14 +1,17 @@
 #include "gestores/gestor_voos.h"
+#include "estruturas/voo_table.h"
 #include "gestores/gestor_avioes.h"
 #include "gestores/gestor_aeroportos.h"
 #include "parsers/parser.h"
 #include "validacoes/validacao_voos.h"
 #include "entidades/voos.h"
+#include "utils.h"
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <limits.h>
+#include <stdint.h>
 
 /**
  * @struct gestor_voos
@@ -16,8 +19,8 @@
  */
 struct gestor_voos
 {
-    GHashTable *tabela;           /**< Tabela de voos (id -> voo_t*) */
-    GHashTable *q3_contagens;     /**< Contagens para query 3 (origem -> array de contagens por dia) */
+    voo_table_t tabela;           /**< Tabela de voos (key -> voo_t*) */
+    int **q3_contagens;           /**< Contagens para query 3 (origem_idx -> array) */
     int q3_min_day;               /**< Menor dia de voo processado */
     int q3_max_day;               /**< Maior dia de voo processado */
     int q3_range;                 /**< Range de dias processados */
@@ -34,6 +37,16 @@ typedef struct
     guint count;        
     double total_delay; 
 } atraso_airline_t;
+
+typedef struct
+{
+    gestor_voos_t *gestor;
+} q3_ctx_t;
+
+typedef struct
+{
+    gestor_aeroportos_t *gestor_aeroportos;
+} contagens_ctx_t;
 
 /**
  * @brief Arredonda um valor de atraso para milissegundos.
@@ -63,6 +76,61 @@ static gint q5_cache_cmp(gconstpointer a, gconstpointer b)
     return strcmp(ra->airline, rb->airline);
 }
 
+static void q3_visit_voo(voo_t *voo, void *ud)
+{
+    q3_ctx_t *ctx = ud;
+    gestor_voos_t *g = ctx->gestor;
+    if (voo_obter_status_codigo(voo) == 2)
+        return;
+    int act_day = voo_obter_actual_departure_dia(voo);
+    if (act_day < 0)
+        return;
+
+    int orig_idx = voo_obter_origin_idx(voo);
+    if (orig_idx < 0)
+        return;
+
+    int idx = act_day - g->q3_min_day;
+    if (idx < 0 || idx >= g->q3_range)
+        return;
+
+    int *counts = g->q3_contagens[orig_idx];
+    if (!counts)
+    {
+        counts = g_malloc0(sizeof(int) * g->q3_range);
+        g->q3_contagens[orig_idx] = counts;
+    }
+    counts[idx]++;
+}
+
+static void contagens_visit_voo(voo_t *voo, void *ud)
+{
+    contagens_ctx_t *ctx = ud;
+    gestor_aeroportos_t *ga = ctx->gestor_aeroportos;
+    if (voo_obter_status_codigo(voo) == 2)
+        return;
+
+    int passageiros = voo_obter_passageiros(voo);
+    if (passageiros <= 0)
+        return;
+
+    int orig_idx = voo_obter_origin_idx(voo);
+    int dest_idx = voo_obter_destination_idx(voo);
+
+    if (orig_idx >= 0)
+    {
+        aeroporto_t *a = gestor_aeroportos_obter_por_idx(ga, orig_idx);
+        if (a)
+            aeroporto_incrementar_partidas(a, passageiros);
+    }
+    if (dest_idx >= 0)
+    {
+        aeroporto_t *a = gestor_aeroportos_obter_por_idx(ga, dest_idx);
+        if (a)
+            aeroporto_incrementar_chegadas(a, passageiros);
+    }
+}
+
 /**
  * @brief Liberta a memória do cache de query 5.
  */
@@ -80,13 +148,6 @@ static void q5_cache_destruir(GArray *cache)
     g_array_free(cache, TRUE);
 }
 
-/**
- * @brief Callback para destruir contagens de origem de Q3.
- */
-static void contagens_origem_destruir(gpointer data)
-{
-    g_free(data);
-}
 
 /**
  * @brief Cria e inicializa um gestor de voos.
@@ -95,7 +156,7 @@ static void contagens_origem_destruir(gpointer data)
 gestor_voos_t *gestor_voos_criar(void)
 {
     gestor_voos_t *g = malloc(sizeof(gestor_voos_t));
-    g->tabela = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, (GDestroyNotify)voo_destruir);
+    voo_table_init(&g->tabela, 1 << 16);
     g->q3_contagens = NULL;
     g->q3_min_day = INT_MAX;
     g->q3_max_day = INT_MIN;
@@ -113,11 +174,16 @@ void gestor_voos_destruir(gestor_voos_t *gestor)
     if (!gestor)
         return;
     if (gestor->q3_contagens)
-        g_hash_table_destroy(gestor->q3_contagens);
+    {
+        for (int i = 0; i < (26 * 26 * 26); i++)
+            g_free(gestor->q3_contagens[i]);
+        g_free(gestor->q3_contagens);
+        gestor->q3_contagens = NULL;
+    }
     if (gestor->q5_cache)
         q5_cache_destruir(gestor->q5_cache);
     g_hash_table_destroy(gestor->atrasos_airline);
-    g_hash_table_destroy(gestor->tabela);
+    voo_table_destroy(&gestor->tabela, voo_destruir);
     voo_intern_pool_destruir();
     free(gestor);
 }
@@ -125,20 +191,26 @@ void gestor_voos_destruir(gestor_voos_t *gestor)
 /**
  * @brief Adiciona um voo ao gestor, atualizando estatísticas.
  */
-void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
+void gestor_voos_adicionar(gestor_voos_t *gestor, voo_info_t *info)
 {
-    if (!gestor || !voo)
+    if (!gestor || !info)
         return;
 
-    const char *id = voo_obter_id(voo);
-    if (!id || g_hash_table_contains(gestor->tabela, id))
+    uint64_t key = info->key;
+    if (key == 0)
     {
-        voo_destruir(voo);
+        voo_info_destruir(info);
+        return;
+    }
+    uint64_t keyplus = key + 1ull;
+    if (voo_table_lookup(&gestor->tabela, keyplus))
+    {
+        voo_info_destruir(info);
         return;
     }
 
-    int status = voo_obter_status_codigo(voo);
-    int act_day = voo_obter_actual_departure_dia(voo);
+    int status = info->status;
+    int act_day = info->act_dep_day;
     if (status != 2 && act_day >= 0)
     {
         if (act_day < gestor->q3_min_day)
@@ -149,8 +221,8 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
 
     if (status == 1)
     {
-        const char *airline = voo_obter_airline(voo);
-        double atraso = voo_calcular_atraso_minutos(voo);
+        const char *airline = info->airline;
+        double atraso = (info->atraso_min >= 0) ? (double)info->atraso_min : -1.0;
         if (airline && *airline && atraso >= 0.0)
         {
             atraso_airline_t *stats = g_hash_table_lookup(gestor->atrasos_airline, airline);
@@ -164,9 +236,21 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
         }
     }
 
-    g_hash_table_insert(gestor->tabela, (gpointer)id, voo);
-    voo_descartar_aircraft(voo);
-    voo_descartar_airline(voo);
+    voo_t *voo = voo_criar_from_info(info);
+    if (!voo)
+    {
+        voo_info_destruir(info);
+        return;
+    }
+
+    if (!voo_table_insert(&gestor->tabela, keyplus, voo))
+    {
+        voo_destruir(voo);
+        voo_info_destruir(info);
+        return;
+    }
+
+    voo_info_destruir(info);
 }
 
 /**
@@ -174,23 +258,26 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_t *voo)
  */
 voo_t *gestor_voos_obter_por_id(gestor_voos_t *gestor, const char *flight_id)
 {
-    return (gestor && flight_id) ? g_hash_table_lookup(gestor->tabela, flight_id) : NULL;
+    uint64_t key = 0;
+    if (!gestor || !flight_id || !utils_flight_id_key(flight_id, &key))
+        return NULL;
+    return gestor_voos_obter_por_key(gestor, key);
 }
 
-/**
- * @brief Retorna a tabela interna de voos.
- */
-GHashTable *gestor_voos_obter_tabela(gestor_voos_t *gestor)
+voo_t *gestor_voos_obter_por_key(gestor_voos_t *gestor, uint64_t key)
 {
-    return gestor ? gestor->tabela : NULL;
+    if (!gestor)
+        return NULL;
+    return voo_table_lookup(&gestor->tabela, (uint64_t)(key + 1ull));
 }
+
 
 /**
  * @brief Retorna o número de voos no gestor.
  */
 unsigned gestor_voos_contar(const gestor_voos_t *gestor)
 {
-    return gestor ? g_hash_table_size(gestor->tabela) : 0;
+    return gestor ? (unsigned)voo_table_size(&gestor->tabela) : 0;
 }
 
 /**
@@ -201,12 +288,7 @@ void gestor_voos_para_cada(gestor_voos_t *gestor, void (*func)(voo_t *, void *),
     if (!gestor || !func)
         return;
 
-    GHashTableIter iter;
-    gpointer key, value;
-    g_hash_table_iter_init(&iter, gestor->tabela);
-
-    while (g_hash_table_iter_next(&iter, &key, &value))
-        func(value, user_data);
+    voo_table_foreach(&gestor->tabela, func, user_data);
 }
 
 /**
@@ -234,9 +316,9 @@ typedef struct
 static gboolean _adiciona_voo_validado(void *contexto, void *objeto)
 {
     contexto_voos_validacao_t *ctx = contexto;
-    voo_t *voo = objeto;
+    voo_info_t *info = objeto;
 
-    const char *aircraft = voo_obter_aircraft(voo);
+    const char *aircraft = info ? info->aircraft : NULL;
     if (!aircraft || !ctx->gestor_avioes)
         return FALSE;
 
@@ -244,10 +326,10 @@ static gboolean _adiciona_voo_validado(void *contexto, void *objeto)
     if (!aviao)
         return FALSE;
 
-    if (voo_obter_status_codigo(voo) != 2)
+    if (info->status != 2)
         aviao_incrementar_contagem_voos(aviao, 1);
 
-    gestor_voos_adicionar(ctx->gestor_voos, voo);
+    gestor_voos_adicionar(ctx->gestor_voos, info);
     return TRUE;
 }
 
@@ -257,7 +339,7 @@ static gboolean _adiciona_voo_validado(void *contexto, void *objeto)
 void gestor_voos_carregar(gestor_voos_t *gestor, const char *ficheiro_csv)
 {
     if (gestor && ficheiro_csv)
-        parser_carrega(gestor, ficheiro_csv, _adiciona_voo_callback, (LinhaParaObjeto)valida_voo, (DestroiObjeto)voo_destruir);
+        parser_carrega(gestor, ficheiro_csv, _adiciona_voo_callback, (LinhaParaObjeto)valida_voo, (DestroiObjeto)voo_info_destruir, 12, 12);
 }
 
 /**
@@ -270,7 +352,7 @@ void gestor_voos_carregar_com_validacao(gestor_voos_t *gestor, const char *fiche
         contexto_voos_validacao_t ctx = {
             .gestor_voos = gestor,
             .gestor_avioes = gestor_avioes};
-        parser_carrega(&ctx, ficheiro_csv, _adiciona_voo_validado, (LinhaParaObjeto)valida_voo, (DestroiObjeto)voo_destruir);
+        parser_carrega(&ctx, ficheiro_csv, _adiciona_voo_validado, (LinhaParaObjeto)valida_voo, (DestroiObjeto)voo_info_destruir, 12, 12);
     }
 }
 
@@ -289,47 +371,18 @@ void gestor_voos_preparar_q3(gestor_voos_t *gestor)
     if (gestor->q3_range <= 0)
         return;
 
-    gestor->q3_contagens = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, contagens_origem_destruir);
+    gestor->q3_contagens = g_malloc0(sizeof(int *) * (26 * 26 * 26));
 
-    GHashTableIter iter;
-    gpointer key, value;
-    g_hash_table_iter_init(&iter, gestor->tabela);
+    q3_ctx_t ctx = {.gestor = gestor};
+    voo_table_foreach(&gestor->tabela, q3_visit_voo, &ctx);
 
-    while (g_hash_table_iter_next(&iter, &key, &value))
+    for (int i = 0; i < (26 * 26 * 26); i++)
     {
-        voo_t *voo = value;
-        if (voo_obter_status_codigo(voo) == 2)
-            continue;
-        int act_day = voo_obter_actual_departure_dia(voo);
-        if (act_day < 0)
-            continue;
-
-        const char *origin = voo_obter_origin(voo);
-        if (!origin)
-            continue;
-
-        int idx = act_day - gestor->q3_min_day;
-        if (idx < 0 || idx >= gestor->q3_range)
-            continue;
-
-        int *counts = g_hash_table_lookup(gestor->q3_contagens, origin);
+        int *counts = gestor->q3_contagens[i];
         if (!counts)
-        {
-            counts = g_malloc0(sizeof(int) * gestor->q3_range);
-            g_hash_table_insert(gestor->q3_contagens, (gpointer)origin, counts);
-        }
-        counts[idx]++;
-    }
-
-    GHashTableIter iter_counts;
-    gpointer ckey, cval;
-    g_hash_table_iter_init(&iter_counts, gestor->q3_contagens);
-
-    while (g_hash_table_iter_next(&iter_counts, &ckey, &cval))
-    {
-        int *counts = cval;
-        for (int i = 1; i < gestor->q3_range; i++)
-            counts[i] += counts[i - 1];
+            continue;
+        for (int j = 1; j < gestor->q3_range; j++)
+            counts[j] += counts[j - 1];
     }
 }
 
@@ -358,33 +411,32 @@ gboolean gestor_voos_melhor_origem_intervalo(gestor_voos_t *gestor, int dia_inic
     int start_idx = dia_inicio - gestor->q3_min_day;
     int end_idx = dia_fim - gestor->q3_min_day;
 
-    const char *melhor_origem = NULL;
+    int melhor_idx = -1;
     guint melhor_contagem = 0;
 
-    GHashTableIter iter;
-    gpointer key, value;
-    g_hash_table_iter_init(&iter, gestor->q3_contagens);
-
-    while (g_hash_table_iter_next(&iter, &key, &value))
+    for (int idx = 0; idx < (26 * 26 * 26); idx++)
     {
-        const char *origin = key;
-        int *counts = value;
+        int *counts = gestor->q3_contagens[idx];
+        if (!counts)
+            continue;
         int total = counts[end_idx] - (start_idx > 0 ? counts[start_idx - 1] : 0);
         if (total <= 0)
             continue;
 
         if ((guint)total > melhor_contagem ||
-            ((guint)total == melhor_contagem && (!melhor_origem || strcmp(origin, melhor_origem) < 0)))
+            ((guint)total == melhor_contagem && (melhor_idx < 0 || idx < melhor_idx)))
         {
             melhor_contagem = (guint)total;
-            melhor_origem = origin;
+            melhor_idx = idx;
         }
     }
 
-    if (!melhor_origem)
+    if (melhor_idx < 0)
         return FALSE;
 
-    *out_origem = melhor_origem;
+    *out_origem = utils_aeroporto_codigo_const(melhor_idx);
+    if (!*out_origem)
+        return FALSE;
     *out_contagem = melhor_contagem;
     return TRUE;
 }
@@ -453,34 +505,6 @@ void gestor_voos_atualizar_contagens_aeroportos(gestor_voos_t *gestor_voos, gest
     if (!gestor_voos || !gestor_aeroportos)
         return;
 
-    GHashTableIter iter;
-    gpointer key, value;
-    g_hash_table_iter_init(&iter, gestor_voos->tabela);
-
-    while (g_hash_table_iter_next(&iter, &key, &value))
-    {
-        voo_t *voo = value;
-        if (voo_obter_status_codigo(voo) == 2)
-            continue;
-
-        int passageiros = voo_obter_passageiros(voo);
-        if (passageiros <= 0)
-            continue;
-
-        const char *orig = voo_obter_origin(voo);
-        const char *dest = voo_obter_destination(voo);
-
-        if (orig)
-        {
-            aeroporto_t *a = gestor_aeroportos_obter_por_codigo(gestor_aeroportos, orig);
-            if (a)
-                aeroporto_incrementar_partidas(a, passageiros);
-        }
-        if (dest)
-        {
-            aeroporto_t *a = gestor_aeroportos_obter_por_codigo(gestor_aeroportos, dest);
-            if (a)
-                aeroporto_incrementar_chegadas(a, passageiros);
-        }
-    }
+    contagens_ctx_t ctx = {.gestor_aeroportos = gestor_aeroportos};
+    voo_table_foreach(&gestor_voos->tabela, contagens_visit_voo, &ctx);
 }

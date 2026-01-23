@@ -2,6 +2,7 @@
 #define PASSAGEIROS_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 /**
  * @file passageiros.h
@@ -34,6 +35,13 @@ typedef struct passageiro passageiro_t;
 passageiro_t *passageiro_criar(const char *document_number, const char *primeiro_nome, const char *ultimo_nome, const char *dob, const char *nacionalidade, const char *genero, const char *email, const char *telefone, const char *morada, const char *foto);
 
 /**
+ * @brief Cria um passageiro sem copiar strings (modo borrowed).
+ *
+ * Usado quando os dados permanecem válidos durante toda a execução.
+ */
+passageiro_t *passageiro_criar_borrowed(const char *document_number, const char *primeiro_nome, const char *ultimo_nome, const char *dob, const char *nacionalidade, const char *genero, const char *email, const char *telefone, const char *morada, const char *foto);
+
+/**
  * @brief Destrói um passageiro e libera a memória associada.
  *
  * @param p Ponteiro para o passageiro a destruir.
@@ -50,5 +58,15 @@ const char *passageiro_obter_email(const passageiro_t *p);
 const char *passageiro_obter_telefone(const passageiro_t *p);
 const char *passageiro_obter_morada(const passageiro_t *p);
 const char *passageiro_obter_foto(const passageiro_t *p);
+
+/**
+ * @brief Obtém o mapa de destinos por nacionalidade associado ao passageiro.
+ */
+uint32_t *passageiro_obter_destinos_counts(const passageiro_t *p);
+
+/**
+ * @brief Define o mapa de destinos por nacionalidade no passageiro.
+ */
+void passageiro_definir_destinos_counts(passageiro_t *p, uint32_t *counts);
 
 #endif /* PASSAGEIROS_H */

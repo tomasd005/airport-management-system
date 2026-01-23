@@ -1,6 +1,7 @@
 #include "gestores/gestor_passageiros.h"
 #include "parsers/parser.h"
 #include "validacoes/validacao_passageiros.h"
+#include "utils.h"
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,8 +26,8 @@ gestor_passageiros_t *gestor_passageiros_criar(void)
 {
     gestor_passageiros_t *g = malloc(sizeof(*g));
     g->por_documento = g_hash_table_new_full(
-        g_str_hash,
-        g_str_equal,
+        g_direct_hash,
+        g_direct_equal,
         NULL,
         (GDestroyNotify)passageiro_destruir
     );
@@ -61,13 +62,21 @@ void gestor_passageiros_adicionar(gestor_passageiros_t *gestor, passageiro_t *p)
         return;
 
     const char *doc = passageiro_obter_document_number(p);
-    if (!doc || g_hash_table_contains(gestor->por_documento, doc))
+    uint32_t key = 0;
+    if (!doc || !utils_document_number_key(doc, &key))
     {
         passageiro_destruir(p);
         return;
     }
 
-    g_hash_table_insert(gestor->por_documento, (gpointer)doc, p);
+    gpointer kptr = GINT_TO_POINTER((gint)(key + 1u));
+    if (g_hash_table_contains(gestor->por_documento, kptr))
+    {
+        passageiro_destruir(p);
+        return;
+    }
+
+    g_hash_table_insert(gestor->por_documento, kptr, p);
 }
 
 /**
@@ -79,7 +88,17 @@ void gestor_passageiros_adicionar(gestor_passageiros_t *gestor, passageiro_t *p)
  */
 passageiro_t *gestor_passageiros_obter_por_documento(gestor_passageiros_t *gestor, const char *document_number)
 {
-    return (gestor && document_number) ? g_hash_table_lookup(gestor->por_documento, document_number) : NULL;
+    uint32_t key = 0;
+    if (!gestor || !document_number || !utils_document_number_key(document_number, &key))
+        return NULL;
+    return gestor_passageiros_obter_por_documento_key(gestor, key);
+}
+
+passageiro_t *gestor_passageiros_obter_por_documento_key(gestor_passageiros_t *gestor, uint32_t key)
+{
+    if (!gestor)
+        return NULL;
+    return g_hash_table_lookup(gestor->por_documento, GINT_TO_POINTER((gint)(key + 1u)));
 }
 
 /**
@@ -121,7 +140,9 @@ void gestor_passageiros_carregar(gestor_passageiros_t *gestor, const char *fiche
             ficheiro_csv,
             adiciona_passageiro_callback,
             (LinhaParaObjeto)valida_passageiro,
-            (DestroiObjeto)passageiro_destruir
+            (DestroiObjeto)passageiro_destruir,
+            10,
+            10
         );
 }
 

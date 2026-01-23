@@ -2,6 +2,7 @@
 #define VOOS_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 /**
  * @file voos.h
@@ -17,6 +18,23 @@
  * @brief Estrutura opaca que representa um voo.
  */
 typedef struct voo voo_t;
+
+/**
+ * @brief Estrutura com dados validados de um voo (para ingestão).
+ */
+typedef struct
+{
+    uint64_t key;
+    uint16_t orig_idx;
+    uint16_t dest_idx;
+    int32_t dep_day;
+    int32_t act_dep_day;
+    int32_t atraso_min;
+    int32_t semana;
+    unsigned char status;
+    const char *airline;
+    const char *aircraft;
+} voo_info_t;
 
 /**
  * @brief Cria um novo voo.
@@ -38,13 +56,30 @@ typedef struct voo voo_t;
 voo_t *voo_criar(const char *flight_id, const char *departure, const char *actual_departure, const char *arrival, const char *actual_arrival, const char *gate, const char *status, const char *origin, const char *destination, const char *aircraft, const char *airline, const char *tracking_url);
 
 /**
+ * @brief Cria um voo sem copiar strings (modo borrowed).
+ *
+ * Usado quando os dados permanecem válidos durante toda a execução.
+ */
+voo_t *voo_criar_borrowed(const char *flight_id, const char *departure, const char *actual_departure, const char *arrival, const char *actual_arrival, const char *gate, const char *status, const char *origin, const char *destination, const char *aircraft, const char *airline, const char *tracking_url);
+
+/**
  * @brief Destrói um voo e libera a memória associada.
  *
  * @param v Ponteiro para o voo a destruir.
  */
 void voo_destruir(voo_t *v);
+voo_info_t *voo_info_criar(const char *flight_id,
+                           const char *departure,
+                           const char *actual_departure,
+                           const char *status,
+                           const char *origin,
+                           const char *destination,
+                           const char *aircraft,
+                           const char *airline);
+void voo_info_destruir(voo_info_t *info);
+voo_t *voo_criar_from_info(const voo_info_t *info);
 
-const char *voo_obter_id(const voo_t *v);
+uint64_t voo_obter_key(const voo_t *v);
 const char *voo_obter_departure(const voo_t *v);
 const char *voo_obter_actual_departure(const voo_t *v);
 const char *voo_obter_arrival(const voo_t *v);
@@ -53,8 +88,8 @@ const char *voo_obter_gate(const voo_t *v);
 const char *voo_obter_status(const voo_t *v);
 const char *voo_obter_origin(const voo_t *v);
 const char *voo_obter_destination(const voo_t *v);
-const char *voo_obter_aircraft(const voo_t *v);
-const char *voo_obter_airline(const voo_t *v);
+int voo_obter_origin_idx(const voo_t *v);
+int voo_obter_destination_idx(const voo_t *v);
 const char *voo_obter_tracking_url(const voo_t *v);
 double voo_calcular_atraso_minutos(const voo_t *v);
 int voo_obter_departure_dia(const voo_t *v);
@@ -63,8 +98,6 @@ int voo_obter_semana(const voo_t *v);
 int voo_obter_status_codigo(const voo_t *v);
 int voo_obter_passageiros(const voo_t *v);
 void voo_incrementar_passageiros(voo_t *v, int delta);
-void voo_descartar_aircraft(voo_t *v);
-void voo_descartar_airline(voo_t *v);
 void voo_intern_pool_destruir(void);
 
 #endif

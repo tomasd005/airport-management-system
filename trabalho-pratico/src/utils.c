@@ -2,6 +2,7 @@
 #include <string.h>
 #include <glib.h>
 #include <ctype.h>
+#include <stdint.h>
 
 void utils_remove_aspas_somente(char *str)
 {
@@ -182,4 +183,137 @@ int utils_week_from_day(int day)
     if (wday < 0)
         wday += 7;
     return (day - wday) / 7;
+}
+
+int utils_parse_datetime_to_day_fast(const char *datetime)
+{
+    if (!datetime || datetime[0] == 'N')
+        return -1;
+    if (datetime[4] != '-' || datetime[7] != '-' || datetime[10] != ' ')
+        return -1;
+
+    int y = (datetime[0] - '0') * 1000 + (datetime[1] - '0') * 100 +
+            (datetime[2] - '0') * 10 + (datetime[3] - '0');
+    int m = (datetime[5] - '0') * 10 + (datetime[6] - '0');
+    int d = (datetime[8] - '0') * 10 + (datetime[9] - '0');
+
+    if (y < 0 || m <= 0 || m > 12 || d <= 0 || d > 31)
+        return -1;
+
+    return days_from_civil(y, (unsigned)m, (unsigned)d);
+}
+
+int utils_parse_datetime_to_minutes_fast(const char *datetime)
+{
+    if (!datetime || datetime[0] == 'N')
+        return -1;
+    if (datetime[10] != ' ' || datetime[13] != ':')
+        return -1;
+
+    int day = utils_parse_datetime_to_day_fast(datetime);
+    if (day < 0)
+        return -1;
+
+    int h = (datetime[11] - '0') * 10 + (datetime[12] - '0');
+    int min = (datetime[14] - '0') * 10 + (datetime[15] - '0');
+    if (h < 0 || h > 23 || min < 0 || min > 59)
+        return -1;
+    return day * 1440 + h * 60 + min;
+}
+
+int utils_aeroporto_index(const char *code)
+{
+    if (!code)
+        return -1;
+    if (strlen(code) != 3)
+        return -1;
+    char a = code[0];
+    char b = code[1];
+    char c = code[2];
+    if (a < 'A' || a > 'Z' || b < 'A' || b > 'Z' || c < 'A' || c > 'Z')
+        return -1;
+    return (a - 'A') * 26 * 26 + (b - 'A') * 26 + (c - 'A');
+}
+
+int utils_document_number_key(const char *doc, uint32_t *out_key)
+{
+    if (!doc || !out_key)
+        return 0;
+
+    uint32_t value = 0;
+    for (int i = 0; i < 9; i++)
+    {
+        unsigned char c = (unsigned char)doc[i];
+        if (c < '0' || c > '9')
+            return 0;
+        value = value * 10u + (uint32_t)(c - '0');
+    }
+    if (doc[9] != '\0')
+        return 0;
+
+    *out_key = value;
+    return 1;
+}
+
+int utils_flight_id_key(const char *id, uint64_t *out_key)
+{
+    if (!id || !out_key)
+        return 0;
+    if (id[0] < 'A' || id[0] > 'Z' || id[1] < 'A' || id[1] > 'Z')
+        return 0;
+
+    uint32_t num = 0;
+    int digits = 0;
+    for (const char *p = id + 2; *p; p++)
+    {
+        if (!isdigit((unsigned char)*p))
+            return 0;
+        num = num * 10u + (uint32_t)(*p - '0');
+        digits++;
+    }
+
+    if (digits < 4 || digits > 7)
+        return 0;
+
+    uint32_t letters = (uint32_t)(id[0] - 'A') * 26u + (uint32_t)(id[1] - 'A');
+    *out_key = ((uint64_t)letters * 100000000ull) + ((uint64_t)digits * 10000000ull) + num;
+    return 1;
+}
+
+void utils_aeroporto_codigo(int idx, char out[4])
+{
+    if (!out)
+        return;
+    if (idx < 0 || idx >= (26 * 26 * 26))
+    {
+        out[0] = '\0';
+        return;
+    }
+
+    int a = idx / (26 * 26);
+    int b = (idx / 26) % 26;
+    int c = idx % 26;
+    out[0] = (char)('A' + a);
+    out[1] = (char)('A' + b);
+    out[2] = (char)('A' + c);
+    out[3] = '\0';
+}
+
+const char *utils_aeroporto_codigo_const(int idx)
+{
+    enum { NUM_AEROPORTOS = 26 * 26 * 26 };
+    static char codes[NUM_AEROPORTOS][4];
+    static int initialized = 0;
+
+    if (idx < 0 || idx >= NUM_AEROPORTOS)
+        return NULL;
+
+    if (!initialized)
+    {
+        for (int i = 0; i < NUM_AEROPORTOS; i++)
+            utils_aeroporto_codigo(i, codes[i]);
+        initialized = 1;
+    }
+
+    return codes[idx];
 }

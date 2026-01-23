@@ -56,6 +56,7 @@ SRC_GESTOR_PROGRAMAS = \
 # Parsers e validacoes
 SRC_PARSERS = \
     src/parsers/parser.c \
+    src/parsers/parser_reservas.c \
     src/validacoes/validacao_comum.c \
     src/validacoes/validacao_aeroportos.c \
     src/validacoes/validacao_avioes.c \
@@ -73,6 +74,7 @@ SRC_QUERIES = \
     src/queries/querie6.c
 
 SRC_UTILS = src/utils.c
+SRC_ESTRUTURAS = src/estruturas/voo_table.c
 
 # Programas principais
 MAIN_PRINCIPAL = src/programas/main.c
@@ -91,17 +93,17 @@ EXEC_VERIFICADOR = verificador-csv
 all: $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_INTERATIVO)
 
 $(EXEC_PRINCIPAL): $(MAIN_PRINCIPAL) $(SRC_GESTOR_PROGRAMA) $(SRC_GESTORES) \
-$(SRC_ENTIDADES) $(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS)
+$(SRC_ENTIDADES) $(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS) $(SRC_ESTRUTURAS)
 	@echo "Compilando $(EXEC_PRINCIPAL)..."
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 $(EXEC_TESTES): $(MAIN_TESTES) $(SRC_GESTOR_PROGRAMAS) $(SRC_GESTORES) $(SRC_ENTIDADES) \
-$(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS)
+$(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS) $(SRC_ESTRUTURAS)
 	@echo "Compilando $(EXEC_TESTES)..."
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 $(EXEC_INTERATIVO): $(MAIN_INTERATIVO) $(SRC_GESTOR_PROGRAMAS) $(SRC_GESTORES) $(SRC_ENTIDADES) \
-$(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS)
+$(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS) $(SRC_ESTRUTURAS)
 	@echo "Compilando $(EXEC_INTERATIVO)..."
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 

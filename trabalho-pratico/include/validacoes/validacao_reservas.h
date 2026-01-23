@@ -3,6 +3,7 @@
 
 #include <glib.h>
 #include <stddef.h>
+#include <stdint.h>
 #include "../entidades/reservas.h"
 #include "../gestores/gestor_voos.h"
 #include "../gestores/gestor_passageiros.h"
@@ -29,16 +30,15 @@ reserva_t *valida_reserva_from_csv(char **colunas);
  * @param out_flight_ids Saída: ponteiros para IDs de voo validados.
  * @param out_num_voos Saída: número de voos válidos na reserva.
  * @param out_document_number Saída: documento do passageiro.
+ * @param out_document_key Saída: chave numérica do documento.
  * @param out_preco Saída: preço da reserva.
  * @return TRUE se todos os campos forem válidos, FALSE caso contrário.
  */
-gboolean valida_reserva_campos(char **colunas,
-                               const char **out_flight_ids,
-                               size_t *out_num_voos,
-                               const char **out_document_number,
+gboolean valida_reserva_campos(char **colunas, const char **out_flight_ids, size_t *out_num_voos,
+                               const char **out_document_number, uint32_t *out_document_key,
                                double *out_preco);
 
-                               /**
+/**
  * @brief Valida logicamente uma reserva.
  *
  * Verifica consistência da reserva com gestores de voos e passageiros:
@@ -51,15 +51,14 @@ gboolean valida_reserva_campos(char **colunas,
  * @param gestor_passageiros Ponteiro para o gestor de passageiros.
  * @return Um GPtrArray contendo strings de mensagens de erro, ou NULL se não houver erros.
  */
-GPtrArray *validar_reserva(const reserva_t *r,
-                           gestor_voos_t *gestor_voos,
+GPtrArray *validar_reserva(const reserva_t *r, gestor_voos_t *gestor_voos,
                            gestor_passageiros_t *gestor_passageiros);
 
 /**
  * @brief Libera a memória de um array de erros retornado por `validar_reserva`.
  *
  * @param erros GPtrArray contendo mensagens de erro.
- */                
+ */
 void validar_reserva_imprimir_erros(GPtrArray *erros);
 
 #endif
