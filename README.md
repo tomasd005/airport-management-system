@@ -71,12 +71,4 @@ Os ficheiros finais ficam em:
 - `resultados/benchmark-regular.json` / `benchmark-regular.html`
 - `resultados/benchmark-large.json` / `benchmark-large.html`
 
-## Estrutura do projeto (resumo)
-- `src/` — implementação
-- `include/` — headers
-- `resultados/` — outputs gerados (não recomendado versionar)
-- `sem_erros/`, `com_erros/` — datasets (não recomendados para versionar)
 
-## Nota sobre ficheiros grandes
-Resultados e datasets podem ultrapassar o limite recomendado pelo GitHub.  
-Mantém `resultados/` e datasets no `.gitignore` para evitar uploads acidentais.
