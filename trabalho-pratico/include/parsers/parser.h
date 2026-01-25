@@ -82,6 +82,18 @@ int parser_sem_erros_ativo(void);
 void parser_definir_sem_erros(int ativo);
 
 /**
+ * @brief Indica se o parser está a processar um dataset grande.
+ * @return 1 se está a processar um dataset grande, 0 caso contrário.
+ */
+int parser_dataset_grande_ativo(void);
+
+/**
+ * @brief Define o estado de processamento de dataset grande.
+ * @param ativo 1 para ativar, 0 para desativar.
+ */
+void parser_definir_dataset_grande(int ativo);
+
+/**
  * @brief Carrega um ficheiro CSV, converte linhas em objetos e adiciona-os a um contexto.
  *
  * @param contexto Estrutura de armazenamento ou gestor onde os objetos serão adicionados.

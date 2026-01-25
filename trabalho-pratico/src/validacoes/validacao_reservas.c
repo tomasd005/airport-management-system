@@ -257,6 +257,17 @@ static int document_key_from_str(const char *doc, uint32_t *out_key)
     return 1;
 }
 
+static inline uint32_t document_key_from_str_fast(const char *doc)
+{
+    if (*doc == '"' || *doc == '\'')
+        doc++;
+    uint32_t value = 0;
+    for (int i = 0; i < 9; i++) {
+        value = value * 10u + (uint32_t)(doc[i] - '0');
+    }
+    return value;
+}
+
 static char *strip_outer_quotes(char *s)
 {
     if (!s)
@@ -377,8 +388,9 @@ gboolean valida_reserva_campos(char **colunas, const char **out_flight_ids, size
         const char *doc = colunas[IDX_DOC];
         char *price_str = strip_outer_quotes(colunas[IDX_PRICE]);
 
-        if (!document_key_from_str(doc, out_document_key))
+        if (!doc || !*doc)
             return FALSE;
+        *out_document_key = document_key_from_str_fast(doc);
 
         double price = parse_preco_fast(price_str);
         if (price < 0.0)

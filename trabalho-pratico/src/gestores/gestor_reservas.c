@@ -2,6 +2,7 @@
 #include "gestores/gestor_passageiros.h"
 #include "gestores/gestor_voos.h"
 #include "parsers/parser_reservas.h"
+#include "parsers/parser.h"
 #include "validacoes/validacao_reservas.h"
 #include "entidades/passageiros.h"
 #include "entidades/voos.h"
@@ -48,6 +49,39 @@ static inline uint32_t doc_key_de_ptr(gpointer ptr)
     return (uint32_t)(GPOINTER_TO_UINT(ptr) - 1);
 }
 
+static inline uint64_t flight_id_key_fast(const char *id)
+{
+    uint32_t letters = (uint32_t)(id[0] - 'A') * 26u + (uint32_t)(id[1] - 'A');
+    uint32_t num = 0;
+    int digits = 0;
+    const char *p = id + 2;
+    while (*p) {
+        num = num * 10u + (uint32_t)(*p - '0');
+        p++;
+        digits++;
+    }
+    return ((uint64_t)letters * 100000000ull) + ((uint64_t)digits * 10000000ull) + num;
+}
+
+static int reserva_id_key(const char *id, uint32_t *out_key)
+{
+    if (!id || !out_key)
+        return 0;
+    if (id[0] != 'R' || strlen(id) != 10)
+        return 0;
+
+    uint32_t value = 0;
+    for (int i = 1; i < 10; i++) {
+        unsigned char c = (unsigned char)id[i];
+        if (c < '0' || c > '9')
+            return 0;
+        value = value * 10u + (uint32_t)(c - '0');
+    }
+
+    *out_key = value;
+    return 1;
+}
+
 /**
  * @struct gestor_reservas
  * @brief Estrutura principal para gerenciar reservas.
@@ -58,6 +92,9 @@ struct gestor_reservas {
     GHashTable *top10_por_semana;
     GHashTable *destinos_por_nacionalidade;
     GHashTable *melhor_dest_por_nacionalidade;
+    GHashTable *reservas_ids;
+    int cache_semana;
+    GHashTable *cache_gastos;
 };
 
 /**
@@ -92,6 +129,9 @@ gestor_reservas_t *gestor_reservas_criar(void)
                                                 (GDestroyNotify)g_ptr_array_unref);
     g->destinos_por_nacionalidade = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, g_free);
     g->melhor_dest_por_nacionalidade = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, g_free);
+    g->reservas_ids = NULL;
+    g->cache_semana = -1;
+    g->cache_gastos = NULL;
     return g;
 }
 
@@ -112,6 +152,8 @@ void gestor_reservas_destruir(gestor_reservas_t *gestor)
         g_hash_table_destroy(gestor->destinos_por_nacionalidade);
     if (gestor->melhor_dest_por_nacionalidade)
         g_hash_table_destroy(gestor->melhor_dest_por_nacionalidade);
+    if (gestor->reservas_ids)
+        g_hash_table_destroy(gestor->reservas_ids);
     free(gestor);
 }
 
@@ -142,10 +184,17 @@ static void acumular_gastos_semana(gestor_reservas_t *gestor, uint32_t doc_key, 
     if (semana < 0)
         return;
 
-    GHashTable *gastos = g_hash_table_lookup(gestor->gastos_por_semana, GINT_TO_POINTER(semana));
-    if (!gastos) {
-        gastos = criar_mapa_gastos();
-        g_hash_table_insert(gestor->gastos_por_semana, GINT_TO_POINTER(semana), gastos);
+    GHashTable *gastos = NULL;
+    if (gestor->cache_semana == semana && gestor->cache_gastos) {
+        gastos = gestor->cache_gastos;
+    } else {
+        gastos = g_hash_table_lookup(gestor->gastos_por_semana, GINT_TO_POINTER(semana));
+        if (!gastos) {
+            gastos = criar_mapa_gastos();
+            g_hash_table_insert(gestor->gastos_por_semana, GINT_TO_POINTER(semana), gastos);
+        }
+        gestor->cache_semana = semana;
+        gestor->cache_gastos = gastos;
     }
 
     gpointer k = doc_key_para_ptr(doc_key);
@@ -184,16 +233,9 @@ static void acumular_destinos_nacionalidade(gestor_reservas_t *gestor, passageir
 
     for (size_t i = 0; i < num_voos; i++) {
         voo_t *voo = voos[i];
-        if (!voo)
-            continue;
-
         if (voo_obter_status_codigo(voo) == 2)
             continue;
-
-        int dest_idx = voo_obter_destination_idx(voo);
-        if (dest_idx < 0 || dest_idx >= NUM_AEROPORTOS)
-            continue;
-        destinos[dest_idx]++;
+        destinos[voo_obter_destination_idx(voo)]++;
     }
 }
 
@@ -204,7 +246,7 @@ static void acumular_passageiros_voos_ptr(voo_t *const *voos, size_t num_voos)
 
     for (size_t i = 0; i < num_voos; i++) {
         voo_t *voo = voos[i];
-        if (!voo)
+        if (voo_obter_status_codigo(voo) == 2)
             continue;
         voo_incrementar_passageiros(voo, 1);
     }
@@ -253,9 +295,28 @@ static gboolean processar_reserva_colunas(void *contexto, char **colunas)
     if (!valida_reserva_campos(colunas, flight_ids, &num_voos, &document_number, &doc_key, &preco))
         return FALSE;
 
-    for (size_t i = 0; i < num_voos; i++) {
-        if (!utils_flight_id_key(flight_ids[i], &flight_keys[i]))
+    if (!parser_sem_erros_ativo() && parser_dataset_grande_ativo()) {
+        if (!gestor->reservas_ids)
+            gestor->reservas_ids = g_hash_table_new(g_direct_hash, g_direct_equal);
+
+        uint32_t reserva_key = 0;
+        if (!reserva_id_key(colunas[0], &reserva_key))
             return FALSE;
+
+        gpointer kptr = GUINT_TO_POINTER((guint)(reserva_key + 1));
+        if (g_hash_table_contains(gestor->reservas_ids, kptr))
+            return FALSE;
+        g_hash_table_add(gestor->reservas_ids, kptr);
+    }
+
+    if (parser_sem_erros_ativo()) {
+        for (size_t i = 0; i < num_voos; i++)
+            flight_keys[i] = flight_id_key_fast(flight_ids[i]);
+    } else {
+        for (size_t i = 0; i < num_voos; i++) {
+            if (!utils_flight_id_key(flight_ids[i], &flight_keys[i]))
+                return FALSE;
+        }
     }
 
     passageiro_t *passageiro =
@@ -269,7 +330,7 @@ static gboolean processar_reserva_colunas(void *contexto, char **colunas)
             return FALSE;
     }
 
-    if (!reserva_valida_logica_view(voos, num_voos, passageiro))
+    if (!parser_sem_erros_ativo() && !reserva_valida_logica_view(voos, num_voos, passageiro))
         return FALSE;
 
     gestor->total_reservas++;

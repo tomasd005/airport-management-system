@@ -25,6 +25,9 @@ static int g_mmap_em_uso = 0;
 static int g_mmap_decidido = 0;
 static int g_mmap_ativo = 0;
 static int g_sem_erros_ativo = 0;
+static int g_dataset_grande_ativo = 0;
+static int g_skip_error_log_decidido = 0;
+static int g_skip_error_log = 0;
 
 static int parser_mmap_ativado(void)
 {
@@ -34,6 +37,16 @@ static int parser_mmap_ativado(void)
         g_mmap_decidido = 1;
     }
     return g_mmap_ativo;
+}
+
+static int parser_skip_error_log(void)
+{
+    if (!g_skip_error_log_decidido) {
+        const char *env = getenv("LI3_SKIP_ERROR_LOG");
+        g_skip_error_log = (env && (*env == '1' || *env == 'y' || *env == 'Y'));
+        g_skip_error_log_decidido = 1;
+    }
+    return g_skip_error_log;
 }
 
 static void parser_mmap_cleanup(void)
@@ -77,6 +90,16 @@ int parser_sem_erros_ativo(void)
 void parser_definir_sem_erros(int ativo)
 {
     g_sem_erros_ativo = ativo ? 1 : 0;
+}
+
+int parser_dataset_grande_ativo(void)
+{
+    return g_dataset_grande_ativo;
+}
+
+void parser_definir_dataset_grande(int ativo)
+{
+    g_dataset_grande_ativo = ativo ? 1 : 0;
 }
 
 /**
@@ -224,7 +247,7 @@ void parser_carrega(void *contexto, const char *ficheiro_csv, AdicionaObjeto adi
     setvbuf(ficheiro, NULL, _IOFBF, IO_BUFFER_SIZE);
 
     FILE *ficheiro_erros = NULL;
-    if (!sem_erros) {
+    if (!sem_erros && !parser_skip_error_log()) {
         char *nome_base = utils_obtem_nome_ficheiro(ficheiro_csv);
         char *caminho_erros = g_strdup_printf("resultados/%s_errors.csv", nome_base);
         g_free(nome_base);
@@ -243,7 +266,7 @@ void parser_carrega(void *contexto, const char *ficheiro_csv, AdicionaObjeto adi
 
     if ((lidos = getline(&linha, &tamanho, ficheiro)) != -1) {
         if (ficheiro_erros)
-            fprintf(ficheiro_erros, "%s", linha);
+            fputs(linha, ficheiro_erros);
     }
 
     while ((lidos = getline(&linha, &tamanho, ficheiro)) != -1) {
@@ -266,19 +289,19 @@ void parser_carrega(void *contexto, const char *ficheiro_csv, AdicionaObjeto adi
             parser_dividir_csv_ate(linha_trabalho, colunas, max_colunas, colunas_necessarias);
         if (numColunas < colunas_necessarias) {
             if (ficheiro_erros)
-                fprintf(ficheiro_erros, "%s", linha);
+                fputs(linha, ficheiro_erros);
             continue;
         }
 
         gpointer objeto = linha_para_objeto(colunas);
         if (objeto == NULL) {
             if (ficheiro_erros)
-                fprintf(ficheiro_erros, "%s", linha);
+                fputs(linha, ficheiro_erros);
         } else if (adiciona_objeto(contexto, objeto)) {
             // ok
         } else {
             if (ficheiro_erros)
-                fprintf(ficheiro_erros, "%s", linha);
+                fputs(linha, ficheiro_erros);
             destroi_objeto(objeto);
         }
     }
