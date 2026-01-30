@@ -24,5 +24,6 @@ void gestor_reservas_finalizar(gestor_reservas_t *gestor);
 const GPtrArray *gestor_reservas_obter_top10_semana(gestor_reservas_t *gestor, int semana);
 gboolean gestor_reservas_obter_melhor_destino_nacionalidade(gestor_reservas_t *gestor, const char *nac, const char **destino, guint *count);
 void gestor_reservas_para_cada_top10(gestor_reservas_t *gestor, void (*callback)(int semana, const GPtrArray *top10, void *user_data), void *user_data);
+void gestor_reservas_coletar_docs_top10(gestor_reservas_t *gestor, GHashTable *doc_keys);
 
 #endif

@@ -157,9 +157,13 @@ void query4(gestor_reservas_t *gestor_reservas, gestor_voos_t *gestor_voos,
         tem_melhor ? gestor_passageiros_obter_por_documento_key(gestor_passageiros, melhor_doc_key)
                    : NULL;
     if (p) {
-        fprintf(output, "%s%s%s%s%s%s%s%s%s%s%u\n", passageiro_obter_document_number(p), sep,
-                passageiro_obter_primeiro_nome(p), sep, passageiro_obter_ultimo_nome(p), sep,
-                passageiro_obter_dob(p), sep, passageiro_obter_nacionalidade(p), sep, melhor_count);
+        char doc[10];
+        passageiro_formatar_documento(p, doc);
+        fprintf(output, "%s%s%s%s%s%s%s%s%s%s%u\n", doc, sep,
+                passageiro_obter_primeiro_nome(p) ? passageiro_obter_primeiro_nome(p) : "", sep,
+                passageiro_obter_ultimo_nome(p) ? passageiro_obter_ultimo_nome(p) : "", sep,
+                passageiro_obter_dob(p) ? passageiro_obter_dob(p) : "", sep,
+                passageiro_obter_nacionalidade(p), sep, melhor_count);
     } else
         fprintf(output, "\n");
 

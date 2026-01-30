@@ -304,6 +304,12 @@ static void carregar_dataset(gestor_interativo_t *gestor, const char *pasta)
                                            gestor->passageiros);
 
     gestor_reservas_finalizar(gestor->reservas);
+    {
+        GHashTable *docs_top10 = g_hash_table_new(g_direct_hash, g_direct_equal);
+        gestor_reservas_coletar_docs_top10(gestor->reservas, docs_top10);
+        gestor_passageiros_carregar_detalhes(gestor->passageiros, docs_top10);
+        g_hash_table_destroy(docs_top10);
+    }
     gestor_voos_atualizar_contagens_aeroportos(gestor->voos, gestor->aeroportos);
     gestor_voos_preparar_q3(gestor->voos);
 

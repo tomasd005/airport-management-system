@@ -74,7 +74,7 @@ SRC_QUERIES = \
     src/queries/querie6.c
 
 SRC_UTILS = src/utils.c
-SRC_ESTRUTURAS = src/estruturas/voo_table.c
+SRC_ESTRUTURAS = src/estruturas/voo_table.c src/estruturas/doc_total_table.c
 
 # Programas principais
 MAIN_PRINCIPAL = src/programas/main.c
@@ -87,7 +87,6 @@ EXEC_PRINCIPAL = programa-principal
 EXEC_TESTES = programa-testes
 EXEC_VALIDACOES = test_validacoes
 EXEC_INTERATIVO = programa-interativo
-EXEC_VERIFICADOR = verificador-csv
 
 # Targets principais
 all: $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_INTERATIVO)
@@ -111,14 +110,11 @@ $(EXEC_VALIDACOES): $(MAIN_VALIDACOES) $(SRC_ENTIDADES) $(SRC_PARSERS) $(SRC_UTI
 	@echo "Compilando $(EXEC_VALIDACOES)..."
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
-$(EXEC_VERIFICADOR): verificador-csv.c
-	@echo "Compilando $(EXEC_VERIFICADOR)..."
-	$(CC) $(CFLAGS) $< $(LDFLAGS) -o $@
 
 # Limpeza
 clean:
 	@echo "A limpar ficheiros compilados..."
-	rm -f $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_INTERATIVO) $(EXEC_VALIDACOES) $(EXEC_VERIFICADOR)
+	rm -f $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_INTERATIVO) $(EXEC_VALIDACOES)
 	find src -type f -name "*.o" -delete
 	rm -f resultados/*.txt resultados/*_errors.csv
 

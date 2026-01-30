@@ -21,6 +21,13 @@ passageiro_t *gestor_passageiros_obter_por_documento(gestor_passageiros_t *gesto
 passageiro_t *gestor_passageiros_obter_por_documento_key(gestor_passageiros_t *gestor, uint32_t key);
 unsigned int gestor_passageiros_numero(gestor_passageiros_t *gestor);
 void gestor_passageiros_carregar(gestor_passageiros_t *gestor, const char *ficheiro_csv);
-void gestor_passageiros_para_cada(gestor_passageiros_t *gestor, void (*callback)(passageiro_t *, void *), void *user_data);
+
+/**
+ * @brief Carrega apenas detalhes completos para passageiros selecionados.
+ *
+ * @param gestor Gestor de passageiros.
+ * @param doc_keys Set com chaves de documentos a completar.
+ */
+void gestor_passageiros_carregar_detalhes(gestor_passageiros_t *gestor, GHashTable *doc_keys);
 
 #endif

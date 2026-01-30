@@ -73,20 +73,21 @@ voo_info_t *valida_voo(char **colunas)
         (colunas[IDX_AIR] && contem_espacos(colunas[IDX_AIR])))
         return NULL;
 
-    for (int i = 0; i <= IDX_URL; i++)
-        if (colunas[i])
-            utils_trim(colunas[i]);
-
     if (!*colunas[IDX_ID] || !*colunas[IDX_ORIG] || !*colunas[IDX_DEST] || !*colunas[IDX_AIR] ||
         !*colunas[IDX_STATUS] || !*colunas[IDX_DEP] || !*colunas[IDX_ARR])
         return NULL;
 
     if (strlen(colunas[IDX_ORIG]) != 3 || strlen(colunas[IDX_DEST]) != 3 ||
-        !isupper(colunas[IDX_ORIG][0]) || !isupper(colunas[IDX_ORIG][1]) ||
-        !isupper(colunas[IDX_ORIG][2]) || !isupper(colunas[IDX_DEST][0]) ||
-        !isupper(colunas[IDX_DEST][1]) || !isupper(colunas[IDX_DEST][2]) ||
-        strcmp(colunas[IDX_ORIG], colunas[IDX_DEST]) == 0 ||
-        !validacao_datetime(colunas[IDX_DEP]) || !validacao_datetime(colunas[IDX_ARR]))
+        !isupper((unsigned char)colunas[IDX_ORIG][0]) ||
+        !isupper((unsigned char)colunas[IDX_ORIG][1]) ||
+        !isupper((unsigned char)colunas[IDX_ORIG][2]) ||
+        !isupper((unsigned char)colunas[IDX_DEST][0]) ||
+        !isupper((unsigned char)colunas[IDX_DEST][1]) ||
+        !isupper((unsigned char)colunas[IDX_DEST][2]) ||
+        strcmp(colunas[IDX_ORIG], colunas[IDX_DEST]) == 0)
+        return NULL;
+
+    if (!validacao_datetime(colunas[IDX_DEP]) || !validacao_datetime(colunas[IDX_ARR]))
         return NULL;
 
     if (comparar_datetime(colunas[IDX_ARR], colunas[IDX_DEP]) < 0)

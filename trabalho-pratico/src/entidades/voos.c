@@ -128,17 +128,6 @@ voo_t *voo_criar(const char *flight_id, const char *departure,
     return v;
 }
 
-voo_t *voo_criar_borrowed(const char *flight_id, const char *departure,
-                          const char *actual_departure, const char *arrival,
-                          const char *actual_arrival, const char *gate,
-                          const char *status, const char *origin,
-                          const char *destination, const char *aircraft,
-                          const char *airline, const char *tracking_url)
-{
-    return voo_criar(flight_id, departure, actual_departure, arrival, actual_arrival,
-                     gate, status, origin, destination, aircraft, airline, tracking_url);
-}
-
 /**
  * @brief Liberta a memória de um voo.
  * @param v Voo a destruir

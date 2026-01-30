@@ -35,7 +35,11 @@ static int parser_skip_error_log(void)
 {
     if (!g_skip_error_log_decidido) {
         const char *env = getenv("LI3_SKIP_ERROR_LOG");
-        g_skip_error_log = (env && (*env == '1' || *env == 'y' || *env == 'Y'));
+        if (env) {
+            g_skip_error_log = (*env == '1' || *env == 'y' || *env == 'Y');
+        } else {
+            g_skip_error_log = parser_dataset_grande_ativo();
+        }
         g_skip_error_log_decidido = 1;
     }
     return g_skip_error_log;
@@ -134,8 +138,9 @@ void parser_reservas_carregar(void *contexto, const char *ficheiro_csv,
     }
     setvbuf(ficheiro, NULL, _IOFBF, IO_BUFFER_SIZE);
 
+    int skip_errors = parser_skip_error_log();
     FILE *ficheiro_erros = NULL;
-    if (!sem_erros && !parser_skip_error_log()) {
+    if (!sem_erros && !skip_errors) {
         char *nome_base = utils_obtem_nome_ficheiro(ficheiro_csv);
         char *caminho_erros = g_strdup_printf("resultados/%s_errors.csv", nome_base);
         g_free(nome_base);
@@ -159,7 +164,7 @@ void parser_reservas_carregar(void *contexto, const char *ficheiro_csv,
 
     while ((lidos = getline(&linha, &tamanho, ficheiro)) != -1) {
         char *linha_trabalho = linha;
-        if (!sem_erros) {
+        if (!sem_erros && !skip_errors) {
             size_t necessario = (size_t)lidos + 1;
             if (necessario > tamanho_parse) {
                 char *novo = realloc(linha_parse, necessario);

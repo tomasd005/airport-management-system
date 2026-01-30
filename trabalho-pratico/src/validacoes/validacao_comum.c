@@ -174,38 +174,28 @@ gboolean validacao_flight_id(const char *str)
     if (!str)
         return FALSE;
 
-    char *temp = g_strdup(str);
-    utils_trim(temp);
+    const char *start = str;
+    while (*start && isspace((unsigned char)*start))
+        start++;
 
-    if (contem_espacos(temp))
-    {
-        g_free(temp);
-        return FALSE;
-    }
+    const char *end = str + strlen(str);
+    while (end > start && isspace((unsigned char)end[-1]))
+        end--;
 
-    size_t len = strlen(temp);
+    size_t len = (size_t)(end - start);
     if (len < 7 || len > 9)
-    {
-        g_free(temp);
         return FALSE;
-    }
 
-    if (!isupper(temp[0]) || !isupper(temp[1]))
-    {
-        g_free(temp);
+    if (!isupper((unsigned char)start[0]) || !isupper((unsigned char)start[1]))
         return FALSE;
-    }
 
     for (size_t i = 2; i < len; i++)
     {
-        if (!isdigit(temp[i]))
-        {
-            g_free(temp);
+        unsigned char c = (unsigned char)start[i];
+        if (isspace(c) || !isdigit(c))
             return FALSE;
-        }
     }
 
-    g_free(temp);
     return TRUE;
 }
 
@@ -320,17 +310,8 @@ int comparar_datetime(const char *dt1, const char *dt2)
     if (!dt1 || !dt2)
         return 0;
 
-    int y1, m1, d1, h1, min1;
-    int y2, m2, d2, h2, min2;
-
-    if (sscanf(dt1, "%d-%d-%d %d:%d", &y1, &m1, &d1, &h1, &min1) != 5)
-        return 0;
-    if (sscanf(dt2, "%d-%d-%d %d:%d", &y2, &m2, &d2, &h2, &min2) != 5)
+    if (strlen(dt1) != 16 || strlen(dt2) != 16)
         return 0;
 
-    if (y1 != y2) return y1 - y2;
-    if (m1 != m2) return m1 - m2;
-    if (d1 != d2) return d1 - d2;
-    if (h1 != h2) return h1 - h2;
-    return min1 - min2;
+    return strcmp(dt1, dt2);
 }

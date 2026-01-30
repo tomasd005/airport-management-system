@@ -1,8 +1,10 @@
 #include "passageiros.h"
+#include "utils.h"
 #include <stdlib.h>
 #include <string.h>
 #include <glib.h>
 #include <stdint.h>
+#include <stdio.h>
 
 /**
  * @struct passageiro
@@ -10,14 +12,34 @@
  */
 struct passageiro
 {
-    char *document_number; 
-    char *primeiro_nome;   
-    char *ultimo_nome;      
-    char *dob;              
-    char *nacionalidade;    
+    uint32_t doc_key;
+    char *primeiro_nome;
+    char *ultimo_nome;
+    char *dob;
+    const char *nacionalidade;
     uint32_t *destinos_counts;
     unsigned char owns_strings;
+    unsigned char has_details;
 };
+
+static GHashTable *g_nacionalidades_intern = NULL;
+
+static const char *internar_nacionalidade(const char *nac)
+{
+    if (!nac || !*nac)
+        return "";
+
+    if (!g_nacionalidades_intern)
+        g_nacionalidades_intern = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+
+    gpointer encontrado = g_hash_table_lookup(g_nacionalidades_intern, nac);
+    if (encontrado)
+        return (const char *)encontrado;
+
+    char *dup = g_strdup(nac);
+    g_hash_table_insert(g_nacionalidades_intern, dup, dup);
+    return dup;
+}
 
 /**
  * @brief Cria um novo passageiro com os dados fornecidos.
@@ -47,21 +69,51 @@ passageiro_t *passageiro_criar(const char *document_number, const char *primeiro
     if (!p)
         return NULL;
 
-    p->document_number = g_strdup(document_number);
+    if (!utils_document_number_key(document_number, &p->doc_key))
+    {
+        free(p);
+        return NULL;
+    }
+
     p->primeiro_nome = g_strdup(primeiro_nome);
     p->ultimo_nome = g_strdup(ultimo_nome);
     p->dob = g_strdup(dob);
-    p->nacionalidade = g_strdup(nacionalidade);
+    p->nacionalidade = internar_nacionalidade(nacionalidade);
     p->destinos_counts = NULL;
     p->owns_strings = 1;
+    p->has_details = 1;
 
-    if (!p->document_number || !p->primeiro_nome || !p->ultimo_nome ||
-        !p->dob || !p->nacionalidade)
+    if (!p->primeiro_nome || !p->ultimo_nome || !p->dob || !p->nacionalidade)
     {
         passageiro_destruir(p);
         return NULL;
     }
 
+    return p;
+}
+
+passageiro_t *passageiro_criar_compacto(const char *document_number, const char *nacionalidade)
+{
+    if (!document_number || !nacionalidade)
+        return NULL;
+
+    passageiro_t *p = malloc(sizeof(passageiro_t));
+    if (!p)
+        return NULL;
+
+    if (!utils_document_number_key(document_number, &p->doc_key))
+    {
+        free(p);
+        return NULL;
+    }
+
+    p->primeiro_nome = NULL;
+    p->ultimo_nome = NULL;
+    p->dob = NULL;
+    p->nacionalidade = internar_nacionalidade(nacionalidade);
+    p->destinos_counts = NULL;
+    p->owns_strings = 0;
+    p->has_details = 0;
     return p;
 }
 
@@ -78,13 +130,19 @@ passageiro_t *passageiro_criar_borrowed(const char *document_number, const char 
     if (!p)
         return NULL;
 
-    p->document_number = (char *)document_number;
+    if (!utils_document_number_key(document_number, &p->doc_key))
+    {
+        free(p);
+        return NULL;
+    }
+
     p->primeiro_nome = (char *)primeiro_nome;
     p->ultimo_nome = (char *)ultimo_nome;
     p->dob = (char *)dob;
-    p->nacionalidade = (char *)nacionalidade;
+    p->nacionalidade = internar_nacionalidade(nacionalidade);
     p->destinos_counts = NULL;
     p->owns_strings = 0;
+    p->has_details = 1;
 
     (void)genero;
     (void)email;
@@ -107,23 +165,11 @@ void passageiro_destruir(passageiro_t *p)
 
     if (p->owns_strings)
     {
-        free(p->document_number);
         free(p->primeiro_nome);
         free(p->ultimo_nome);
         free(p->dob);
-        free(p->nacionalidade);
     }
     free(p);
-}
-
-/**
- * @brief Obtém o número do documento do passageiro.
- * @param p Passageiro
- * @return Número do documento (string) ou NULL se p for NULL
- */
-const char *passageiro_obter_document_number(const passageiro_t *p)
-{
-    return p ? p->document_number : NULL;
 }
 
 /**
@@ -164,6 +210,41 @@ const char *passageiro_obter_dob(const passageiro_t *p)
 const char *passageiro_obter_nacionalidade(const passageiro_t *p)
 {
     return p ? p->nacionalidade : NULL;
+}
+
+uint32_t passageiro_obter_document_key(const passageiro_t *p)
+{
+    return p ? p->doc_key : 0;
+}
+
+void passageiro_formatar_documento(const passageiro_t *p, char out[10])
+{
+    if (!out)
+        return;
+    if (!p)
+    {
+        out[0] = '\0';
+        return;
+    }
+    snprintf(out, 10, "%09u", p->doc_key);
+}
+
+int passageiro_tem_detalhes(const passageiro_t *p)
+{
+    return p && p->has_details;
+}
+
+void passageiro_definir_detalhes(passageiro_t *p, const char *primeiro_nome,
+                                 const char *ultimo_nome, const char *dob)
+{
+    if (!p || p->has_details)
+        return;
+
+    p->primeiro_nome = g_strdup(primeiro_nome ? primeiro_nome : "");
+    p->ultimo_nome = g_strdup(ultimo_nome ? ultimo_nome : "");
+    p->dob = g_strdup(dob ? dob : "");
+    p->owns_strings = 1;
+    p->has_details = 1;
 }
 
 /**

@@ -339,7 +339,8 @@ static gboolean _adiciona_voo_validado(void *contexto, void *objeto)
 void gestor_voos_carregar(gestor_voos_t *gestor, const char *ficheiro_csv)
 {
     if (gestor && ficheiro_csv)
-        parser_carrega(gestor, ficheiro_csv, _adiciona_voo_callback, (LinhaParaObjeto)valida_voo, (DestroiObjeto)voo_info_destruir, 12, 12);
+        parser_carrega(gestor, ficheiro_csv, _adiciona_voo_callback, (LinhaParaObjeto)valida_voo,
+                      (DestroiObjeto)voo_info_destruir, 12, 11);
 }
 
 /**
@@ -352,7 +353,8 @@ void gestor_voos_carregar_com_validacao(gestor_voos_t *gestor, const char *fiche
         contexto_voos_validacao_t ctx = {
             .gestor_voos = gestor,
             .gestor_avioes = gestor_avioes};
-        parser_carrega(&ctx, ficheiro_csv, _adiciona_voo_validado, (LinhaParaObjeto)valida_voo, (DestroiObjeto)voo_info_destruir, 12, 12);
+        parser_carrega(&ctx, ficheiro_csv, _adiciona_voo_validado, (LinhaParaObjeto)valida_voo,
+                      (DestroiObjeto)voo_info_destruir, 12, 11);
     }
 }
 

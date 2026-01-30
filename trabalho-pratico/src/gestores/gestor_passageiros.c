@@ -5,6 +5,7 @@
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 /**
  * @brief Estrutura que representa um gestor de passageiros.
@@ -15,6 +16,8 @@
 struct gestor_passageiros
 {
     GHashTable *por_documento;
+    char *ficheiro_csv;
+    int dataset_grande;
 };
 
 /**
@@ -31,6 +34,8 @@ gestor_passageiros_t *gestor_passageiros_criar(void)
         NULL,
         (GDestroyNotify)passageiro_destruir
     );
+    g->ficheiro_csv = NULL;
+    g->dataset_grande = 0;
     return g;
 }
 
@@ -44,6 +49,7 @@ void gestor_passageiros_destruir(gestor_passageiros_t *gestor)
     if (!gestor)
         return;
     g_hash_table_destroy(gestor->por_documento);
+    free(gestor->ficheiro_csv);
     free(gestor);
 }
 
@@ -61,9 +67,8 @@ void gestor_passageiros_adicionar(gestor_passageiros_t *gestor, passageiro_t *p)
     if (!gestor || !p)
         return;
 
-    const char *doc = passageiro_obter_document_number(p);
-    uint32_t key = 0;
-    if (!doc || !utils_document_number_key(doc, &key))
+    uint32_t key = passageiro_obter_document_key(p);
+    if (key == 0)
     {
         passageiro_destruir(p);
         return;
@@ -134,34 +139,86 @@ static gboolean adiciona_passageiro_callback(void *contexto, void *objeto)
  */
 void gestor_passageiros_carregar(gestor_passageiros_t *gestor, const char *ficheiro_csv)
 {
-    if (gestor && ficheiro_csv)
-        parser_carrega(
-            gestor,
-            ficheiro_csv,
-            adiciona_passageiro_callback,
-            (LinhaParaObjeto)valida_passageiro,
-            (DestroiObjeto)passageiro_destruir,
-            10,
-            10
-        );
-}
-
-/**
- * @brief Executa uma função de callback para cada passageiro do gestor.
- *
- * @param gestor Ponteiro para o gestor de passageiros.
- * @param func Função que será chamada para cada passageiro.
- * @param user_data Dados do usuário que serão passados para o callback.
- */
-void gestor_passageiros_para_cada(gestor_passageiros_t *gestor, void (*func)(passageiro_t *, void *), void *user_data)
-{
-    if (!gestor || !func)
+    if (!gestor || !ficheiro_csv)
         return;
 
-    GHashTableIter iter;
-    gpointer key, value;
-    g_hash_table_iter_init(&iter, gestor->por_documento);
+    free(gestor->ficheiro_csv);
+    gestor->ficheiro_csv = g_strdup(ficheiro_csv);
+    gestor->dataset_grande = (strstr(ficheiro_csv, "grande") != NULL);
+    // Em datasets grandes só precisamos das 5 primeiras colunas para a versão compacta.
+    int colunas_necessarias = gestor->dataset_grande ? 5 : 10;
 
-    while (g_hash_table_iter_next(&iter, &key, &value))
-        func(value, user_data);
+    parser_carrega(
+        gestor,
+        ficheiro_csv,
+        adiciona_passageiro_callback,
+        (LinhaParaObjeto)valida_passageiro,
+        (DestroiObjeto)passageiro_destruir,
+        10,
+        colunas_necessarias
+    );
+}
+
+void gestor_passageiros_carregar_detalhes(gestor_passageiros_t *gestor, GHashTable *doc_keys)
+{
+    if (!gestor || !doc_keys || !gestor->dataset_grande || !gestor->ficheiro_csv)
+        return;
+
+    FILE *ficheiro = fopen(gestor->ficheiro_csv, "r");
+    if (!ficheiro)
+        return;
+
+    setvbuf(ficheiro, NULL, _IOFBF, 8 * 1024 * 1024);
+
+    char *linha = NULL;
+    size_t tamanho = 0;
+    char *linha_parse = NULL;
+    size_t tamanho_parse = 0;
+    ssize_t lidos;
+
+    (void)getline(&linha, &tamanho, ficheiro); /* cabeçalho */
+
+    size_t restantes = g_hash_table_size(doc_keys);
+    while (restantes > 0 && (lidos = getline(&linha, &tamanho, ficheiro)) != -1)
+    {
+        size_t necessario = (size_t)lidos + 1;
+        if (necessario > tamanho_parse) {
+            char *novo = realloc(linha_parse, necessario);
+            if (!novo)
+                break;
+            linha_parse = novo;
+            tamanho_parse = necessario;
+        }
+        memcpy(linha_parse, linha, necessario);
+
+        char *colunas[12];
+        int num = parser_dividir_csv_ate(linha_parse, colunas, 10, 4);
+        if (num < 4)
+            continue;
+
+        utils_remove_aspas_somente(colunas[0]);
+        utils_remove_aspas_somente(colunas[1]);
+        utils_remove_aspas_somente(colunas[2]);
+        utils_remove_aspas_somente(colunas[3]);
+
+        uint32_t key = 0;
+        if (!utils_document_number_key(colunas[0], &key))
+            continue;
+
+        gpointer kptr = GINT_TO_POINTER((gint)(key + 1u));
+        if (!g_hash_table_contains(doc_keys, kptr))
+            continue;
+
+        passageiro_t *p = gestor_passageiros_obter_por_documento_key(gestor, key);
+        if (p && !passageiro_tem_detalhes(p))
+        {
+            passageiro_definir_detalhes(p, colunas[1], colunas[2], colunas[3]);
+            g_hash_table_remove(doc_keys, kptr);
+            restantes--;
+        }
+    }
+
+    free(linha_parse);
+    free(linha);
+    fclose(ficheiro);
 }

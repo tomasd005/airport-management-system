@@ -60,7 +60,6 @@ voo_t *voo_criar(const char *flight_id, const char *departure, const char *actua
  *
  * Usado quando os dados permanecem válidos durante toda a execução.
  */
-voo_t *voo_criar_borrowed(const char *flight_id, const char *departure, const char *actual_departure, const char *arrival, const char *actual_arrival, const char *gate, const char *status, const char *origin, const char *destination, const char *aircraft, const char *airline, const char *tracking_url);
 
 /**
  * @brief Destrói um voo e libera a memória associada.

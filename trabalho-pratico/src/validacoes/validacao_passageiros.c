@@ -18,25 +18,6 @@
 #define IDX_PHOTO 9
 
 /**
- * @brief Valida o número de documento do passageiro.
- *
- * Formato esperado: 9 dígitos sem espaços.
- *
- * @param doc Número de documento
- * @return TRUE se válido, FALSE caso contrário
- */
-static inline gboolean valida_document_number(const char *doc)
-{
-    if (!doc || strlen(doc) != 9 || contem_espacos(doc))
-        return FALSE;
-
-    for (int i = 0; i < 9; i++)
-        if (!isdigit(doc[i]))
-            return FALSE;
-    return TRUE;
-}
-
-/**
  * @brief Valida o género do passageiro.
  *
  * Valores válidos: 'M', 'F', 'O'.
@@ -112,6 +93,9 @@ static passageiro_t *valida_passageiro_fast(char **colunas)
         !colunas[IDX_DOB] || !*colunas[IDX_DOB] || !colunas[IDX_NAT] || !*colunas[IDX_NAT])
         return NULL;
 
+    if (parser_dataset_grande_ativo())
+        return passageiro_criar_compacto(colunas[IDX_DOC], colunas[IDX_NAT]);
+
     return passageiro_criar_borrowed(colunas[IDX_DOC], colunas[IDX_FIRST], colunas[IDX_LAST],
                                      colunas[IDX_DOB], colunas[IDX_NAT], colunas[IDX_GEN],
                                      colunas[IDX_EMAIL], colunas[IDX_PHONE], colunas[IDX_ADDR],
@@ -135,6 +119,9 @@ static passageiro_t *valida_passageiro_sem_erros(char **colunas)
         !colunas[IDX_DOB] || !*colunas[IDX_DOB] || !colunas[IDX_NAT] || !*colunas[IDX_NAT])
         return NULL;
 
+    if (parser_dataset_grande_ativo())
+        return passageiro_criar_compacto(colunas[IDX_DOC], colunas[IDX_NAT]);
+
     return passageiro_criar(colunas[IDX_DOC], colunas[IDX_FIRST], colunas[IDX_LAST],
                             colunas[IDX_DOB], colunas[IDX_NAT], colunas[IDX_GEN],
                             colunas[IDX_EMAIL], colunas[IDX_PHONE], colunas[IDX_ADDR],
@@ -152,7 +139,7 @@ static passageiro_t *valida_passageiro_sem_erros(char **colunas)
  */
 passageiro_t *valida_passageiro(char **colunas)
 {
-    if (parser_mmap_em_uso())
+    if (parser_mmap_em_uso() || parser_dataset_grande_ativo())
         return valida_passageiro_fast(colunas);
     if (parser_sem_erros_ativo())
         return valida_passageiro_sem_erros(colunas);
@@ -160,29 +147,25 @@ passageiro_t *valida_passageiro(char **colunas)
     if (!colunas)
         return NULL;
 
-    /* Remove aspas das colunas */
     for (int i = 0; i <= IDX_PHOTO; i++)
         if (colunas[i])
-            utils_remove_aspas(colunas[i]);
+            utils_remove_aspas_somente(colunas[i]);
 
-    if (!valida_document_number(colunas[IDX_DOC]))
+    uint32_t key = 0;
+    if (!utils_document_number_key(colunas[IDX_DOC], &key))
         return NULL;
 
-    /* Remove espaços em excesso */
-    for (int i = 0; i <= IDX_PHOTO; i++)
-        if (colunas[i])
-            utils_trim(colunas[i]);
-
-    /* Valida data, género e email */
     if (!validacao_data_passado(colunas[IDX_DOB]) || !valida_genero(colunas[IDX_GEN]) ||
         !valida_email(colunas[IDX_EMAIL]))
         return NULL;
 
-    /* Campos obrigatórios */
     if (!colunas[IDX_FIRST] || !*colunas[IDX_FIRST] || !colunas[IDX_LAST] || !*colunas[IDX_LAST] ||
         !colunas[IDX_NAT] || !*colunas[IDX_NAT] || !colunas[IDX_PHONE] || !*colunas[IDX_PHONE] ||
         !colunas[IDX_ADDR] || !*colunas[IDX_ADDR])
         return NULL;
+
+    if (parser_dataset_grande_ativo())
+        return passageiro_criar_compacto(colunas[IDX_DOC], colunas[IDX_NAT]);
 
     return passageiro_criar(colunas[IDX_DOC], colunas[IDX_FIRST], colunas[IDX_LAST],
                             colunas[IDX_DOB], colunas[IDX_NAT], colunas[IDX_GEN],

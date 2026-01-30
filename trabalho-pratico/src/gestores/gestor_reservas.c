@@ -3,6 +3,7 @@
 #include "gestores/gestor_voos.h"
 #include "parsers/parser_reservas.h"
 #include "parsers/parser.h"
+#include "estruturas/doc_total_table.h"
 #include "validacoes/validacao_reservas.h"
 #include "entidades/passageiros.h"
 #include "entidades/voos.h"
@@ -42,11 +43,6 @@ typedef struct {
 static inline gpointer doc_key_para_ptr(uint32_t key)
 {
     return GUINT_TO_POINTER((guint)(key + 1));
-}
-
-static inline uint32_t doc_key_de_ptr(gpointer ptr)
-{
-    return (uint32_t)(GPOINTER_TO_UINT(ptr) - 1);
 }
 
 static inline uint64_t flight_id_key_fast(const char *id)
@@ -92,18 +88,42 @@ struct gestor_reservas {
     GHashTable *top10_por_semana;
     GHashTable *destinos_por_nacionalidade;
     GHashTable *melhor_dest_por_nacionalidade;
-    GHashTable *reservas_ids;
+    uint8_t *reservas_ids_bits;
+    size_t reservas_ids_cap;
     int cache_semana;
-    GHashTable *cache_gastos;
+    doc_total_table_t *cache_gastos;
 };
 
-/**
- * @brief Cria um mapa de gastos (documento -> total gasto).
- * @return Novo GHashTable.
- */
-static GHashTable *criar_mapa_gastos(void)
+static gboolean reservas_ids_marcar(gestor_reservas_t *gestor, uint32_t id)
 {
-    return g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
+    if (!gestor)
+        return FALSE;
+
+    size_t idx = (size_t)id;
+    size_t needed = idx + 1;
+    if (needed > gestor->reservas_ids_cap) {
+        size_t new_cap = gestor->reservas_ids_cap ? gestor->reservas_ids_cap : 1024;
+        while (new_cap < needed)
+            new_cap <<= 1;
+
+        size_t old_bytes = (gestor->reservas_ids_cap + 7) / 8;
+        size_t new_bytes = (new_cap + 7) / 8;
+        uint8_t *novo = realloc(gestor->reservas_ids_bits, new_bytes);
+        if (!novo)
+            return FALSE;
+        if (new_bytes > old_bytes)
+            memset(novo + old_bytes, 0, new_bytes - old_bytes);
+        gestor->reservas_ids_bits = novo;
+        gestor->reservas_ids_cap = new_cap;
+    }
+
+    size_t byte = idx >> 3;
+    uint8_t mask = (uint8_t)(1u << (idx & 7u));
+    if (gestor->reservas_ids_bits[byte] & mask)
+        return FALSE;
+
+    gestor->reservas_ids_bits[byte] |= mask;
+    return TRUE;
 }
 
 /**
@@ -124,12 +144,13 @@ gestor_reservas_t *gestor_reservas_criar(void)
     gestor_reservas_t *g = malloc(sizeof(*g));
     g->total_reservas = 0;
     g->gastos_por_semana = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
-                                                 (GDestroyNotify)g_hash_table_destroy);
+                                                 (GDestroyNotify)doc_total_table_destroy);
     g->top10_por_semana = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
                                                 (GDestroyNotify)g_ptr_array_unref);
     g->destinos_por_nacionalidade = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, g_free);
     g->melhor_dest_por_nacionalidade = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, g_free);
-    g->reservas_ids = NULL;
+    g->reservas_ids_bits = NULL;
+    g->reservas_ids_cap = 0;
     g->cache_semana = -1;
     g->cache_gastos = NULL;
     return g;
@@ -152,8 +173,7 @@ void gestor_reservas_destruir(gestor_reservas_t *gestor)
         g_hash_table_destroy(gestor->destinos_por_nacionalidade);
     if (gestor->melhor_dest_por_nacionalidade)
         g_hash_table_destroy(gestor->melhor_dest_por_nacionalidade);
-    if (gestor->reservas_ids)
-        g_hash_table_destroy(gestor->reservas_ids);
+    free(gestor->reservas_ids_bits);
     free(gestor);
 }
 
@@ -184,28 +204,22 @@ static void acumular_gastos_semana(gestor_reservas_t *gestor, uint32_t doc_key, 
     if (semana < 0)
         return;
 
-    GHashTable *gastos = NULL;
+    doc_total_table_t *gastos = NULL;
     if (gestor->cache_semana == semana && gestor->cache_gastos) {
         gastos = gestor->cache_gastos;
     } else {
         gastos = g_hash_table_lookup(gestor->gastos_por_semana, GINT_TO_POINTER(semana));
         if (!gastos) {
-            gastos = criar_mapa_gastos();
+            gastos = doc_total_table_create(1024);
+            if (!gastos)
+                return;
             g_hash_table_insert(gestor->gastos_por_semana, GINT_TO_POINTER(semana), gastos);
         }
         gestor->cache_semana = semana;
         gestor->cache_gastos = gastos;
     }
 
-    gpointer k = doc_key_para_ptr(doc_key);
-    double *total = g_hash_table_lookup(gastos, k);
-    if (total)
-        *total += preco;
-    else {
-        double *novo = g_new(double, 1);
-        *novo = preco;
-        g_hash_table_insert(gastos, k, novo);
-    }
+    doc_total_table_add(gastos, doc_key, preco);
 }
 
 /**
@@ -296,17 +310,11 @@ static gboolean processar_reserva_colunas(void *contexto, char **colunas)
         return FALSE;
 
     if (!parser_sem_erros_ativo() && parser_dataset_grande_ativo()) {
-        if (!gestor->reservas_ids)
-            gestor->reservas_ids = g_hash_table_new(g_direct_hash, g_direct_equal);
-
         uint32_t reserva_key = 0;
         if (!reserva_id_key(colunas[0], &reserva_key))
             return FALSE;
-
-        gpointer kptr = GUINT_TO_POINTER((guint)(reserva_key + 1));
-        if (g_hash_table_contains(gestor->reservas_ids, kptr))
+        if (!reservas_ids_marcar(gestor, reserva_key))
             return FALSE;
-        g_hash_table_add(gestor->reservas_ids, kptr);
     }
 
     if (parser_sem_erros_ativo()) {
@@ -393,6 +401,27 @@ static void top10_inserir_ordenado(GArray *top, const gasto_t *novo)
     g_array_index(top, gasto_t, pos) = *novo;
 }
 
+typedef struct {
+    GArray *top;
+} top10_ctx_t;
+
+static void top10_visit(uint32_t doc_key, double total, void *user_data)
+{
+    top10_ctx_t *ctx = user_data;
+    gasto_t g = {.doc_key = doc_key, .total = total};
+
+    if (ctx->top->len < 10) {
+        top10_inserir_ordenado(ctx->top, &g);
+        return;
+    }
+
+    gasto_t *pior = &g_array_index(ctx->top, gasto_t, ctx->top->len - 1);
+    if (cmp_gastos(&g, pior) < 0) {
+        top10_inserir_ordenado(ctx->top, &g);
+        g_array_set_size(ctx->top, 10);
+    }
+}
+
 /**
  * @brief Finaliza o gestor, calculando top 10 por semana e melhor destino por nacionalidade.
  */
@@ -409,25 +438,11 @@ void gestor_reservas_finalizar(gestor_reservas_t *gestor)
 
         while (g_hash_table_iter_next(&iter_sem, &skey, &sval)) {
             int semana = GPOINTER_TO_INT(skey);
-            GHashTable *gastos = (GHashTable *)sval;
+            doc_total_table_t *gastos = (doc_total_table_t *)sval;
             GArray *top = g_array_sized_new(FALSE, FALSE, sizeof(gasto_t), 10);
 
-            GHashTableIter iter_g;
-            gpointer k, v;
-            g_hash_table_iter_init(&iter_g, gastos);
-
-            while (g_hash_table_iter_next(&iter_g, &k, &v)) {
-                gasto_t g = {.doc_key = doc_key_de_ptr(k), .total = *(double *)v};
-                if (top->len < 10) {
-                    top10_inserir_ordenado(top, &g);
-                } else {
-                    gasto_t *pior = &g_array_index(top, gasto_t, top->len - 1);
-                    if (cmp_gastos(&g, pior) < 0) {
-                        top10_inserir_ordenado(top, &g);
-                        g_array_set_size(top, 10);
-                    }
-                }
-            }
+            top10_ctx_t ctx = {.top = top};
+            doc_total_table_foreach(gastos, top10_visit, &ctx);
 
             GPtrArray *top10 = g_ptr_array_new();
             for (guint i = 0; i < top->len; i++) {
@@ -526,4 +541,22 @@ void gestor_reservas_para_cada_top10(gestor_reservas_t *gestor,
 
     while (g_hash_table_iter_next(&iter, &key, &value))
         callback(GPOINTER_TO_INT(key), value, user_data);
+}
+
+void gestor_reservas_coletar_docs_top10(gestor_reservas_t *gestor, GHashTable *doc_keys)
+{
+    if (!gestor || !doc_keys || !gestor->top10_por_semana)
+        return;
+
+    GHashTableIter iter;
+    gpointer key, value;
+    g_hash_table_iter_init(&iter, gestor->top10_por_semana);
+
+    while (g_hash_table_iter_next(&iter, &key, &value)) {
+        const GPtrArray *top10 = value;
+        for (guint i = 0; i < top10->len; i++) {
+            gpointer doc = g_ptr_array_index((GPtrArray *)top10, i);
+            g_hash_table_add(doc_keys, doc);
+        }
+    }
 }

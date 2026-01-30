@@ -35,6 +35,13 @@ typedef struct passageiro passageiro_t;
 passageiro_t *passageiro_criar(const char *document_number, const char *primeiro_nome, const char *ultimo_nome, const char *dob, const char *nacionalidade, const char *genero, const char *email, const char *telefone, const char *morada, const char *foto);
 
 /**
+ * @brief Cria um passageiro compacto (sem detalhes completos).
+ *
+ * Armazena apenas a chave do documento e a nacionalidade.
+ */
+passageiro_t *passageiro_criar_compacto(const char *document_number, const char *nacionalidade);
+
+/**
  * @brief Cria um passageiro sem copiar strings (modo borrowed).
  *
  * Usado quando os dados permanecem válidos durante toda a execução.
@@ -48,7 +55,29 @@ passageiro_t *passageiro_criar_borrowed(const char *document_number, const char 
  */
 void passageiro_destruir(passageiro_t *p);
 
-const char *passageiro_obter_document_number(const passageiro_t *p);
+/**
+ * @brief Obtém a chave numérica do documento (9 dígitos).
+ */
+uint32_t passageiro_obter_document_key(const passageiro_t *p);
+
+/**
+ * @brief Formata o número de documento (9 dígitos) para string.
+ * @param p Passageiro
+ * @param out Buffer com pelo menos 10 bytes.
+ */
+void passageiro_formatar_documento(const passageiro_t *p, char out[10]);
+
+/**
+ * @brief Indica se o passageiro tem detalhes completos carregados.
+ */
+int passageiro_tem_detalhes(const passageiro_t *p);
+
+/**
+ * @brief Preenche detalhes completos do passageiro.
+ */
+void passageiro_definir_detalhes(passageiro_t *p, const char *primeiro_nome,
+                                 const char *ultimo_nome, const char *dob);
+
 const char *passageiro_obter_primeiro_nome(const passageiro_t *p);
 const char *passageiro_obter_ultimo_nome(const passageiro_t *p);
 const char *passageiro_obter_dob(const passageiro_t *p);
