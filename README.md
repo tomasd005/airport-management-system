@@ -3,6 +3,11 @@
 Sistema em C para gestão de aeroportos, voos, passageiros e reservas.  
 Processa datasets CSV e executa um conjunto de queries, com modo principal, testes automáticos e modo interativo.
 
+Destaques técnicos:
+- Parsing em streaming por blocos (sem carregar linhas completas em memória).
+- Estruturas compactas para reduzir memória no dataset grande.
+- Modo interativo com histórico, repetição e tempos de execução por query.
+
 ## Requisitos
 - GCC (ou clang)
 - `make`
@@ -53,13 +58,15 @@ O programa de testes compara outputs e gera relatórios de desempenho em `result
 ```
 Podes indicar o caminho do dataset na interface (por omissão usa `./dataset`).
 
-## Variáveis de ambiente úteis
-- `LI3_USE_MMAP=1`  
-  Ativa `mmap` no parser genérico (pode aumentar memória).
-- `LI3_USE_MMAP_RESERVAS=1`  
-  Ativa `mmap` apenas no parser de reservas.
+Funcionalidades no modo interativo:
+- Histórico de comandos
+- Repetir a última query
+- Mostrar detalhes da última query
+- Tempos de execução por query
 
-Por defeito, o `mmap` está desativado para manter o consumo de memória baixo.
+## Variáveis de ambiente úteis
+- `LI3_SKIP_ERROR_LOG=1`  
+  Desativa o log de erros CSV (reduz I/O em datasets grandes).
 
 ## Benchmarks em Docker
 ```
@@ -70,5 +77,4 @@ docker run --rm -v "$PWD/resultados:/app/resultados" li3-bench
 Os ficheiros finais ficam em:
 - `resultados/benchmark-regular.json` / `benchmark-regular.html`
 - `resultados/benchmark-large.json` / `benchmark-large.html`
-
 

@@ -73,20 +73,36 @@ int parser_dividir_csv_ate(char *linha, char **colunas, int max_colunas, int col
 
     int numColunas = 0;
     char *campo_inicio = linha;
-    int dentro_aspas = 0;
 
-    for (char *p = linha; *p; p++) {
-        if (*p == '"')
-            dentro_aspas = !dentro_aspas;
-        else if (*p == ',' && !dentro_aspas) {
-            *p = '\0';
-            colunas[numColunas++] = campo_inicio;
-            campo_inicio = p + 1;
-            if (numColunas == colunas_necessarias) {
-                colunas[numColunas] = NULL;
-                for (int i = numColunas + 1; i <= max_colunas; i++)
-                    colunas[i] = NULL;
-                return numColunas;
+    if (strchr(linha, '"') == NULL) {
+        for (char *p = linha; *p; p++) {
+            if (*p == ',') {
+                *p = '\0';
+                colunas[numColunas++] = campo_inicio;
+                campo_inicio = p + 1;
+                if (numColunas == colunas_necessarias) {
+                    colunas[numColunas] = NULL;
+                    for (int i = numColunas + 1; i <= max_colunas; i++)
+                        colunas[i] = NULL;
+                    return numColunas;
+                }
+            }
+        }
+    } else {
+        int dentro_aspas = 0;
+        for (char *p = linha; *p; p++) {
+            if (*p == '"')
+                dentro_aspas = !dentro_aspas;
+            else if (*p == ',' && !dentro_aspas) {
+                *p = '\0';
+                colunas[numColunas++] = campo_inicio;
+                campo_inicio = p + 1;
+                if (numColunas == colunas_necessarias) {
+                    colunas[numColunas] = NULL;
+                    for (int i = numColunas + 1; i <= max_colunas; i++)
+                        colunas[i] = NULL;
+                    return numColunas;
+                }
             }
         }
     }

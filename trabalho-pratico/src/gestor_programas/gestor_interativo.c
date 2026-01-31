@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 
 #define BUFFER_SIZE 512
 #define DEFAULT_DATASET "./dataset"
@@ -37,6 +38,8 @@ typedef struct {
     char p1[128];
     char p2[128];
     int has_period;
+    double last_ms;
+    char comando[128];
 } last_query_t;
 
 /**
@@ -142,6 +145,13 @@ static void limpar_ecra(void)
     printf("\033[2J\033[H");
 }
 
+static double tempo_ms(struct timespec inicio, struct timespec fim)
+{
+    double sec = (double)(fim.tv_sec - inicio.tv_sec) * 1000.0;
+    double nsec = (double)(fim.tv_nsec - inicio.tv_nsec) / 1000000.0;
+    return sec + nsec;
+}
+
 static void history_add(gestor_interativo_t *gestor, const char *cmd)
 {
     if (!gestor || !cmd || !*cmd)
@@ -242,6 +252,18 @@ static void mostrar_estatisticas(gestor_interativo_t *gestor)
     printf("  Voos:         %u\n", gestor_voos_contar(gestor->voos));
     printf("  Passageiros:  %u\n", gestor_passageiros_numero(gestor->passageiros));
     printf("  Reservas:     %u\n", gestor_reservas_numero(gestor->reservas));
+}
+
+static void mostrar_ultima_query(gestor_interativo_t *gestor)
+{
+    if (!gestor || !gestor->has_last_query) {
+        printf(YELLOW "Sem última query registada.\n" RESET);
+        return;
+    }
+
+    printf(BOLD "\nÚltima query executada\n" RESET);
+    printf("  Comando: %s\n", gestor->last_query.comando[0] ? gestor->last_query.comando : "(desconhecido)");
+    printf("  Tempo:   %.2f ms\n", gestor->last_query.last_ms);
 }
 
 static int reiniciar_gestores(gestor_interativo_t *gestor)
@@ -358,13 +380,18 @@ static void mostrar_menu(void)
                      " - Ajuda/Atalhos                           " BOLD BLUE "║\n" RESET);
     printf(BOLD BLUE "║" RESET " " MAGENTA "10" RESET
                      " - Histórico de comandos                   " BOLD BLUE "║\n" RESET);
+    printf(BOLD BLUE "║" RESET " " MAGENTA "11" RESET
+                     " - Última query (detalhes)                 " BOLD BLUE "║\n" RESET);
+    printf(BOLD BLUE "║" RESET " " MAGENTA "12" RESET
+                     " - Repetir última query                     " BOLD BLUE "║\n" RESET);
     printf(BOLD BLUE "║" RESET "                                            " BOLD BLUE
                      "║\n" RESET);
     printf(BOLD BLUE "║" RESET " " YELLOW "0" RESET
                      " - Sair                                   " BOLD BLUE "║\n" RESET);
     printf(BOLD BLUE "╚═══════════════════════════════════════════════╝\n" RESET);
     printf("Atalhos: " CYAN "q1..q6" RESET ", " CYAN "stats" RESET ", " CYAN "reload" RESET
-           ", " CYAN "clear" RESET ", " CYAN "history" RESET ", " CYAN "repeat" RESET "\n");
+           ", " CYAN "clear" RESET ", " CYAN "history" RESET ", " CYAN "repeat" RESET
+           ", " CYAN "last" RESET "\n");
 }
 
 static void executar_query1(gestor_interativo_t *gestor)
@@ -400,8 +427,14 @@ static void executar_query1(gestor_interativo_t *gestor)
     gestor->last_query.has_period = 0;
     gestor->has_last_query = 1;
     history_add(gestor, comando);
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
     query1(gestor->aeroportos, gestor->voos, gestor->reservas, comando, codigo, out);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    gestor->last_query.last_ms = tempo_ms(t0, t1);
+    snprintf(gestor->last_query.comando, sizeof(gestor->last_query.comando), "%s", comando);
     fechar_saida(out, caminho_saida);
+    printf(CYAN "Tempo de execução: %.2f ms\n" RESET, gestor->last_query.last_ms);
 }
 
 static void executar_query2(gestor_interativo_t *gestor)
@@ -445,8 +478,14 @@ static void executar_query2(gestor_interativo_t *gestor)
     gestor->last_query.has_period = 0;
     gestor->has_last_query = 1;
     history_add(gestor, comando);
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
     query2(gestor->avioes, gestor->voos, N, fab, comando, out);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    gestor->last_query.last_ms = tempo_ms(t0, t1);
+    snprintf(gestor->last_query.comando, sizeof(gestor->last_query.comando), "%s", comando);
     fechar_saida(out, caminho_saida);
+    printf(CYAN "Tempo de execução: %.2f ms\n" RESET, gestor->last_query.last_ms);
 }
 
 static void executar_query3(gestor_interativo_t *gestor)
@@ -487,8 +526,14 @@ static void executar_query3(gestor_interativo_t *gestor)
     gestor->last_query.has_period = 1;
     gestor->has_last_query = 1;
     history_add(gestor, comando);
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
     query3(gestor->aeroportos, gestor->voos, data_inicio, data_fim, comando, out);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    gestor->last_query.last_ms = tempo_ms(t0, t1);
+    snprintf(gestor->last_query.comando, sizeof(gestor->last_query.comando), "%s", comando);
     fechar_saida(out, caminho_saida);
+    printf(CYAN "Tempo de execução: %.2f ms\n" RESET, gestor->last_query.last_ms);
 }
 
 static void executar_query4(gestor_interativo_t *gestor)
@@ -540,8 +585,14 @@ static void executar_query4(gestor_interativo_t *gestor)
     gestor->last_query.has_period = (di && df) ? 1 : 0;
     gestor->has_last_query = 1;
     history_add(gestor, comando);
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
     query4(gestor->reservas, gestor->voos, gestor->passageiros, di, df, comando, out);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    gestor->last_query.last_ms = tempo_ms(t0, t1);
+    snprintf(gestor->last_query.comando, sizeof(gestor->last_query.comando), "%s", comando);
     fechar_saida(out, caminho_saida);
+    printf(CYAN "Tempo de execução: %.2f ms\n" RESET, gestor->last_query.last_ms);
 }
 
 static void executar_query5(gestor_interativo_t *gestor)
@@ -578,8 +629,14 @@ static void executar_query5(gestor_interativo_t *gestor)
     gestor->last_query.has_period = 0;
     gestor->has_last_query = 1;
     history_add(gestor, comando);
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
     query5(gestor->voos, N, comando, out);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    gestor->last_query.last_ms = tempo_ms(t0, t1);
+    snprintf(gestor->last_query.comando, sizeof(gestor->last_query.comando), "%s", comando);
     fechar_saida(out, caminho_saida);
+    printf(CYAN "Tempo de execução: %.2f ms\n" RESET, gestor->last_query.last_ms);
 }
 
 static void executar_query6(gestor_interativo_t *gestor)
@@ -615,8 +672,14 @@ static void executar_query6(gestor_interativo_t *gestor)
     gestor->last_query.has_period = 0;
     gestor->has_last_query = 1;
     history_add(gestor, comando);
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
     query6(gestor->reservas, gestor->voos, gestor->passageiros, nacionalidade, comando, out);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    gestor->last_query.last_ms = tempo_ms(t0, t1);
+    snprintf(gestor->last_query.comando, sizeof(gestor->last_query.comando), "%s", comando);
     fechar_saida(out, caminho_saida);
+    printf(CYAN "Tempo de execução: %.2f ms\n" RESET, gestor->last_query.last_ms);
 }
 
 static void executar_ultima_query(gestor_interativo_t *gestor)
@@ -633,6 +696,8 @@ static void executar_ultima_query(gestor_interativo_t *gestor)
     }
 
     FILE *out = pedir_saida_ficheiro(caminho_saida, sizeof(caminho_saida));
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
 
     switch (gestor->last_query.id) {
     case 1: {
@@ -684,8 +749,11 @@ static void executar_ultima_query(gestor_interativo_t *gestor)
         printf(RED "✗ Query anterior inválida.\n" RESET);
         break;
     }
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    gestor->last_query.last_ms = tempo_ms(t0, t1);
 
     fechar_saida(out, caminho_saida);
+    printf(CYAN "Tempo de execução: %.2f ms\n" RESET, gestor->last_query.last_ms);
 }
 
 static void mostrar_ajuda(void)
@@ -697,6 +765,7 @@ static void mostrar_ajuda(void)
     printf("  - history: mostra o histórico de comandos\n");
     printf("  - repeat / r: repete a última query\n");
     printf("  - clear: limpa o ecrã\n");
+    printf("  - last: mostra a última query executada\n");
 }
 
 /**
@@ -758,6 +827,8 @@ void gestor_interativo_executar(gestor_interativo_t *gestor)
         } else if (strcmp(opcao, "history") == 0 || strcmp(opcao, "hist") == 0) {
             escolha = 10;
         } else if (strcmp(opcao, "repeat") == 0 || strcmp(opcao, "r") == 0) {
+            escolha = 12;
+        } else if (strcmp(opcao, "last") == 0) {
             escolha = 11;
         } else if (strcmp(opcao, "clear") == 0) {
             escolha = 99;
@@ -824,6 +895,10 @@ void gestor_interativo_executar(gestor_interativo_t *gestor)
             break;
 
         case 11:
+            mostrar_ultima_query(gestor);
+            break;
+
+        case 12:
             executar_ultima_query(gestor);
             break;
 
@@ -832,7 +907,7 @@ void gestor_interativo_executar(gestor_interativo_t *gestor)
             break;
 
         default:
-            printf(RED "✗ Opção inválida! Escolha entre 0-10.\n" RESET);
+            printf(RED "✗ Opção inválida! Escolha entre 0-12.\n" RESET);
             break;
         }
 
