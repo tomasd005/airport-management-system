@@ -128,6 +128,41 @@ static passageiro_t *valida_passageiro_sem_erros(char **colunas)
                             colunas[IDX_PHOTO]);
 }
 
+gboolean passageiro_validar_sintatica(char **colunas)
+{
+    if (!colunas)
+        return FALSE;
+
+    for (int i = 0; i <= IDX_PHOTO; i++)
+        if (colunas[i])
+            utils_remove_aspas_somente(colunas[i]);
+
+    uint32_t key = 0;
+    if (!utils_document_number_key(colunas[IDX_DOC], &key))
+        return FALSE;
+
+    if (!valida_genero(colunas[IDX_GEN]) || !valida_email(colunas[IDX_EMAIL]))
+        return FALSE;
+
+    if (!colunas[IDX_FIRST] || !*colunas[IDX_FIRST] || !colunas[IDX_LAST] || !*colunas[IDX_LAST] ||
+        !colunas[IDX_NAT] || !*colunas[IDX_NAT] || !colunas[IDX_PHONE] || !*colunas[IDX_PHONE] ||
+        !colunas[IDX_ADDR] || !*colunas[IDX_ADDR])
+        return FALSE;
+
+    return TRUE;
+}
+
+gboolean passageiro_validar_logica(char **colunas)
+{
+    if (!colunas)
+        return FALSE;
+
+    if (!validacao_data_passado(colunas[IDX_DOB]))
+        return FALSE;
+
+    return TRUE;
+}
+
 /**
  * @brief Valida todas as colunas de um passageiro.
  *
@@ -144,24 +179,9 @@ passageiro_t *valida_passageiro(char **colunas)
     if (parser_sem_erros_ativo())
         return valida_passageiro_sem_erros(colunas);
 
-    if (!colunas)
+    if (!passageiro_validar_sintatica(colunas))
         return NULL;
-
-    for (int i = 0; i <= IDX_PHOTO; i++)
-        if (colunas[i])
-            utils_remove_aspas_somente(colunas[i]);
-
-    uint32_t key = 0;
-    if (!utils_document_number_key(colunas[IDX_DOC], &key))
-        return NULL;
-
-    if (!validacao_data_passado(colunas[IDX_DOB]) || !valida_genero(colunas[IDX_GEN]) ||
-        !valida_email(colunas[IDX_EMAIL]))
-        return NULL;
-
-    if (!colunas[IDX_FIRST] || !*colunas[IDX_FIRST] || !colunas[IDX_LAST] || !*colunas[IDX_LAST] ||
-        !colunas[IDX_NAT] || !*colunas[IDX_NAT] || !colunas[IDX_PHONE] || !*colunas[IDX_PHONE] ||
-        !colunas[IDX_ADDR] || !*colunas[IDX_ADDR])
+    if (!passageiro_validar_logica(colunas))
         return NULL;
 
     if (parser_dataset_grande_ativo())

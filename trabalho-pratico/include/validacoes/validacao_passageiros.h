@@ -2,6 +2,7 @@
 #define VALIDACAO_PASSAGEIROS_H
 
 #include "../entidades/passageiros.h"
+#include <glib.h>
 
 /**
  * @brief Valida os campos de um passageiro.
@@ -18,5 +19,21 @@
  * @return Ponteiro para `passageiro_t` criado se válido, NULL caso contrário.
  */
 passageiro_t *valida_passageiro(char **colunas);
+
+/**
+ * @brief Valida sintaticamente os campos do passageiro (formato).
+ *
+ * @param colunas Array de strings com os campos do passageiro
+ * @return TRUE se sintaticamente válido.
+ */
+gboolean passageiro_validar_sintatica(char **colunas);
+
+/**
+ * @brief Valida logicamente os campos do passageiro (coerência).
+ *
+ * @param colunas Array de strings com os campos do passageiro
+ * @return TRUE se logicamente válido.
+ */
+gboolean passageiro_validar_logica(char **colunas);
 
 #endif

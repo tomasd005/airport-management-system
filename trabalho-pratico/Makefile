@@ -73,7 +73,7 @@ SRC_QUERIES = \
     src/queries/querie5.c \
     src/queries/querie6.c
 
-SRC_UTILS = src/utils.c
+SRC_UTILS = src/utils.c src/string_pool.c
 SRC_ESTRUTURAS = src/estruturas/voo_table.c src/estruturas/doc_total_table.c
 
 # Programas principais

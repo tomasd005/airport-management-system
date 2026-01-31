@@ -36,6 +36,17 @@ voo_t *gestor_voos_obter_por_key(gestor_voos_t *gestor, uint64_t key);
 unsigned int gestor_voos_contar(const gestor_voos_t *gestor);
 void gestor_voos_carregar(gestor_voos_t *gestor, const char *ficheiro_csv);
 void gestor_voos_carregar_com_validacao(gestor_voos_t *gestor, const char *ficheiro_csv, gestor_avioes_t *gestor_avioes);
+
+/**
+ * @brief Adiciona voo já validado, aplicando validação lógica extra (aeronave).
+ *
+ * @param gestor Gestor de voos
+ * @param gestor_avioes Gestor de aviões
+ * @param info Estrutura de voo já parseada/validada
+ * @return TRUE se adicionado com sucesso
+ */
+gboolean gestor_voos_adicionar_validado(gestor_voos_t *gestor, gestor_avioes_t *gestor_avioes,
+                                        voo_info_t *info);
 void gestor_voos_para_cada(gestor_voos_t *gestor, void (*callback)(voo_t *, void *), void *user_data);
 void gestor_voos_preparar_q3(gestor_voos_t *gestor);
 gboolean gestor_voos_melhor_origem_intervalo(gestor_voos_t *gestor, int dia_inicio, int dia_fim, const char **out_origem, guint *out_contagem);

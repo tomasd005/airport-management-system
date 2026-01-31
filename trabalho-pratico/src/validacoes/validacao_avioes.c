@@ -32,64 +32,60 @@
  * @param colunas Array de strings correspondentes às colunas do CSV
  * @return Ponteiro para o Aviao criado ou NULL se a validação falhar
  */
-aviao_t *valida_aviao(char **colunas)
+gboolean aviao_validar_sintatica(char **colunas, int *out_ano, int *out_cap, int *out_alc,
+                                 const char **out_modelo)
 {
-    if (!colunas)
-        return NULL;
+    if (!colunas || !out_ano || !out_cap || !out_alc || !out_modelo)
+        return FALSE;
 
-    /* Remover aspas das colunas existentes */
     for (int i = 0; i <= IDX_ALC; i++)
-    {
         if (colunas[i])
             utils_remove_aspas_somente(colunas[i]);
-    }
 
-    /* Verificar se o ano contém espaços */
-    if (colunas[IDX_ANO] && *colunas[IDX_ANO])
-    {
+    if (colunas[IDX_ANO] && *colunas[IDX_ANO]) {
         if (contem_espacos(colunas[IDX_ANO]))
-            return NULL;
+            return FALSE;
     }
 
-    /* Remover espaços em branco */
     for (int i = 0; i <= IDX_ALC; i++)
-    {
         if (colunas[i])
             utils_trim(colunas[i]);
-    }
 
-    /* Validar campos obrigatórios */
     if (!colunas[IDX_ID] || !*colunas[IDX_ID])
-        return NULL;
+        return FALSE;
     if (!colunas[IDX_FAB] || !*colunas[IDX_FAB])
-        return NULL;
+        return FALSE;
 
-    /* Validar capacidade e alcance */
-    int cap = 0, alc = 0;
-    if (!colunas[IDX_CAP] || !validacao_inteiro_positivo(colunas[IDX_CAP], &cap))
-        return NULL;
-    if (!colunas[IDX_ALC] || !validacao_inteiro_positivo(colunas[IDX_ALC], &alc))
-        return NULL;
+    if (!colunas[IDX_CAP] || !validacao_inteiro_positivo(colunas[IDX_CAP], out_cap))
+        return FALSE;
+    if (!colunas[IDX_ALC] || !validacao_inteiro_positivo(colunas[IDX_ALC], out_alc))
+        return FALSE;
 
-    /* Validar ano de fabrico (opcional) */
-    int ano = 0;
-    if (colunas[IDX_ANO] && *colunas[IDX_ANO])
-    {
-        if (!validacao_ano(colunas[IDX_ANO], &ano))
-            return NULL;
+    *out_ano = 0;
+    if (colunas[IDX_ANO] && *colunas[IDX_ANO]) {
+        if (!validacao_ano(colunas[IDX_ANO], out_ano))
+            return FALSE;
     }
 
-    /* Modelo é opcional */
-    const char *modelo =
-        (colunas[IDX_MOD] && *colunas[IDX_MOD]) ? colunas[IDX_MOD] : "";
+    *out_modelo = (colunas[IDX_MOD] && *colunas[IDX_MOD]) ? colunas[IDX_MOD] : "";
+    return TRUE;
+}
 
-    /* Criar avião válido */
-    return aviao_criar(
-        colunas[IDX_ID],
-        colunas[IDX_FAB],
-        modelo,
-        ano,
-        cap,
-        alc
-    );
+gboolean aviao_validar_logica(char **colunas)
+{
+    (void)colunas;
+    return TRUE;
+}
+
+aviao_t *valida_aviao(char **colunas)
+{
+    int ano = 0, cap = 0, alc = 0;
+    const char *modelo = "";
+
+    if (!aviao_validar_sintatica(colunas, &ano, &cap, &alc, &modelo))
+        return NULL;
+    if (!aviao_validar_logica(colunas))
+        return NULL;
+
+    return aviao_criar(colunas[IDX_ID], colunas[IDX_FAB], modelo, ano, cap, alc);
 }

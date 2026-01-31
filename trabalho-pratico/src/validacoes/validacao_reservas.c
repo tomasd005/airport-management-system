@@ -2,6 +2,8 @@
 #include "validacao_comum.h"
 #include "parsers/parser.h"
 #include "../../include/utils.h"
+#include "entidades/voos.h"
+#include "entidades/passageiros.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -267,6 +269,14 @@ gboolean valida_reserva_campos(char **colunas, const char **out_flight_ids, size
                                const char **out_document_number, uint32_t *out_document_key,
                                double *out_preco)
 {
+    return reserva_validar_sintatica(colunas, out_flight_ids, out_num_voos, out_document_number,
+                                     out_document_key, out_preco);
+}
+
+gboolean reserva_validar_sintatica(char **colunas, const char **out_flight_ids,
+                                   size_t *out_num_voos, const char **out_document_number,
+                                   uint32_t *out_document_key, double *out_preco)
+{
     if (!colunas || !out_flight_ids || !out_num_voos || !out_document_number || !out_document_key ||
         !out_preco)
         return FALSE;
@@ -334,6 +344,49 @@ gboolean valida_reserva_campos(char **colunas, const char **out_flight_ids, size
     *out_num_voos = num_flights;
     *out_document_number = colunas[IDX_DOC];
     *out_preco = price;
+    return TRUE;
+}
+
+gboolean reserva_parse_campos(char **colunas, reserva_parse_t *out_parsed)
+{
+    if (!out_parsed)
+        return FALSE;
+
+    const char *flight_ids[2] = {0};
+    size_t num_voos = 0;
+    const char *document_number = NULL;
+    uint32_t doc_key = 0;
+    double preco = 0.0;
+
+    if (!reserva_validar_sintatica(colunas, flight_ids, &num_voos, &document_number, &doc_key,
+                                   &preco))
+        return FALSE;
+
+    out_parsed->flight_ids[0] = flight_ids[0];
+    out_parsed->flight_ids[1] = flight_ids[1];
+    out_parsed->num_voos = num_voos;
+    out_parsed->document_number = document_number;
+    out_parsed->document_key = doc_key;
+    out_parsed->preco = preco;
+    out_parsed->reserva_key = 0;
+    return TRUE;
+}
+
+gboolean reserva_validar_logica(voo_t *const *voos, size_t num_voos, passageiro_t *passageiro)
+{
+    if (!voos || num_voos == 0 || !passageiro)
+        return FALSE;
+
+    if (!voos[0])
+        return FALSE;
+
+    if (num_voos == 2 && voos[1]) {
+        int dest1 = voo_obter_destination_idx(voos[0]);
+        int orig2 = voo_obter_origin_idx(voos[1]);
+        if (dest1 < 0 || orig2 < 0 || dest1 != orig2)
+            return FALSE;
+    }
+
     return TRUE;
 }
 

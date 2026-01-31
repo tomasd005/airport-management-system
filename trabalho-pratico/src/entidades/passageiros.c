@@ -1,11 +1,11 @@
 #include "passageiros.h"
 #include "utils.h"
+#include "string_pool.h"
 #include <stdlib.h>
 #include <string.h>
-#include <glib.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <pthread.h>
+#include <glib.h>
 
 /**
  * @struct passageiro
@@ -23,28 +23,9 @@ struct passageiro
     unsigned char has_details;
 };
 
-static GHashTable *g_nacionalidades_intern = NULL;
-static pthread_mutex_t g_nacionalidades_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 static const char *internar_nacionalidade(const char *nac)
 {
-    if (!nac || !*nac)
-        return "";
-
-    pthread_mutex_lock(&g_nacionalidades_mutex);
-    if (!g_nacionalidades_intern)
-        g_nacionalidades_intern = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-
-    gpointer encontrado = g_hash_table_lookup(g_nacionalidades_intern, nac);
-    if (encontrado) {
-        pthread_mutex_unlock(&g_nacionalidades_mutex);
-        return (const char *)encontrado;
-    }
-
-    char *dup = g_strdup(nac);
-    g_hash_table_insert(g_nacionalidades_intern, dup, dup);
-    pthread_mutex_unlock(&g_nacionalidades_mutex);
-    return dup;
+    return string_pool_intern(nac);
 }
 
 /**

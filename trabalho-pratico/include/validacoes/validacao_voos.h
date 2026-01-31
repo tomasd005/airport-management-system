@@ -2,6 +2,7 @@
 #define VALIDACAO_VOOS_H
 
 #include "../entidades/voos.h"
+#include <glib.h>
 
 /**
  * @brief Valida uma linha CSV e cria um objeto voo_info.
@@ -16,5 +17,21 @@
  * @return Ponteiro para `voo_info_t` se válido, NULL caso algum campo seja inválido.
  */
 voo_info_t *valida_voo(char **colunas);
+
+/**
+ * @brief Valida sintaticamente os campos de voo (formato).
+ *
+ * @param colunas Array de strings com os campos do voo.
+ * @return TRUE se os campos têm formato válido.
+ */
+gboolean valida_voo_sintatica(char **colunas);
+
+/**
+ * @brief Valida logicamente os campos de voo (coerência entre datas/status).
+ *
+ * @param colunas Array de strings com os campos do voo.
+ * @return TRUE se os campos são logicamente coerentes.
+ */
+gboolean valida_voo_logica(char **colunas);
 
 #endif

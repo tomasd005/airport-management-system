@@ -16,4 +16,19 @@
  */
 gpointer valida_aeroporto(char **colunas);
 
+/**
+ * @brief Validação sintática dos campos de aeroporto.
+ */
+gboolean aeroporto_validar_sintatica(char **colunas);
+
+/**
+ * @brief Validação lógica dos campos de aeroporto (coordenadas/tipo).
+ *
+ * @param colunas Array de strings com os valores das colunas.
+ * @param out_lat Latitude validada.
+ * @param out_lon Longitude validada.
+ * @return TRUE se válido.
+ */
+gboolean aeroporto_validar_logica(char **colunas, double *out_lat, double *out_lon);
+
 #endif

@@ -77,49 +77,63 @@ static gboolean tipo_valido(const char *tipo)
  * @param colunas Array de strings correspondentes às colunas do CSV
  * @return Ponteiro para o Aeroporto criado ou NULL se a validação falhar
  */
-gpointer valida_aeroporto(char **colunas)
+gboolean aeroporto_validar_sintatica(char **colunas)
 {
     if (!colunas)
-        return NULL;
+        return FALSE;
 
-    /* Verificar existência de todas as colunas obrigatórias */
     for (int i = 0; i < 8; i++)
         if (!colunas[i])
-            return NULL;
+            return FALSE;
 
-    /* Remover aspas */
     for (int i = 0; i < 8; i++)
         utils_remove_aspas_somente(colunas[i]);
 
-    /* Validar código do aeroporto */
     if (contem_espacos(colunas[0]) || !codigo_valido(colunas[0]))
-        return NULL;
+        return FALSE;
 
-    /* Remover espaços em branco */
     for (int i = 0; i < 8; i++)
         utils_trim(colunas[i]);
 
-    /* Validar coordenadas e tipo */
-    double lat, lon;
-    if (!coordenadas_validas(colunas[4], colunas[5], &lat, &lon) ||
-        !tipo_valido(colunas[7]))
-        return NULL;
-
-    /* Verificar campos obrigatórios */
     if (!colunas[1] || !*colunas[1] ||
         !colunas[2] || !*colunas[2] ||
         !colunas[3] || !*colunas[3])
+        return FALSE;
+
+    return TRUE;
+}
+
+gboolean aeroporto_validar_logica(char **colunas, double *out_lat, double *out_lon)
+{
+    if (!colunas || !out_lat || !out_lon)
+        return FALSE;
+
+    if (!coordenadas_validas(colunas[4], colunas[5], out_lat, out_lon))
+        return FALSE;
+
+    if (!tipo_valido(colunas[7]))
+        return FALSE;
+
+    return TRUE;
+}
+
+gpointer valida_aeroporto(char **colunas)
+{
+    if (!aeroporto_validar_sintatica(colunas))
         return NULL;
 
-    /* Criar aeroporto válido */
+    double lat, lon;
+    if (!aeroporto_validar_logica(colunas, &lat, &lon))
+        return NULL;
+
     return aeroporto_criar(
-        colunas[0],  // código
-        colunas[1],  // nome
-        colunas[2],  // cidade
-        colunas[3],  // país
+        colunas[0],
+        colunas[1],
+        colunas[2],
+        colunas[3],
         lat,
         lon,
-        colunas[6],  // continente
-        colunas[7]   // tipo
+        colunas[6],
+        colunas[7]
     );
 }

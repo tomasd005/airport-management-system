@@ -318,18 +318,27 @@ static gboolean _adiciona_voo_validado(void *contexto, void *objeto)
     contexto_voos_validacao_t *ctx = contexto;
     voo_info_t *info = objeto;
 
-    const char *aircraft = info ? info->aircraft : NULL;
-    if (!aircraft || !ctx->gestor_avioes)
+    return gestor_voos_adicionar_validado(ctx->gestor_voos, ctx->gestor_avioes, info);
+}
+
+gboolean gestor_voos_adicionar_validado(gestor_voos_t *gestor, gestor_avioes_t *gestor_avioes,
+                                        voo_info_t *info)
+{
+    if (!gestor || !info || !gestor_avioes)
         return FALSE;
 
-    aviao_t *aviao = gestor_avioes_obter_por_id(ctx->gestor_avioes, aircraft);
+    const char *aircraft = info ? info->aircraft : NULL;
+    if (!aircraft)
+        return FALSE;
+
+    aviao_t *aviao = gestor_avioes_obter_por_id(gestor_avioes, aircraft);
     if (!aviao)
         return FALSE;
 
     if (info->status != 2)
         aviao_incrementar_contagem_voos(aviao, 1);
 
-    gestor_voos_adicionar(ctx->gestor_voos, info);
+    gestor_voos_adicionar(gestor, info);
     return TRUE;
 }
 
