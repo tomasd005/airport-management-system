@@ -36,13 +36,60 @@ aviao_t *aviao_criar(const char *identificador, const char *fabricante, const ch
  */
 void aviao_destruir(aviao_t *a);
 
+/**
+ * @brief Obtém o identificador do avião.
+ * @param a Avião.
+ * @return String constante com o identificador.
+ */
 const char *aviao_obter_identificador(const aviao_t *a);
+
+/**
+ * @brief Obtém o fabricante do avião.
+ * @param a Avião.
+ * @return String constante com o fabricante.
+ */
 const char *aviao_obter_fabricante(const aviao_t *a);
+
+/**
+ * @brief Obtém o modelo do avião.
+ * @param a Avião.
+ * @return String constante com o modelo.
+ */
 const char *aviao_obter_modelo(const aviao_t *a);
+
+/**
+ * @brief Obtém o ano de fabricação.
+ * @param a Avião.
+ * @return Ano de fabricação.
+ */
 int aviao_obter_ano(const aviao_t *a);
+
+/**
+ * @brief Obtém a capacidade de assentos.
+ * @param a Avião.
+ * @return Capacidade.
+ */
 int aviao_obter_capacidade(const aviao_t *a);
+
+/**
+ * @brief Obtém o alcance em quilómetros.
+ * @param a Avião.
+ * @return Alcance em km.
+ */
 int aviao_obter_alcance_km(const aviao_t *a);
+
+/**
+ * @brief Obtém o número de voos associados.
+ * @param a Avião.
+ * @return Contagem de voos.
+ */
 int aviao_obter_contagem_voos(const aviao_t *a);
+
+/**
+ * @brief Incrementa a contagem de voos.
+ * @param a Avião.
+ * @param delta Variação a aplicar.
+ */
 void aviao_incrementar_contagem_voos(aviao_t *a, int delta);
 
 #endif

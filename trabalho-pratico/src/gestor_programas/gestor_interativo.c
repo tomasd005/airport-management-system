@@ -732,10 +732,11 @@ static void executar_ultima_query(gestor_interativo_t *gestor)
     struct timespec t0, t1;
     clock_gettime(CLOCK_MONOTONIC, &t0);
 
+    const int argmax = 60;
     switch (gestor->last_query.id) {
     case 1: {
         char comando[64];
-        snprintf(comando, sizeof(comando), "1 %s", gestor->last_query.p1);
+        snprintf(comando, sizeof(comando), "1 %.*s", argmax, gestor->last_query.p1);
         query1(gestor->aeroportos, gestor->voos, gestor->reservas, comando, gestor->last_query.p1,
                out);
         break;
@@ -743,13 +744,14 @@ static void executar_ultima_query(gestor_interativo_t *gestor)
     case 2: {
         char comando[128];
         const char *fab = gestor->last_query.p1[0] ? gestor->last_query.p1 : NULL;
-        snprintf(comando, sizeof(comando), "2 %d %s", gestor->last_query.n, fab ? fab : "");
+        snprintf(comando, sizeof(comando), "2 %d %.*s", gestor->last_query.n, argmax, fab ? fab : "");
         query2(gestor->avioes, gestor->voos, gestor->last_query.n, fab, comando, out);
         break;
     }
     case 3: {
         char comando[128];
-        snprintf(comando, sizeof(comando), "3 %s %s", gestor->last_query.p1, gestor->last_query.p2);
+        snprintf(comando, sizeof(comando), "3 %.*s %.*s", argmax, gestor->last_query.p1, argmax,
+                 gestor->last_query.p2);
         query3(gestor->aeroportos, gestor->voos, gestor->last_query.p1, gestor->last_query.p2,
                comando, out);
         break;
@@ -759,7 +761,7 @@ static void executar_ultima_query(gestor_interativo_t *gestor)
         const char *di = gestor->last_query.has_period ? gestor->last_query.p1 : NULL;
         const char *df = gestor->last_query.has_period ? gestor->last_query.p2 : NULL;
         if (di && df)
-            snprintf(comando, sizeof(comando), "4 %s %s", di, df);
+            snprintf(comando, sizeof(comando), "4 %.*s %.*s", argmax, di, argmax, df);
         else
             snprintf(comando, sizeof(comando), "4");
         query4(gestor->reservas, gestor->voos, gestor->passageiros, di, df, comando, out);
@@ -773,7 +775,7 @@ static void executar_ultima_query(gestor_interativo_t *gestor)
     }
     case 6: {
         char comando[128];
-        snprintf(comando, sizeof(comando), "6 %s", gestor->last_query.p1);
+        snprintf(comando, sizeof(comando), "6 %.*s", argmax, gestor->last_query.p1);
         query6(gestor->reservas, gestor->voos, gestor->passageiros, gestor->last_query.p1, comando,
                out);
         break;

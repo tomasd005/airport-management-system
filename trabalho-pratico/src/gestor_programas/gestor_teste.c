@@ -184,6 +184,7 @@ static double memoria_atual_MB(void)
  *
  * @return Pico de memória em MB
  */
+static double memoria_pico_MB(void) __attribute__((unused));
 static double memoria_pico_MB(void)
 {
     struct rusage usage;

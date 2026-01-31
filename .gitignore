@@ -35,6 +35,7 @@ trabalho-pratico/programa-*
 trabalho-pratico/test_validacoes
 trabalho-pratico/verificador-csv
 trabalho-pratico/resultados/
+trabalho-pratico/build/
 *.pdf
 enunciado-*.pdf
 relatorio-*.pdf

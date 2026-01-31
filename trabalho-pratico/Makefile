@@ -1,137 +1,189 @@
-CC = gcc
+# Makefile - build/projeto LI3
+SHELL := /bin/sh
+MAKEFLAGS += --warn-undefined-variables
 
-# Otimizações (FAST=1 por omissão para máximo desempenho)
-FAST ?= 1
-ifeq ($(FAST),1)
-OPT_FLAGS = -O3 -flto -pipe -march=native -mtune=native -fno-plt
-else
-OPT_FLAGS = -O2 -flto -pipe
+CC ?= gcc
+PKG_CONFIG ?= pkg-config
+
+# Build modes: debug (default), release, sanitize
+MODE ?= debug
+
+# Common flags
+CPPFLAGS := -D_GNU_SOURCE \
+	-Iinclude \
+	-Iinclude/entidades \
+	-Iinclude/gestores \
+	-Iinclude/gestor_programa \
+	-Iinclude/gestor_programas \
+	-Iinclude/parsers \
+	-Iinclude/queries \
+	-Iinclude/validacoes
+
+GLIB_CFLAGS := $(shell $(PKG_CONFIG) --cflags glib-2.0 2>/dev/null)
+GLIB_LIBS := $(shell $(PKG_CONFIG) --libs glib-2.0 2>/dev/null)
+
+ifeq ($(strip $(GLIB_CFLAGS)),)
+$(error glib-2.0 não encontrado. Instale libglib2.0-dev e pkg-config.)
 endif
-OPT_LDFLAGS = -flto
 
-# Flags fixas (sempre usadas)
-CFLAGS = -w $(OPT_FLAGS) -Wextra -g \
-         -Iinclude \
-         -Iinclude/entidades \
-         -Iinclude/gestores \
-         -Iinclude/gestor_programa \
-         -Iinclude/gestor_programas \
-         -Iinclude/parsers \
-         -Iinclude/queries \
-         -Iinclude/validacoes \
-         $(shell pkg-config --cflags glib-2.0)
+CPPFLAGS += $(GLIB_CFLAGS)
 
-LDFLAGS = $(OPT_LDFLAGS) $(shell pkg-config --libs glib-2.0)
+WARN_FLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
+CSTD := -std=c11
 
-# Número de jobs paralelos (usa todos os cores)
-MAKEFLAGS += -j$(shell nproc)
+CFLAGS_DEBUG := $(CSTD) -O0 -g3 $(WARN_FLAGS) -fno-omit-frame-pointer
+CFLAGS_RELEASE := $(CSTD) -O3 -DNDEBUG $(WARN_FLAGS)
+CFLAGS_SANITIZE := $(CSTD) -O1 -g3 $(WARN_FLAGS) -fno-omit-frame-pointer \
+	-fsanitize=address,undefined
 
-# Entidades
+LDFLAGS :=
+LDLIBS := $(GLIB_LIBS)
+
+ifeq ($(MODE),release)
+CFLAGS := $(CFLAGS_RELEASE)
+else ifeq ($(MODE),sanitize)
+CFLAGS := $(CFLAGS_SANITIZE)
+LDFLAGS += -fsanitize=address,undefined
+else
+CFLAGS := $(CFLAGS_DEBUG)
+endif
+
+# Incremental build
+OBJDIR := build/obj
+DEPDIR := $(OBJDIR)
+
+# Sources
 SRC_ENTIDADES = \
-    src/entidades/aeroportos.c \
-    src/entidades/avioes.c \
-    src/entidades/passageiros.c \
-    src/entidades/reservas.c \
-    src/entidades/voos.c
+	src/entidades/aeroportos.c \
+	src/entidades/avioes.c \
+	src/entidades/passageiros.c \
+	src/entidades/reservas.c \
+	src/entidades/voos.c
 
-# Gestores individuais
 SRC_GESTORES = \
-    src/gestores/gestor_aeroportos.c \
-    src/gestores/gestor_avioes.c \
-    src/gestores/gestor_voos.c \
-    src/gestores/gestor_passageiros.c \
-    src/gestores/gestor_reservas.c
+	src/gestores/gestor_aeroportos.c \
+	src/gestores/gestor_avioes.c \
+	src/gestores/gestor_voos.c \
+	src/gestores/gestor_passageiros.c \
+	src/gestores/gestor_reservas.c
 
-# Gestor do programa principal
 SRC_GESTOR_PROGRAMA = \
-    src/gestor_programa/gestor_programa.c \
-    src/gestor_programa/gestor_queries.c
+	src/gestor_programa/gestor_programa.c \
+	src/gestor_programa/gestor_queries.c
 
-# Gestores de programas (principal, teste, interativo)
 SRC_GESTOR_PROGRAMAS = \
-    src/gestor_programas/gestor_principal.c \
-    src/gestor_programas/gestor_teste.c \
-    src/gestor_programas/gestor_interativo.c
+	src/gestor_programas/gestor_principal.c \
+	src/gestor_programas/gestor_teste.c \
+	src/gestor_programas/gestor_interativo.c
 
-# Parsers e validacoes
 SRC_PARSERS = \
-    src/parsers/parser.c \
-    src/parsers/parser_reservas.c \
-    src/validacoes/validacao_comum.c \
-    src/validacoes/validacao_aeroportos.c \
-    src/validacoes/validacao_avioes.c \
-    src/validacoes/validacao_voos.c \
-    src/validacoes/validacao_passageiros.c \
-    src/validacoes/validacao_reservas.c
+	src/parsers/parser.c \
+	src/parsers/parser_reservas.c \
+	src/validacoes/validacao_comum.c \
+	src/validacoes/validacao_aeroportos.c \
+	src/validacoes/validacao_avioes.c \
+	src/validacoes/validacao_voos.c \
+	src/validacoes/validacao_passageiros.c \
+	src/validacoes/validacao_reservas.c
 
-# Queries
 SRC_QUERIES = \
-    src/queries/querie1.c \
-    src/queries/querie2.c \
-    src/queries/querie3.c \
-    src/queries/querie4.c \
-    src/queries/querie5.c \
-    src/queries/querie6.c
+	src/queries/querie1.c \
+	src/queries/querie2.c \
+	src/queries/querie3.c \
+	src/queries/querie4.c \
+	src/queries/querie5.c \
+	src/queries/querie6.c
 
 SRC_UTILS = src/utils.c src/string_pool.c
 SRC_ESTRUTURAS = src/estruturas/voo_table.c src/estruturas/doc_total_table.c
 
-# Programas principais
+SRC_CORE = $(SRC_ENTIDADES) $(SRC_GESTORES) $(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS) $(SRC_ESTRUTURAS)
+
+# Main programs
 MAIN_PRINCIPAL = src/programas/main.c
 MAIN_TESTES = src/programas/teste.c
 MAIN_VALIDACOES = src/programas/test_validacoes.c
 MAIN_INTERATIVO = src/programas/interativo.c
 
-# Executáveis
 EXEC_PRINCIPAL = programa-principal
 EXEC_TESTES = programa-testes
 EXEC_VALIDACOES = test_validacoes
 EXEC_INTERATIVO = programa-interativo
 
-# Targets principais
-all: $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_INTERATIVO)
+OBJ_CORE = $(addprefix $(OBJDIR)/,$(SRC_CORE:.c=.o))
+OBJ_GESTOR_PROGRAMA = $(addprefix $(OBJDIR)/,$(SRC_GESTOR_PROGRAMA:.c=.o))
+OBJ_GESTOR_PROGRAMAS = $(addprefix $(OBJDIR)/,$(SRC_GESTOR_PROGRAMAS:.c=.o))
 
-$(EXEC_PRINCIPAL): $(MAIN_PRINCIPAL) $(SRC_GESTOR_PROGRAMA) $(SRC_GESTORES) \
-$(SRC_ENTIDADES) $(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS) $(SRC_ESTRUTURAS)
-	@echo "Compilando $(EXEC_PRINCIPAL)..."
-	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+OBJ_MAIN_PRINCIPAL = $(OBJDIR)/$(MAIN_PRINCIPAL:.c=.o)
+OBJ_MAIN_TESTES = $(OBJDIR)/$(MAIN_TESTES:.c=.o)
+OBJ_MAIN_VALIDACOES = $(OBJDIR)/$(MAIN_VALIDACOES:.c=.o)
+OBJ_MAIN_INTERATIVO = $(OBJDIR)/$(MAIN_INTERATIVO:.c=.o)
 
-$(EXEC_TESTES): $(MAIN_TESTES) $(SRC_GESTOR_PROGRAMAS) $(SRC_GESTORES) $(SRC_ENTIDADES) \
-$(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS) $(SRC_ESTRUTURAS)
-	@echo "Compilando $(EXEC_TESTES)..."
-	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+# Default target
+all: $(EXEC_PRINCIPAL) $(EXEC_TESTES)
 
-$(EXEC_INTERATIVO): $(MAIN_INTERATIVO) $(SRC_GESTOR_PROGRAMAS) $(SRC_GESTORES) $(SRC_ENTIDADES) \
-$(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS) $(SRC_ESTRUTURAS)
-	@echo "Compilando $(EXEC_INTERATIVO)..."
-	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+# Build rules
+$(EXEC_PRINCIPAL): $(OBJ_MAIN_PRINCIPAL) $(OBJ_GESTOR_PROGRAMA) $(OBJ_CORE)
+	@echo "LD  $@"
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(EXEC_VALIDACOES): $(MAIN_VALIDACOES) $(SRC_ENTIDADES) $(SRC_PARSERS) $(SRC_UTILS)
-	@echo "Compilando $(EXEC_VALIDACOES)..."
-	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+$(EXEC_TESTES): $(OBJ_MAIN_TESTES) $(OBJ_GESTOR_PROGRAMAS) $(OBJ_CORE)
+	@echo "LD  $@"
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
+$(EXEC_INTERATIVO): $(OBJ_MAIN_INTERATIVO) $(OBJ_GESTOR_PROGRAMAS) $(OBJ_CORE)
+	@echo "LD  $@"
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-# Limpeza
+$(EXEC_VALIDACOES): $(OBJ_MAIN_VALIDACOES) $(OBJ_CORE)
+	@echo "LD  $@"
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+# Compile objects with deps
+$(OBJDIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	@echo "CC  $<"
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
+
+-include $(OBJ_CORE:.o=.d) $(OBJ_GESTOR_PROGRAMA:.o=.d) $(OBJ_GESTOR_PROGRAMAS:.o=.d) \
+	$(OBJ_MAIN_PRINCIPAL:.o=.d) $(OBJ_MAIN_TESTES:.o=.d) $(OBJ_MAIN_VALIDACOES:.o=.d) \
+	$(OBJ_MAIN_INTERATIVO:.o=.d)
+
+# Convenience targets
+interativo: $(EXEC_INTERATIVO)
+validacoes: $(EXEC_VALIDACOES)
+
+release:
+	$(MAKE) MODE=release
+
+sanitize:
+	$(MAKE) MODE=sanitize
+
 clean:
-	@echo "A limpar ficheiros compilados..."
-	rm -f $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_INTERATIVO) $(EXEC_VALIDACOES)
-	find src -type f -name "*.o" -delete
-	rm -f resultados/*.txt resultados/*_errors.csv
+	@echo "CLEAN"
+	@rm -rf build $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_INTERATIVO) $(EXEC_VALIDACOES)
 
-# Execuções rápidas ou com Valgrind
-VALGRIND = valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --error-exitcode=1
-TIME = /usr/bin/time -v
+# Test/bench helpers
+TEST_DATASET ?= sem_erros
+TEST_INPUT ?= inputs_fase2.txt
 
-run-erros: $(EXEC_PRINCIPAL)
-	@echo "Executando com dataset COM_ERROS (Valgrind + Tempo)..."
-	$(TIME) $(VALGRIND) ./$(EXEC_PRINCIPAL) com_erros/ inputs_fase2.txt
+run: $(EXEC_PRINCIPAL)
+	./$(EXEC_PRINCIPAL) $(TEST_DATASET)/ $(TEST_INPUT)
 
-run-sem-erros: $(EXEC_PRINCIPAL)
-	@echo "Executando com dataset SEM_ERROS (Valgrind + Tempo)..."
-	$(TIME) $(VALGRIND) ./$(EXEC_PRINCIPAL) sem_erros/ inputs_fase2.txt
+test: $(EXEC_TESTES)
+	./$(EXEC_TESTES) $(TEST_DATASET)/ $(TEST_INPUT)
 
-run-fast: $(EXEC_PRINCIPAL)
-	@echo "Execução rápida SEM Valgrind..."
-	$(TIME) ./$(EXEC_PRINCIPAL) sem_erros/ inputs_fase2.txt
+VALGRIND ?= valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --error-exitcode=1
+TIME ?= /usr/bin/time -v
 
-.PHONY: all clean run-erros run-sem-erros run-fast
+run-valgrind: $(EXEC_PRINCIPAL)
+	$(TIME) $(VALGRIND) ./$(EXEC_PRINCIPAL) $(TEST_DATASET)/ $(TEST_INPUT)
+
+format:
+	@if command -v clang-format >/dev/null 2>&1; then \
+		clang-format -i $(shell rg --files -g '*.c' -g '*.h' src include); \
+	else \
+		echo "clang-format não encontrado"; \
+	fi
+
+.PHONY: all clean interativo validacoes release sanitize run test run-valgrind format

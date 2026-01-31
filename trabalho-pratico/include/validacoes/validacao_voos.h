@@ -15,6 +15,7 @@
  *
  * @param colunas Array de strings com os campos do voo.
  * @return Ponteiro para `voo_info_t` se válido, NULL caso algum campo seja inválido.
+ * @note Thread-safety: não thread-safe.
  */
 voo_info_t *valida_voo(char **colunas);
 

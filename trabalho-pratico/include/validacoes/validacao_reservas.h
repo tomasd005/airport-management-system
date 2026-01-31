@@ -8,15 +8,6 @@
 typedef struct voo voo_t;
 typedef struct passageiro passageiro_t;
 
-typedef struct {
-    const char *flight_ids[2];
-    size_t num_voos;
-    const char *document_number;
-    uint32_t document_key;
-    double preco;
-    uint32_t reserva_key;
-} reserva_parse_t;
-
 /**
  * @brief Valida os campos de uma reserva sem criar o objeto.
  *
@@ -30,6 +21,7 @@ typedef struct {
  * @param out_document_key Saída: chave numérica do documento.
  * @param out_preco Saída: preço da reserva.
  * @return TRUE se todos os campos forem válidos, FALSE caso contrário.
+ * @note Thread-safety: não thread-safe.
  */
 gboolean valida_reserva_campos(char **colunas, const char **out_flight_ids, size_t *out_num_voos,
                                const char **out_document_number, uint32_t *out_document_key,
@@ -45,19 +37,12 @@ gboolean valida_reserva_campos(char **colunas, const char **out_flight_ids, size
  * @param out_document_key Ponteiro para chave de documento
  * @param out_preco Ponteiro para preço
  * @return TRUE se sintaticamente válida
+ * @note Ownership: ponteiros em out_* referenciam o buffer original das colunas.
  */
 gboolean reserva_validar_sintatica(char **colunas, const char **out_flight_ids,
                                    size_t *out_num_voos, const char **out_document_number,
                                    uint32_t *out_document_key, double *out_preco);
 
-/**
- * @brief Faz parsing de uma reserva e devolve estrutura parseada.
- *
- * @param colunas Array de strings do CSV.
- * @param out_parsed Estrutura de saída.
- * @return TRUE se sintaticamente válida.
- */
-gboolean reserva_parse_campos(char **colunas, reserva_parse_t *out_parsed);
 
 /**
  * @brief Validação lógica de reserva (referências e coerência entre voos).

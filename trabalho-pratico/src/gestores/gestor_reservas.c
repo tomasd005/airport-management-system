@@ -270,8 +270,9 @@ static void acumular_destinos_nacionalidade(gestor_reservas_t *gestor, passageir
     }
 }
 
-static gboolean gestor_reservas_adicionar_validado(reservas_ctx_t *ctx, const reserva_parse_t *parsed,
-                                                   char **colunas)
+static gboolean gestor_reservas_adicionar_validado(reservas_ctx_t *ctx, char **colunas,
+                                                   const char *flight_ids[2], size_t num_voos,
+                                                   uint32_t doc_key, double preco)
 {
     gestor_reservas_t *gestor = ctx->gestor;
     gestor_voos_t *gestor_voos = ctx->gestor_voos;
@@ -289,33 +290,33 @@ static gboolean gestor_reservas_adicionar_validado(reservas_ctx_t *ctx, const re
     }
 
     if (parser_sem_erros_ativo()) {
-        for (size_t i = 0; i < parsed->num_voos; i++)
-            flight_keys[i] = flight_id_key_fast(parsed->flight_ids[i]);
+        for (size_t i = 0; i < num_voos; i++)
+            flight_keys[i] = flight_id_key_fast(flight_ids[i]);
     } else {
-        for (size_t i = 0; i < parsed->num_voos; i++) {
-            if (!utils_flight_id_key(parsed->flight_ids[i], &flight_keys[i]))
+        for (size_t i = 0; i < num_voos; i++) {
+            if (!utils_flight_id_key(flight_ids[i], &flight_keys[i]))
                 return FALSE;
         }
     }
 
     passageiro_t *passageiro =
-        gestor_passageiros_obter_por_documento_key(gestor_passageiros, parsed->document_key);
+        gestor_passageiros_obter_por_documento_key(gestor_passageiros, doc_key);
     if (!passageiro)
         return FALSE;
 
-    for (size_t i = 0; i < parsed->num_voos; i++) {
+    for (size_t i = 0; i < num_voos; i++) {
         voos[i] = gestor_voos_obter_por_key(gestor_voos, flight_keys[i]);
         if (!voos[i])
             return FALSE;
     }
 
-    if (!parser_sem_erros_ativo() && !reserva_validar_logica(voos, parsed->num_voos, passageiro))
+    if (!parser_sem_erros_ativo() && !reserva_validar_logica(voos, num_voos, passageiro))
         return FALSE;
 
     gestor->total_reservas++;
-    acumular_passageiros_voos_ptr(voos, parsed->num_voos);
-    acumular_gastos_semana(gestor, parsed->document_key, parsed->preco, voos, parsed->num_voos);
-    acumular_destinos_nacionalidade(gestor, passageiro, voos, parsed->num_voos);
+    acumular_passageiros_voos_ptr(voos, num_voos);
+    acumular_gastos_semana(gestor, doc_key, preco, voos, num_voos);
+    acumular_destinos_nacionalidade(gestor, passageiro, voos, num_voos);
     return TRUE;
 }
 
@@ -339,11 +340,17 @@ static gboolean processar_reserva_colunas(void *contexto, char **colunas)
     if (!ctx || !ctx->gestor || !ctx->gestor_voos || !ctx->gestor_passageiros)
         return FALSE;
 
-    reserva_parse_t parsed;
-    if (!reserva_parse_campos(colunas, &parsed))
+    const char *flight_ids[2] = {0};
+    size_t num_voos = 0;
+    const char *document_number = NULL;
+    double preco = 0.0;
+    uint32_t doc_key = 0;
+
+    if (!reserva_validar_sintatica(colunas, flight_ids, &num_voos, &document_number, &doc_key,
+                                   &preco))
         return FALSE;
 
-    return gestor_reservas_adicionar_validado(ctx, &parsed, colunas);
+    return gestor_reservas_adicionar_validado(ctx, colunas, flight_ids, num_voos, doc_key, preco);
 }
 
 /**

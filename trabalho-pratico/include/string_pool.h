@@ -8,6 +8,8 @@
  *
  * @param s String a internar.
  * @return ID interno (>0) ou 0 para string vazia/NULL.
+ * @note Ownership: a string internada é gerida pelo pool.
+ * @note Thread-safety: sim (mutex interno).
  */
 uint32_t string_pool_intern_id(const char *s);
 
@@ -16,6 +18,7 @@ uint32_t string_pool_intern_id(const char *s);
  *
  * @param id Identificador da string.
  * @return Ponteiro constante para a string, ou NULL se inválido.
+ * @note Ownership: ponteiro válido enquanto o pool existir.
  */
 const char *string_pool_get(uint32_t id);
 
@@ -24,6 +27,7 @@ const char *string_pool_get(uint32_t id);
  *
  * @param s String a internar.
  * @return Ponteiro estável para a string ("" se NULL/vazia).
+ * @note Ownership: ponteiro válido enquanto o pool existir.
  */
 const char *string_pool_intern(const char *s);
 
@@ -31,6 +35,7 @@ const char *string_pool_intern(const char *s);
  * @brief Limpa o pool (liberta toda a memória internada).
  *
  * Deve ser chamado no final da aplicação se for necessário libertar memória.
+ * @note Thread-safety: não chamar concorrentemente com outras operações do pool.
  */
 void string_pool_clear(void);
 

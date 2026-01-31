@@ -1,6 +1,13 @@
 #include "estruturas/voo_table.h"
 #include <stdlib.h>
 
+struct voo_table {
+    uint64_t *keys;
+    voo_t **values;
+    size_t size;
+    size_t capacity;
+};
+
 static inline uint64_t hash64(uint64_t x)
 {
     x ^= x >> 33;
@@ -51,6 +58,28 @@ void voo_table_destroy(voo_table_t *t, void (*destroy)(voo_t *))
     t->values = NULL;
     t->capacity = 0;
     t->size = 0;
+}
+
+voo_table_t *voo_table_create(size_t capacity)
+{
+    voo_table_t *t = malloc(sizeof(*t));
+    if (!t)
+        return NULL;
+    voo_table_init(t, capacity);
+    if (!t->keys || !t->values) {
+        voo_table_destroy(t, NULL);
+        free(t);
+        return NULL;
+    }
+    return t;
+}
+
+void voo_table_free(voo_table_t *t, void (*destroy)(voo_t *))
+{
+    if (!t)
+        return;
+    voo_table_destroy(t, destroy);
+    free(t);
 }
 
 static int voo_table_resize(voo_table_t *t, size_t new_cap)

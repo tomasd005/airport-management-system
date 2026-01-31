@@ -347,30 +347,6 @@ gboolean reserva_validar_sintatica(char **colunas, const char **out_flight_ids,
     return TRUE;
 }
 
-gboolean reserva_parse_campos(char **colunas, reserva_parse_t *out_parsed)
-{
-    if (!out_parsed)
-        return FALSE;
-
-    const char *flight_ids[2] = {0};
-    size_t num_voos = 0;
-    const char *document_number = NULL;
-    uint32_t doc_key = 0;
-    double preco = 0.0;
-
-    if (!reserva_validar_sintatica(colunas, flight_ids, &num_voos, &document_number, &doc_key,
-                                   &preco))
-        return FALSE;
-
-    out_parsed->flight_ids[0] = flight_ids[0];
-    out_parsed->flight_ids[1] = flight_ids[1];
-    out_parsed->num_voos = num_voos;
-    out_parsed->document_number = document_number;
-    out_parsed->document_key = doc_key;
-    out_parsed->preco = preco;
-    out_parsed->reserva_key = 0;
-    return TRUE;
-}
 
 gboolean reserva_validar_logica(voo_t *const *voos, size_t num_voos, passageiro_t *passageiro)
 {

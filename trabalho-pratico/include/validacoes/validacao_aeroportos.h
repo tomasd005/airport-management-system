@@ -13,6 +13,7 @@
  * 
  * @param colunas Array de strings com os valores das colunas do CSV.
  * @return Ponteiro para a entidade aeroporto_t se válido, NULL caso contrário.
+ * @note Thread-safety: não thread-safe.
  */
 gpointer valida_aeroporto(char **colunas);
 

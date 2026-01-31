@@ -14,6 +14,7 @@
  * 
  * @param colunas Array de strings com os valores das colunas do CSV.
  * @return Ponteiro para a entidade aviao_t se válido, NULL caso contrário.
+ * @note Thread-safety: não thread-safe.
  */
 aviao_t *valida_aviao(char **colunas);
 

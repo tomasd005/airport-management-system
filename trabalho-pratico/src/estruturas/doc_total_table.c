@@ -45,7 +45,6 @@ static void table_rehash(doc_total_table_t *tabela, size_t nova_cap)
         if (packed == 0)
             continue;
 
-        uint32_t key = key_unpack(packed);
         double val = old_vals[i];
         size_t mask = new_size - 1;
         size_t idx = hash_u32(packed) & mask;

@@ -33,8 +33,17 @@ gestor_queries_t *gestor_queries_criar(
     gestor_passageiros_t *passageiros,
     gestor_reservas_t *reservas);
 
+/**
+ * @brief Destrói o gestor de queries.
+ * @param gestor Gestor a destruir (aceita NULL).
+ */
 void gestor_queries_destruir(gestor_queries_t *gestor);
 
+/**
+ * @brief Processa um ficheiro de comandos (queries).
+ * @param gestor Gestor de queries.
+ * @param ficheiro_input Caminho do ficheiro de comandos.
+ */
 void gestor_queries_processar_ficheiro(
     gestor_queries_t *gestor,
     const char *ficheiro_input);

@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "parsers/parser.h"
 #include "utils.h"
 #include <stdio.h>
@@ -462,7 +461,6 @@ static void parser_carrega_streaming_paralelo(void *contexto, const char *fichei
 
     while ((lidos = read(fd, buffer + buffer_len, IO_BUFFER_SIZE - buffer_len - 1)) > 0) {
         size_t total = buffer_len + (size_t)lidos;
-        size_t start = 0;
         buffer[total] = '\0';
 
         char *last_nl = memrchr(buffer, '\n', total);

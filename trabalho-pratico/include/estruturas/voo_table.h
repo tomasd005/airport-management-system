@@ -16,14 +16,9 @@ typedef struct voo voo_t;
 
 /**
  * @struct voo_table_t
- * @brief Estrutura principal da tabela de voos.
+ * @brief Estrutura opaca da tabela de voos.
  */
-typedef struct {
-    uint64_t *keys;
-    voo_t **values;
-    size_t size;
-    size_t capacity;
-} voo_table_t;
+typedef struct voo_table voo_table_t;
 
 /**
  * @brief Inicializa a tabela com a capacidade mínima indicada.
@@ -40,6 +35,24 @@ void voo_table_init(voo_table_t *t, size_t capacity);
  * @param destroy Função para destruir valores (pode ser NULL).
  */
 void voo_table_destroy(voo_table_t *t, void (*destroy)(voo_t *));
+
+/**
+ * @brief Cria uma nova tabela e inicializa com capacidade mínima.
+ *
+ * @param capacity Capacidade mínima desejada.
+ * @return Ponteiro para tabela criada ou NULL em erro.
+ * @note Ownership: o chamador deve libertar com voo_table_free.
+ */
+voo_table_t *voo_table_create(size_t capacity);
+
+/**
+ * @brief Destrói e liberta a tabela criada dinamicamente.
+ *
+ * @param t Tabela.
+ * @param destroy Função para destruir valores (pode ser NULL).
+ * @note Aceita NULL.
+ */
+void voo_table_free(voo_table_t *t, void (*destroy)(voo_t *));
 
 /**
  * @brief Procura um voo por chave.

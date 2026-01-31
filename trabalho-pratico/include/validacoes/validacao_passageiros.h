@@ -17,6 +17,7 @@
  *
  * @param colunas Array de strings com os campos do passageiro:
  * @return Ponteiro para `passageiro_t` criado se válido, NULL caso contrário.
+ * @note Thread-safety: não thread-safe.
  */
 passageiro_t *valida_passageiro(char **colunas);
 
