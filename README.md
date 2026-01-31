@@ -68,8 +68,7 @@ Funcionalidades no modo interativo:
 - `LI3_SKIP_ERROR_LOG=1`  
   Desativa o log de erros CSV (reduz I/O em datasets grandes).
 - `LI3_PARSE_THREADS=N` + `LI3_PARSE_UNSAFE=1`  
-  Ativa parsing em paralelo com N threads (experimental; pode alterar resultados se o código
-  usar estruturas globais não thread‑safe).
+  Ativa parsing em paralelo com N threads (experimental; pode alterar resultados em alguns datasets).
 
 ## Benchmarks em Docker
 ```

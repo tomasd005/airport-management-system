@@ -3,6 +3,7 @@
 #include <glib.h>
 #include <ctype.h>
 #include <stdint.h>
+#include <pthread.h>
 
 void utils_remove_aspas_somente(char *str)
 {
@@ -299,21 +300,23 @@ void utils_aeroporto_codigo(int idx, char out[4])
     out[3] = '\0';
 }
 
+enum { NUM_AEROPORTOS = 26 * 26 * 26 };
+static char g_aeroporto_codes[NUM_AEROPORTOS][4];
+static pthread_once_t g_aeroporto_codes_once = PTHREAD_ONCE_INIT;
+
+static void init_aeroporto_codes(void)
+{
+    for (int i = 0; i < NUM_AEROPORTOS; i++)
+        utils_aeroporto_codigo(i, g_aeroporto_codes[i]);
+}
+
 const char *utils_aeroporto_codigo_const(int idx)
 {
-    enum { NUM_AEROPORTOS = 26 * 26 * 26 };
-    static char codes[NUM_AEROPORTOS][4];
-    static int initialized = 0;
 
     if (idx < 0 || idx >= NUM_AEROPORTOS)
         return NULL;
 
-    if (!initialized)
-    {
-        for (int i = 0; i < NUM_AEROPORTOS; i++)
-            utils_aeroporto_codigo(i, codes[i]);
-        initialized = 1;
-    }
+    pthread_once(&g_aeroporto_codes_once, init_aeroporto_codes);
 
-    return codes[idx];
+    return g_aeroporto_codes[idx];
 }
