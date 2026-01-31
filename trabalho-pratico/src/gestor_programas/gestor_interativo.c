@@ -206,6 +206,37 @@ static int ler_linha(const char *prompt, char *buf, size_t size, int obrigatorio
     return 1;
 }
 
+static void history_save(gestor_interativo_t *gestor)
+{
+    if (!gestor || gestor->history_count == 0) {
+        printf(YELLOW "Sem histórico para guardar.\n" RESET);
+        return;
+    }
+
+    char caminho[BUFFER_SIZE];
+    if (!ler_linha("Caminho para guardar histórico: ", caminho, sizeof(caminho), 1)) {
+        printf(RED "✗ Caminho inválido.\n" RESET);
+        return;
+    }
+
+    FILE *out = fopen(caminho, "w");
+    if (!out) {
+        printf(RED "✗ Não foi possível abrir '%s' (%s)\n" RESET, caminho, strerror(errno));
+        return;
+    }
+
+    int start = gestor->history_pos - gestor->history_count;
+    for (int i = 0; i < gestor->history_count; i++) {
+        int idx = (start + i) % HISTORY_MAX;
+        if (idx < 0)
+            idx += HISTORY_MAX;
+        fprintf(out, "%s\n", gestor->history[idx]);
+    }
+
+    fclose(out);
+    printf(GREEN "✓ Histórico guardado em: %s\n" RESET, caminho);
+}
+
 static FILE *pedir_saida_ficheiro(char *caminho, size_t tamanho)
 {
     char resposta[8];
@@ -384,6 +415,8 @@ static void mostrar_menu(void)
                      " - Última query (detalhes)                 " BOLD BLUE "║\n" RESET);
     printf(BOLD BLUE "║" RESET " " MAGENTA "12" RESET
                      " - Repetir última query                     " BOLD BLUE "║\n" RESET);
+    printf(BOLD BLUE "║" RESET " " MAGENTA "13" RESET
+                     " - Guardar histórico                         " BOLD BLUE "║\n" RESET);
     printf(BOLD BLUE "║" RESET "                                            " BOLD BLUE
                      "║\n" RESET);
     printf(BOLD BLUE "║" RESET " " YELLOW "0" RESET
@@ -391,7 +424,7 @@ static void mostrar_menu(void)
     printf(BOLD BLUE "╚═══════════════════════════════════════════════╝\n" RESET);
     printf("Atalhos: " CYAN "q1..q6" RESET ", " CYAN "stats" RESET ", " CYAN "reload" RESET
            ", " CYAN "clear" RESET ", " CYAN "history" RESET ", " CYAN "repeat" RESET
-           ", " CYAN "last" RESET "\n");
+           ", " CYAN "last" RESET ", " CYAN "savehist" RESET "\n");
 }
 
 static void executar_query1(gestor_interativo_t *gestor)
@@ -766,6 +799,7 @@ static void mostrar_ajuda(void)
     printf("  - repeat / r: repete a última query\n");
     printf("  - clear: limpa o ecrã\n");
     printf("  - last: mostra a última query executada\n");
+    printf("  - savehist: guarda o histórico em ficheiro\n");
 }
 
 /**
@@ -830,6 +864,8 @@ void gestor_interativo_executar(gestor_interativo_t *gestor)
             escolha = 12;
         } else if (strcmp(opcao, "last") == 0) {
             escolha = 11;
+        } else if (strcmp(opcao, "savehist") == 0) {
+            escolha = 13;
         } else if (strcmp(opcao, "clear") == 0) {
             escolha = 99;
         } else {
@@ -902,12 +938,16 @@ void gestor_interativo_executar(gestor_interativo_t *gestor)
             executar_ultima_query(gestor);
             break;
 
+        case 13:
+            history_save(gestor);
+            break;
+
         case 99:
             limpar_ecra();
             break;
 
         default:
-            printf(RED "✗ Opção inválida! Escolha entre 0-12.\n" RESET);
+            printf(RED "✗ Opção inválida! Escolha entre 0-13.\n" RESET);
             break;
         }
 

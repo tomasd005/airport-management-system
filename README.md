@@ -67,6 +67,9 @@ Funcionalidades no modo interativo:
 ## Variáveis de ambiente úteis
 - `LI3_SKIP_ERROR_LOG=1`  
   Desativa o log de erros CSV (reduz I/O em datasets grandes).
+- `LI3_PARSE_THREADS=N` + `LI3_PARSE_UNSAFE=1`  
+  Ativa parsing em paralelo com N threads (experimental; pode alterar resultados se o código
+  usar estruturas globais não thread‑safe).
 
 ## Benchmarks em Docker
 ```
@@ -77,4 +80,3 @@ docker run --rm -v "$PWD/resultados:/app/resultados" li3-bench
 Os ficheiros finais ficam em:
 - `resultados/benchmark-regular.json` / `benchmark-regular.html`
 - `resultados/benchmark-large.json` / `benchmark-large.html`
-

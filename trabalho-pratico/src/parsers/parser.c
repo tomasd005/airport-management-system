@@ -6,11 +6,40 @@
 #include <string.h>
 #include <glib.h>
 #include <time.h>
+#include <pthread.h>
 #include <fcntl.h>
 #include <unistd.h>
 
 #define MAX_COLUNAS 100
 #define IO_BUFFER_SIZE (8 * 1024 * 1024)
+#define PARSE_QUEUE_CAP 128
+
+typedef struct {
+    char *data;
+    size_t len;
+} parse_chunk_t;
+
+typedef struct {
+    parse_chunk_t items[PARSE_QUEUE_CAP];
+    size_t head;
+    size_t tail;
+    size_t count;
+    int done;
+    pthread_mutex_t mutex;
+    pthread_cond_t not_empty;
+    pthread_cond_t not_full;
+} parse_queue_t;
+
+typedef struct {
+    parse_queue_t *queue;
+    void *contexto;
+    AdicionaObjeto adiciona_objeto;
+    LinhaParaObjeto linha_para_objeto;
+    DestroiObjeto destroi_objeto;
+    int max_colunas;
+    int colunas_necessarias;
+    pthread_mutex_t *add_mutex;
+} parse_worker_ctx_t;
 static int g_sem_erros_ativo = 0;
 static int g_dataset_grande_ativo = 0;
 static int g_skip_error_log_decidido = 0;
@@ -28,6 +57,116 @@ static int parser_skip_error_log(void)
         g_skip_error_log_decidido = 1;
     }
     return g_skip_error_log;
+}
+
+static int parser_threads_ativado(void)
+{
+    const char *env = getenv("LI3_PARSE_THREADS");
+    const char *unsafe = getenv("LI3_PARSE_UNSAFE");
+    if (!unsafe || (*unsafe != '1' && *unsafe != 'y' && *unsafe != 'Y'))
+        return 0;
+    if (!env || !*env)
+        return 0;
+    return atoi(env);
+}
+
+static void parse_queue_init(parse_queue_t *q)
+{
+    memset(q, 0, sizeof(*q));
+    pthread_mutex_init(&q->mutex, NULL);
+    pthread_cond_init(&q->not_empty, NULL);
+    pthread_cond_init(&q->not_full, NULL);
+}
+
+static void parse_queue_destroy(parse_queue_t *q)
+{
+    pthread_mutex_destroy(&q->mutex);
+    pthread_cond_destroy(&q->not_empty);
+    pthread_cond_destroy(&q->not_full);
+}
+
+static void parse_queue_push(parse_queue_t *q, parse_chunk_t *task)
+{
+    pthread_mutex_lock(&q->mutex);
+    while (q->count == PARSE_QUEUE_CAP)
+        pthread_cond_wait(&q->not_full, &q->mutex);
+    q->items[q->tail] = *task;
+    q->tail = (q->tail + 1) % PARSE_QUEUE_CAP;
+    q->count++;
+    pthread_cond_signal(&q->not_empty);
+    pthread_mutex_unlock(&q->mutex);
+}
+
+static int parse_queue_pop(parse_queue_t *q, parse_chunk_t *out)
+{
+    pthread_mutex_lock(&q->mutex);
+    while (q->count == 0 && !q->done)
+        pthread_cond_wait(&q->not_empty, &q->mutex);
+    if (q->count == 0 && q->done) {
+        pthread_mutex_unlock(&q->mutex);
+        return 0;
+    }
+    *out = q->items[q->head];
+    q->head = (q->head + 1) % PARSE_QUEUE_CAP;
+    q->count--;
+    pthread_cond_signal(&q->not_full);
+    pthread_mutex_unlock(&q->mutex);
+    return 1;
+}
+
+static void parse_queue_finish(parse_queue_t *q)
+{
+    pthread_mutex_lock(&q->mutex);
+    q->done = 1;
+    pthread_cond_broadcast(&q->not_empty);
+    pthread_mutex_unlock(&q->mutex);
+}
+
+static void *parse_worker(void *arg)
+{
+    parse_worker_ctx_t *ctx = (parse_worker_ctx_t *)arg;
+    parse_chunk_t task;
+
+    while (parse_queue_pop(ctx->queue, &task)) {
+        char *cur = task.data;
+        char *end = task.data + task.len;
+
+        while (cur < end) {
+            char *nl = memchr(cur, '\n', (size_t)(end - cur));
+            if (!nl)
+                nl = end;
+
+            if (nl > cur && nl[-1] == '\r')
+                nl[-1] = '\0';
+            if (nl < end)
+                *nl = '\0';
+
+            if (*cur) {
+                char *colunas[MAX_COLUNAS + 1];
+                int numColunas = parser_dividir_csv_ate(cur, colunas, ctx->max_colunas,
+                                                       ctx->colunas_necessarias);
+                if (numColunas >= ctx->colunas_necessarias) {
+                    gpointer objeto = ctx->linha_para_objeto(colunas);
+                    if (objeto) {
+                        int ok;
+                        pthread_mutex_lock(ctx->add_mutex);
+                        ok = ctx->adiciona_objeto(ctx->contexto, objeto);
+                        pthread_mutex_unlock(ctx->add_mutex);
+                        if (!ok)
+                            ctx->destroi_objeto(objeto);
+                    }
+                }
+            }
+
+            if (nl == end)
+                break;
+            cur = nl + 1;
+        }
+
+        free(task.data);
+    }
+
+    return NULL;
 }
 
 int parser_sem_erros_ativo(void)
@@ -279,6 +418,138 @@ cleanup:
     close(fd);
 }
 
+static void parser_carrega_streaming_paralelo(void *contexto, const char *ficheiro_csv,
+                                              AdicionaObjeto adiciona_objeto,
+                                              LinhaParaObjeto linha_para_objeto,
+                                              DestroiObjeto destroi_objeto, int max_colunas,
+                                              int colunas_necessarias, int sem_erros, int n_threads)
+{
+    int fd = open(ficheiro_csv, O_RDONLY);
+    if (fd < 0) {
+        perror("Erro ao abrir ficheiro CSV");
+        return;
+    }
+    posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
+
+    char *buffer = malloc(IO_BUFFER_SIZE + 1);
+    if (!buffer) {
+        close(fd);
+        return;
+    }
+
+    parse_queue_t queue;
+    parse_queue_init(&queue);
+
+    pthread_mutex_t add_mutex = PTHREAD_MUTEX_INITIALIZER;
+    pthread_t *threads = calloc((size_t)n_threads, sizeof(pthread_t));
+    parse_worker_ctx_t ctx = {
+        .queue = &queue,
+        .contexto = contexto,
+        .adiciona_objeto = adiciona_objeto,
+        .linha_para_objeto = linha_para_objeto,
+        .destroi_objeto = destroi_objeto,
+        .max_colunas = max_colunas,
+        .colunas_necessarias = colunas_necessarias,
+        .add_mutex = &add_mutex,
+    };
+
+    for (int i = 0; i < n_threads; i++)
+        pthread_create(&threads[i], NULL, parse_worker, &ctx);
+
+    size_t buffer_len = 0;
+    ssize_t lidos;
+    int primeira_linha = 1;
+
+    while ((lidos = read(fd, buffer + buffer_len, IO_BUFFER_SIZE - buffer_len - 1)) > 0) {
+        size_t total = buffer_len + (size_t)lidos;
+        size_t start = 0;
+        buffer[total] = '\0';
+
+        char *last_nl = memrchr(buffer, '\n', total);
+        if (!last_nl) {
+            buffer_len = total;
+            if (buffer_len >= IO_BUFFER_SIZE - 1) {
+                buffer[total] = '\0';
+                parse_chunk_t task = {.data = strdup(buffer), .len = strlen(buffer)};
+                if (task.data) {
+                    if (primeira_linha) {
+                        char *nl = strchr(task.data, '\n');
+                        if (nl) {
+                            size_t header_len = (size_t)(nl - task.data);
+                            memmove(task.data, nl + 1, task.len - header_len - 1);
+                            task.len -= header_len + 1;
+                        }
+                        primeira_linha = 0;
+                    }
+                    if (task.len > 0)
+                        parse_queue_push(&queue, &task);
+                    else
+                        free(task.data);
+                }
+                buffer_len = 0;
+            }
+            continue;
+        }
+
+        size_t chunk_len = (size_t)(last_nl - buffer);
+        parse_chunk_t task = {0};
+        task.data = malloc(chunk_len + 1);
+        if (task.data) {
+            memcpy(task.data, buffer, chunk_len);
+            task.data[chunk_len] = '\0';
+            task.len = chunk_len;
+
+            if (primeira_linha) {
+                char *nl = strchr(task.data, '\n');
+                if (nl) {
+                    size_t header_len = (size_t)(nl - task.data);
+                    memmove(task.data, nl + 1, task.len - header_len - 1);
+                    task.len -= header_len + 1;
+                }
+                primeira_linha = 0;
+            }
+
+            if (task.len > 0)
+                parse_queue_push(&queue, &task);
+            else
+                free(task.data);
+        }
+
+        buffer_len = total - (chunk_len + 1);
+        if (buffer_len > 0)
+            memmove(buffer, last_nl + 1, buffer_len);
+    }
+
+    if (lidos >= 0 && buffer_len > 0) {
+        buffer[buffer_len] = '\0';
+        parse_chunk_t task = {.data = strdup(buffer), .len = strlen(buffer)};
+        if (task.data) {
+            if (primeira_linha) {
+                char *nl = strchr(task.data, '\n');
+                if (nl) {
+                    size_t header_len = (size_t)(nl - task.data);
+                    memmove(task.data, nl + 1, task.len - header_len - 1);
+                    task.len -= header_len + 1;
+                }
+                primeira_linha = 0;
+            }
+            if (task.len > 0)
+                parse_queue_push(&queue, &task);
+            else
+                free(task.data);
+        }
+    }
+
+    parse_queue_finish(&queue);
+    for (int i = 0; i < n_threads; i++)
+        pthread_join(threads[i], NULL);
+
+    free(threads);
+    parse_queue_destroy(&queue);
+    free(buffer);
+    close(fd);
+}
+
 /**
  * @brief Carrega um ficheiro CSV e processa cada linha.
  */
@@ -293,8 +564,16 @@ void parser_carrega(void *contexto, const char *ficheiro_csv, AdicionaObjeto adi
 
     g_sem_erros_ativo = sem_erros;
     g_dataset_grande_ativo = dataset_grande;
-    parser_carrega_streaming(contexto, ficheiro_csv, adiciona_objeto, linha_para_objeto,
-                             destroi_objeto, max_colunas, colunas_necessarias, sem_erros);
+    int n_threads = parser_threads_ativado();
+    int skip_errors = parser_skip_error_log();
+    if (n_threads > 1 && (sem_erros || skip_errors)) {
+        parser_carrega_streaming_paralelo(contexto, ficheiro_csv, adiciona_objeto,
+                                          linha_para_objeto, destroi_objeto, max_colunas,
+                                          colunas_necessarias, sem_erros, n_threads);
+    } else {
+        parser_carrega_streaming(contexto, ficheiro_csv, adiciona_objeto, linha_para_objeto,
+                                 destroi_objeto, max_colunas, colunas_necessarias, sem_erros);
+    }
     g_sem_erros_ativo = 0;
     g_dataset_grande_ativo = 0;
 }
