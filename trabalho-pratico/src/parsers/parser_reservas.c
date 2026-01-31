@@ -5,31 +5,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 
 #define MAX_COLUNAS_RESERVAS 16
 #define RESERVA_COLS 8
-#define MMAP_MIN_SIZE (16 * 1024 * 1024)
 #define IO_BUFFER_SIZE (8 * 1024 * 1024)
-
-static int g_mmap_decidido = 0;
-static int g_mmap_ativo = 0;
 static int g_skip_error_log_decidido = 0;
 static int g_skip_error_log = 0;
-
-static int parser_mmap_ativado(void)
-{
-    if (!g_mmap_decidido) {
-        const char *env_res = getenv("LI3_USE_MMAP_RESERVAS");
-        const char *env = env_res ? env_res : getenv("LI3_USE_MMAP");
-        g_mmap_ativo = (env && (*env == '1' || *env == 'y' || *env == 'Y'));
-        g_mmap_decidido = 1;
-    }
-    return g_mmap_ativo;
-}
 
 static int parser_skip_error_log(void)
 {
@@ -45,98 +28,55 @@ static int parser_skip_error_log(void)
     return g_skip_error_log;
 }
 
-static int carregar_mmap(const char *ficheiro_csv, void *contexto,
-                         ReservaProcessaLinha processa_linha)
+static void parser_reservas_tratar_linha(char *linha, char *linha_parse, size_t tamanho_parse,
+                                         size_t len, int sem_erros, int skip_errors,
+                                         FILE *ficheiro_erros, void *contexto,
+                                         ReservaProcessaLinha processa_linha)
 {
-    int fd = open(ficheiro_csv, O_RDONLY);
-    if (fd < 0)
-        return 0;
+    char *linha_trabalho = linha;
+    size_t len_parse = len;
 
-    posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
-
-    struct stat st;
-    if (fstat(fd, &st) != 0 || st.st_size <= 0) {
-        close(fd);
-        return 0;
+    if (!sem_erros && !skip_errors) {
+        if (len + 1 > tamanho_parse)
+            return;
+        memcpy(linha_parse, linha, len);
+        linha_parse[len] = '\0';
+        if (len > 0 && linha_parse[len - 1] == '\r')
+            linha_parse[len - 1] = '\0';
+        linha_trabalho = linha_parse;
+        len_parse = strlen(linha_trabalho);
+    } else {
+        if (len > 0 && linha[len - 1] == '\r')
+            linha[len - 1] = '\0';
     }
 
-    size_t size = (size_t)st.st_size;
-    char *data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-    if (data == MAP_FAILED) {
-        close(fd);
-        return 0;
-    }
-
-    madvise(data, size, MADV_SEQUENTIAL);
-
-    char *cur = data;
-    char *end = data + size;
-
-    char *nl = memchr(cur, '\n', (size_t)(end - cur));
-    if (!nl) {
-        munmap(data, size);
-        close(fd);
-        return 0;
-    }
-
-    *nl = '\0';
-    cur = nl + 1;
-
-    while (cur < end) {
-        nl = memchr(cur, '\n', (size_t)(end - cur));
-        if (!nl)
-            nl = end;
-
-        if (nl > cur && nl[-1] == '\r')
-            nl[-1] = '\0';
-        if (nl < end)
-            *nl = '\0';
-
-        if (*cur) {
-            char *colunas[MAX_COLUNAS_RESERVAS + 1];
-            int numColunas =
-                parser_dividir_csv_ate(cur, colunas, MAX_COLUNAS_RESERVAS, RESERVA_COLS);
-            if (numColunas >= RESERVA_COLS)
-                processa_linha(contexto, colunas);
-        }
-
-        if (nl == end)
-            break;
-        cur = nl + 1;
-    }
-
-    munmap(data, size);
-    close(fd);
-    return 1;
-}
-
-void parser_reservas_carregar(void *contexto, const char *ficheiro_csv,
-                              ReservaProcessaLinha processa_linha)
-{
-    if (!ficheiro_csv || !processa_linha)
+    if (len_parse == 0)
         return;
 
-    int sem_erros = (strstr(ficheiro_csv, "sem_erros") != NULL);
-    int dataset_grande = (strstr(ficheiro_csv, "grande") != NULL);
-    parser_definir_sem_erros(sem_erros);
-    parser_definir_dataset_grande(dataset_grande);
-    if (sem_erros && parser_mmap_ativado()) {
-        struct stat st;
-        if (stat(ficheiro_csv, &st) == 0 && st.st_size > MMAP_MIN_SIZE) {
-            if (carregar_mmap(ficheiro_csv, contexto, processa_linha)) {
-                parser_definir_sem_erros(0);
-                parser_definir_dataset_grande(0);
-                return;
-            }
-        }
+    char *colunas[MAX_COLUNAS_RESERVAS + 1];
+    int numColunas =
+        parser_dividir_csv_ate(linha_trabalho, colunas, MAX_COLUNAS_RESERVAS, RESERVA_COLS);
+    if (numColunas < RESERVA_COLS) {
+        if (ficheiro_erros)
+            fprintf(ficheiro_erros, "%s\n", linha);
+        return;
     }
 
-    FILE *ficheiro = fopen(ficheiro_csv, "r");
-    if (!ficheiro) {
+    if (!processa_linha(contexto, colunas)) {
+        if (ficheiro_erros)
+            fprintf(ficheiro_erros, "%s\n", linha);
+    }
+}
+
+static void parser_reservas_streaming(void *contexto, const char *ficheiro_csv,
+                                      ReservaProcessaLinha processa_linha, int sem_erros)
+{
+    int fd = open(ficheiro_csv, O_RDONLY);
+    if (fd < 0) {
         perror("Erro ao abrir ficheiro CSV");
         return;
     }
-    setvbuf(ficheiro, NULL, _IOFBF, IO_BUFFER_SIZE);
+    posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
 
     int skip_errors = parser_skip_error_log();
     FILE *ficheiro_erros = NULL;
@@ -151,52 +91,103 @@ void parser_reservas_carregar(void *contexto, const char *ficheiro_csv,
             setvbuf(ficheiro_erros, NULL, _IOFBF, IO_BUFFER_SIZE);
     }
 
-    char *linha = NULL;
-    size_t tamanho = 0;
+    char *buffer = malloc(IO_BUFFER_SIZE + 1);
+    if (!buffer) {
+        if (ficheiro_erros)
+            fclose(ficheiro_erros);
+        close(fd);
+        return;
+    }
+
     char *linha_parse = NULL;
     size_t tamanho_parse = 0;
+    size_t buffer_len = 0;
     ssize_t lidos;
+    int primeira_linha = 1;
 
-    if ((lidos = getline(&linha, &tamanho, ficheiro)) != -1) {
-        if (ficheiro_erros)
-            fputs(linha, ficheiro_erros);
-    }
+    while ((lidos = read(fd, buffer + buffer_len, IO_BUFFER_SIZE - buffer_len - 1)) > 0) {
+        size_t total = buffer_len + (size_t)lidos;
+        size_t start = 0;
+        buffer[total] = '\0';
 
-    while ((lidos = getline(&linha, &tamanho, ficheiro)) != -1) {
-        char *linha_trabalho = linha;
-        if (!sem_erros && !skip_errors) {
-            size_t necessario = (size_t)lidos + 1;
-            if (necessario > tamanho_parse) {
-                char *novo = realloc(linha_parse, necessario);
-                if (!novo)
-                    break;
-                linha_parse = novo;
-                tamanho_parse = necessario;
+        while (start < total) {
+            char *nl = memchr(buffer + start, '\n', total - start);
+            if (!nl)
+                break;
+
+            size_t len = (size_t)(nl - (buffer + start));
+            char *linha = buffer + start;
+            char saved = *nl;
+            *nl = '\0';
+
+            if (primeira_linha) {
+                if (ficheiro_erros)
+                    fprintf(ficheiro_erros, "%.*s\n", (int)len, linha);
+                primeira_linha = 0;
+            } else {
+                if (!sem_erros && !skip_errors) {
+                    if (len + 1 > tamanho_parse) {
+                        char *novo = realloc(linha_parse, len + 1);
+                        if (!novo)
+                            goto cleanup;
+                        linha_parse = novo;
+                        tamanho_parse = len + 1;
+                    }
+                }
+                parser_reservas_tratar_linha(linha, linha_parse, tamanho_parse, len, sem_erros,
+                                             skip_errors, ficheiro_erros, contexto, processa_linha);
             }
-            memcpy(linha_parse, linha, necessario);
-            linha_trabalho = linha_parse;
+
+            *nl = saved;
+            start = (size_t)(nl - buffer) + 1;
         }
 
-        char *colunas[MAX_COLUNAS_RESERVAS + 1];
-        int numColunas =
-            parser_dividir_csv_ate(linha_trabalho, colunas, MAX_COLUNAS_RESERVAS, RESERVA_COLS);
-        if (numColunas < RESERVA_COLS) {
-            if (ficheiro_erros)
-                fputs(linha, ficheiro_erros);
-            continue;
-        }
+        buffer_len = total - start;
+        if (buffer_len > 0)
+            memmove(buffer, buffer + start, buffer_len);
+    }
 
-        if (!processa_linha(contexto, colunas)) {
+    if (lidos >= 0 && buffer_len > 0) {
+        char *linha = buffer;
+        size_t len = buffer_len;
+        buffer[buffer_len] = '\0';
+        if (primeira_linha) {
             if (ficheiro_erros)
-                fputs(linha, ficheiro_erros);
+                fprintf(ficheiro_erros, "%.*s\n", (int)len, linha);
+        } else {
+            if (!sem_erros && !skip_errors) {
+                if (len + 1 > tamanho_parse) {
+                    char *novo = realloc(linha_parse, len + 1);
+                    if (!novo)
+                        goto cleanup;
+                    linha_parse = novo;
+                    tamanho_parse = len + 1;
+                }
+            }
+            parser_reservas_tratar_linha(linha, linha_parse, tamanho_parse, len, sem_erros,
+                                         skip_errors, ficheiro_erros, contexto, processa_linha);
         }
     }
 
+cleanup:
     free(linha_parse);
-    free(linha);
-    fclose(ficheiro);
+    free(buffer);
     if (ficheiro_erros)
         fclose(ficheiro_erros);
+    close(fd);
+}
+
+void parser_reservas_carregar(void *contexto, const char *ficheiro_csv,
+                              ReservaProcessaLinha processa_linha)
+{
+    if (!ficheiro_csv || !processa_linha)
+        return;
+
+    int sem_erros = (strstr(ficheiro_csv, "sem_erros") != NULL);
+    int dataset_grande = (strstr(ficheiro_csv, "grande") != NULL);
+    parser_definir_sem_erros(sem_erros);
+    parser_definir_dataset_grande(dataset_grande);
+    parser_reservas_streaming(contexto, ficheiro_csv, processa_linha, sem_erros);
     parser_definir_sem_erros(0);
     parser_definir_dataset_grande(0);
 }

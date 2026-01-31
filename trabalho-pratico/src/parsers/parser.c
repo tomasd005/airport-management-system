@@ -6,38 +6,15 @@
 #include <string.h>
 #include <glib.h>
 #include <time.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 
 #define MAX_COLUNAS 100
-#define MMAP_MIN_SIZE (16 * 1024 * 1024)
 #define IO_BUFFER_SIZE (8 * 1024 * 1024)
-
-typedef struct {
-    void *data;
-    size_t size;
-} parser_mmap_buffer_t;
-
-static GPtrArray *g_mmap_buffers = NULL;
-static int g_mmap_em_uso = 0;
-static int g_mmap_decidido = 0;
-static int g_mmap_ativo = 0;
 static int g_sem_erros_ativo = 0;
 static int g_dataset_grande_ativo = 0;
 static int g_skip_error_log_decidido = 0;
 static int g_skip_error_log = 0;
-
-static int parser_mmap_ativado(void)
-{
-    if (!g_mmap_decidido) {
-        const char *env = getenv("LI3_USE_MMAP");
-        g_mmap_ativo = (env && (*env == '1' || *env == 'y' || *env == 'Y'));
-        g_mmap_decidido = 1;
-    }
-    return g_mmap_ativo;
-}
 
 static int parser_skip_error_log(void)
 {
@@ -53,42 +30,14 @@ static int parser_skip_error_log(void)
     return g_skip_error_log;
 }
 
-static void parser_mmap_cleanup(void)
+int parser_sem_erros_ativo(void)
 {
-    if (!g_mmap_buffers)
-        return;
-
-    for (guint i = 0; i < g_mmap_buffers->len; i++) {
-        parser_mmap_buffer_t *buf = g_ptr_array_index(g_mmap_buffers, i);
-        if (buf && buf->data && buf->size > 0)
-            munmap(buf->data, buf->size);
-    }
-
-    g_ptr_array_free(g_mmap_buffers, TRUE);
-    g_mmap_buffers = NULL;
-}
-
-static void parser_mmap_registar(void *data, size_t size)
-{
-    if (!g_mmap_buffers) {
-        g_mmap_buffers = g_ptr_array_new_with_free_func(g_free);
-        atexit(parser_mmap_cleanup);
-    }
-
-    parser_mmap_buffer_t *buf = g_new(parser_mmap_buffer_t, 1);
-    buf->data = data;
-    buf->size = size;
-    g_ptr_array_add(g_mmap_buffers, buf);
+    return g_sem_erros_ativo;
 }
 
 int parser_mmap_em_uso(void)
 {
-    return g_mmap_em_uso;
-}
-
-int parser_sem_erros_ativo(void)
-{
-    return g_sem_erros_ativo;
+    return 0;
 }
 
 void parser_definir_sem_erros(int ativo)
@@ -149,77 +98,169 @@ int parser_dividir_csv_ate(char *linha, char **colunas, int max_colunas, int col
     return numColunas;
 }
 
-static int parser_carrega_mmap(void *contexto, const char *ficheiro_csv,
-                               AdicionaObjeto adiciona_objeto, LinhaParaObjeto linha_para_objeto,
-                               DestroiObjeto destroi_objeto, int max_colunas,
-                               int colunas_necessarias)
+static void parser_tratar_linha(char *linha, char *linha_parse, size_t tamanho_parse, size_t len,
+                                int sem_erros, int skip_errors, FILE *ficheiro_erros,
+                                void *contexto, AdicionaObjeto adiciona_objeto,
+                                LinhaParaObjeto linha_para_objeto, DestroiObjeto destroi_objeto,
+                                int max_colunas, int colunas_necessarias)
+{
+    char *linha_trabalho = linha;
+    size_t len_parse = len;
+
+    if (!sem_erros && !skip_errors) {
+        if (len + 1 > tamanho_parse)
+            return;
+        memcpy(linha_parse, linha, len);
+        linha_parse[len] = '\0';
+        if (len > 0 && linha_parse[len - 1] == '\r')
+            linha_parse[len - 1] = '\0';
+        linha_trabalho = linha_parse;
+        len_parse = strlen(linha_trabalho);
+    } else {
+        if (len > 0 && linha[len - 1] == '\r')
+            linha[len - 1] = '\0';
+    }
+
+    if (len_parse == 0)
+        return;
+
+    char *colunas[MAX_COLUNAS + 1];
+    int numColunas =
+        parser_dividir_csv_ate(linha_trabalho, colunas, max_colunas, colunas_necessarias);
+    if (numColunas < colunas_necessarias) {
+        if (ficheiro_erros)
+            fprintf(ficheiro_erros, "%s\n", linha);
+        return;
+    }
+
+    gpointer objeto = linha_para_objeto(colunas);
+    if (objeto == NULL) {
+        if (ficheiro_erros)
+            fprintf(ficheiro_erros, "%s\n", linha);
+        return;
+    }
+
+    if (!adiciona_objeto(contexto, objeto)) {
+        if (ficheiro_erros)
+            fprintf(ficheiro_erros, "%s\n", linha);
+        destroi_objeto(objeto);
+    }
+}
+
+static void parser_carrega_streaming(void *contexto, const char *ficheiro_csv,
+                                     AdicionaObjeto adiciona_objeto,
+                                     LinhaParaObjeto linha_para_objeto,
+                                     DestroiObjeto destroi_objeto, int max_colunas,
+                                     int colunas_necessarias, int sem_erros)
 {
     int fd = open(ficheiro_csv, O_RDONLY);
-    if (fd < 0)
-        return 0;
-
+    if (fd < 0) {
+        perror("Erro ao abrir ficheiro CSV");
+        return;
+    }
     posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
 
-    struct stat st;
-    if (fstat(fd, &st) != 0 || st.st_size <= 0) {
-        close(fd);
-        return 0;
+    int skip_errors = parser_skip_error_log();
+    FILE *ficheiro_erros = NULL;
+    if (!sem_erros && !skip_errors) {
+        char *nome_base = utils_obtem_nome_ficheiro(ficheiro_csv);
+        char *caminho_erros = g_strdup_printf("resultados/%s_errors.csv", nome_base);
+        g_free(nome_base);
+
+        ficheiro_erros = fopen(caminho_erros, "w");
+        g_free(caminho_erros);
+        if (ficheiro_erros)
+            setvbuf(ficheiro_erros, NULL, _IOFBF, IO_BUFFER_SIZE);
     }
 
-    size_t size = (size_t)st.st_size;
-    char *data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-    if (data == MAP_FAILED) {
+    char *buffer = malloc(IO_BUFFER_SIZE + 1);
+    if (!buffer) {
+        if (ficheiro_erros)
+            fclose(ficheiro_erros);
         close(fd);
-        return 0;
-    }
-    madvise(data, size, MADV_SEQUENTIAL);
-
-    char *cur = data;
-    char *end = data + size;
-
-    char *nl = memchr(cur, '\n', (size_t)(end - cur));
-    if (!nl) {
-        munmap(data, size);
-        close(fd);
-        return 0;
+        return;
     }
 
-    parser_mmap_registar(data, size);
-    g_mmap_em_uso = 1;
+    char *linha_parse = NULL;
+    size_t tamanho_parse = 0;
 
-    *nl = '\0';
-    cur = nl + 1;
+    ssize_t lidos;
+    size_t buffer_len = 0;
+    int primeira_linha = 1;
 
-    while (cur < end) {
-        nl = memchr(cur, '\n', (size_t)(end - cur));
-        if (!nl)
-            nl = end;
+    while ((lidos = read(fd, buffer + buffer_len, IO_BUFFER_SIZE - buffer_len - 1)) > 0) {
+        size_t total = buffer_len + (size_t)lidos;
+        size_t start = 0;
+        buffer[total] = '\0';
 
-        if (nl > cur && nl[-1] == '\r')
-            nl[-1] = '\0';
-        if (nl < end)
+        while (start < total) {
+            char *nl = memchr(buffer + start, '\n', total - start);
+            if (!nl)
+                break;
+
+            size_t len = (size_t)(nl - (buffer + start));
+            char *linha = buffer + start;
+            char saved = *nl;
             *nl = '\0';
 
-        if (*cur) {
-            char *colunas[MAX_COLUNAS + 1];
-            int numColunas = parser_dividir_csv_ate(cur, colunas, max_colunas, colunas_necessarias);
-            if (numColunas >= colunas_necessarias) {
-                gpointer objeto = linha_para_objeto(colunas);
-                if (objeto) {
-                    if (!adiciona_objeto(contexto, objeto))
-                        destroi_objeto(objeto);
+            if (primeira_linha) {
+                if (ficheiro_erros)
+                    fprintf(ficheiro_erros, "%.*s\n", (int)len, linha);
+                primeira_linha = 0;
+            } else {
+                if (!sem_erros && !skip_errors) {
+                    if (len + 1 > tamanho_parse) {
+                        char *novo = realloc(linha_parse, len + 1);
+                        if (!novo)
+                            goto cleanup;
+                        linha_parse = novo;
+                        tamanho_parse = len + 1;
+                    }
                 }
+                parser_tratar_linha(linha, linha_parse, tamanho_parse, len, sem_erros,
+                                    skip_errors, ficheiro_erros, contexto, adiciona_objeto,
+                                    linha_para_objeto, destroi_objeto, max_colunas,
+                                    colunas_necessarias);
             }
+
+            *nl = saved;
+            start = (size_t)(nl - buffer) + 1;
         }
 
-        if (nl == end)
-            break;
-        cur = nl + 1;
+        buffer_len = total - start;
+        if (buffer_len > 0)
+            memmove(buffer, buffer + start, buffer_len);
     }
 
+    if (lidos >= 0 && buffer_len > 0) {
+        char *linha = buffer;
+        size_t len = buffer_len;
+        buffer[buffer_len] = '\0';
+        if (primeira_linha) {
+            if (ficheiro_erros)
+                fprintf(ficheiro_erros, "%.*s\n", (int)len, linha);
+        } else {
+            if (!sem_erros && !skip_errors) {
+                if (len + 1 > tamanho_parse) {
+                    char *novo = realloc(linha_parse, len + 1);
+                    if (!novo)
+                        goto cleanup;
+                    linha_parse = novo;
+                    tamanho_parse = len + 1;
+                }
+            }
+            parser_tratar_linha(linha, linha_parse, tamanho_parse, len, sem_erros, skip_errors,
+                                ficheiro_erros, contexto, adiciona_objeto, linha_para_objeto,
+                                destroi_objeto, max_colunas, colunas_necessarias);
+        }
+    }
+
+cleanup:
+    free(linha_parse);
+    free(buffer);
+    if (ficheiro_erros)
+        fclose(ficheiro_erros);
     close(fd);
-    g_mmap_em_uso = 0;
-    return 1;
 }
 
 /**
@@ -236,91 +277,8 @@ void parser_carrega(void *contexto, const char *ficheiro_csv, AdicionaObjeto adi
 
     g_sem_erros_ativo = sem_erros;
     g_dataset_grande_ativo = dataset_grande;
-    if (sem_erros && parser_mmap_ativado()) {
-        struct stat st;
-        if (stat(ficheiro_csv, &st) == 0 && st.st_size > MMAP_MIN_SIZE) {
-            if (parser_carrega_mmap(contexto, ficheiro_csv, adiciona_objeto, linha_para_objeto,
-                                    destroi_objeto, max_colunas, colunas_necessarias)) {
-                g_sem_erros_ativo = 0;
-                g_dataset_grande_ativo = 0;
-                return;
-            }
-        }
-    }
-
-    FILE *ficheiro = fopen(ficheiro_csv, "r");
-    if (!ficheiro) {
-        perror("Erro ao abrir ficheiro CSV");
-        return;
-    }
-    setvbuf(ficheiro, NULL, _IOFBF, IO_BUFFER_SIZE);
-
-    int skip_errors = parser_skip_error_log();
-    FILE *ficheiro_erros = NULL;
-    if (!sem_erros && !skip_errors) {
-        char *nome_base = utils_obtem_nome_ficheiro(ficheiro_csv);
-        char *caminho_erros = g_strdup_printf("resultados/%s_errors.csv", nome_base);
-        g_free(nome_base);
-
-        ficheiro_erros = fopen(caminho_erros, "w");
-        g_free(caminho_erros);
-        if (ficheiro_erros)
-            setvbuf(ficheiro_erros, NULL, _IOFBF, IO_BUFFER_SIZE);
-    }
-
-    char *linha = NULL;
-    size_t tamanho = 0;
-    char *linha_parse = NULL;
-    size_t tamanho_parse = 0;
-    ssize_t lidos;
-
-    if ((lidos = getline(&linha, &tamanho, ficheiro)) != -1) {
-        if (ficheiro_erros)
-            fputs(linha, ficheiro_erros);
-    }
-
-    while ((lidos = getline(&linha, &tamanho, ficheiro)) != -1) {
-        char *linha_trabalho = linha;
-        if (!sem_erros && !skip_errors) {
-            size_t necessario = (size_t)lidos + 1;
-            if (necessario > tamanho_parse) {
-                char *novo = realloc(linha_parse, necessario);
-                if (!novo)
-                    break;
-                linha_parse = novo;
-                tamanho_parse = necessario;
-            }
-            memcpy(linha_parse, linha, necessario);
-            linha_trabalho = linha_parse;
-        }
-
-        char *colunas[MAX_COLUNAS + 1];
-        int numColunas =
-            parser_dividir_csv_ate(linha_trabalho, colunas, max_colunas, colunas_necessarias);
-        if (numColunas < colunas_necessarias) {
-            if (ficheiro_erros)
-                fputs(linha, ficheiro_erros);
-            continue;
-        }
-
-        gpointer objeto = linha_para_objeto(colunas);
-        if (objeto == NULL) {
-            if (ficheiro_erros)
-                fputs(linha, ficheiro_erros);
-        } else if (adiciona_objeto(contexto, objeto)) {
-            // ok
-        } else {
-            if (ficheiro_erros)
-                fputs(linha, ficheiro_erros);
-            destroi_objeto(objeto);
-        }
-    }
-
-    free(linha_parse);
-    free(linha);
-    fclose(ficheiro);
-    if (ficheiro_erros)
-        fclose(ficheiro_erros);
+    parser_carrega_streaming(contexto, ficheiro_csv, adiciona_objeto, linha_para_objeto,
+                             destroi_objeto, max_colunas, colunas_necessarias, sem_erros);
     g_sem_erros_ativo = 0;
     g_dataset_grande_ativo = 0;
 }
