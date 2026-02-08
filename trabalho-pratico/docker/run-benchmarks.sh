@@ -15,6 +15,9 @@ cp resultados/benchmark.html resultados/benchmark-regular.html
 cp resultados/benchmark.json resultados/benchmark-large.json
 cp resultados/benchmark.html resultados/benchmark-large.html
 
+python3 docker/benchmark_summary.py resultados/benchmark-regular.json resultados/benchmark-large.json resultados/benchmark-summary.html
+
 echo "Benchmarks completos."
 echo "Regular: resultados/benchmark-regular.json e resultados/benchmark-regular.html"
 echo "Large:   resultados/benchmark-large.json e resultados/benchmark-large.html"
+echo "Resumo:  resultados/benchmark-summary.html"
