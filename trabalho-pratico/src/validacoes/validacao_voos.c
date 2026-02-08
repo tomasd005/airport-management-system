@@ -20,6 +20,22 @@
 #define IDX_AIRLINE 10
 #define IDX_URL 11
 
+static inline char *strip_outer_quotes_fast(char *s)
+{
+    if (!s)
+        return s;
+    char quote = s[0];
+    if (quote != '"' && quote != '\'')
+        return s;
+
+    size_t len = strlen(s);
+    if (len >= 2 && s[len - 1] == quote) {
+        s[len - 1] = '\0';
+        return s + 1;
+    }
+    return s;
+}
+
 /**
  * @brief Valida um voo a partir de um array de colunas CSV.
  *
@@ -123,9 +139,27 @@ voo_info_t *valida_voo(char **colunas)
     if (!colunas || !colunas[IDX_ID])
         return NULL;
 
-    for (int i = 0; i <= IDX_URL; i++)
+    if (parser_sem_erros_ativo()) {
+        colunas[IDX_ID] = strip_outer_quotes_fast(colunas[IDX_ID]);
+        colunas[IDX_DEP] = strip_outer_quotes_fast(colunas[IDX_DEP]);
+        colunas[IDX_ACT_DEP] = strip_outer_quotes_fast(colunas[IDX_ACT_DEP]);
+        colunas[IDX_STATUS] = strip_outer_quotes_fast(colunas[IDX_STATUS]);
+        colunas[IDX_ORIG] = strip_outer_quotes_fast(colunas[IDX_ORIG]);
+        colunas[IDX_DEST] = strip_outer_quotes_fast(colunas[IDX_DEST]);
+        colunas[IDX_AIR] = strip_outer_quotes_fast(colunas[IDX_AIR]);
+        colunas[IDX_AIRLINE] = strip_outer_quotes_fast(colunas[IDX_AIRLINE]);
+
+        if (!valida_voo_sintatica(colunas))
+            return NULL;
+        return voo_info_criar(colunas[IDX_ID], colunas[IDX_DEP], colunas[IDX_ACT_DEP],
+                              colunas[IDX_STATUS], colunas[IDX_ORIG], colunas[IDX_DEST],
+                              colunas[IDX_AIR], colunas[IDX_AIRLINE]);
+    }
+
+    for (int i = 0; i <= IDX_URL; i++) {
         if (colunas[i])
             utils_remove_aspas_somente(colunas[i]);
+    }
 
     if (!valida_voo_sintatica(colunas))
         return NULL;

@@ -7,6 +7,8 @@ PKG_CONFIG ?= pkg-config
 
 # Build modes: release (default), debug, sanitize
 MODE ?= release
+NATIVE ?= 1
+LTO ?= 1
 
 # Common flags
 CPPFLAGS := -D_GNU_SOURCE \
@@ -30,13 +32,22 @@ CPPFLAGS += $(GLIB_CFLAGS)
 
 WARN_FLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
 CSTD := -std=c11
+LDFLAGS :=
 
 CFLAGS_DEBUG := $(CSTD) -O0 -g3 $(WARN_FLAGS) -fno-omit-frame-pointer
 CFLAGS_RELEASE := $(CSTD) -O3 -DNDEBUG $(WARN_FLAGS)
 CFLAGS_SANITIZE := $(CSTD) -O1 -g3 $(WARN_FLAGS) -fno-omit-frame-pointer \
 	-fsanitize=address,undefined
 
-LDFLAGS :=
+ifeq ($(NATIVE),1)
+CFLAGS_RELEASE += -march=native -mtune=native
+endif
+
+ifeq ($(LTO),1)
+CFLAGS_RELEASE += -flto=auto
+LDFLAGS += -flto=auto
+endif
+
 LDLIBS := $(GLIB_LIBS)
 
 ifeq ($(MODE),release)

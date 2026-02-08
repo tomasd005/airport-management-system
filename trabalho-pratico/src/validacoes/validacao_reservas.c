@@ -247,8 +247,12 @@ static char *strip_outer_quotes(char *s)
     if (!s)
         return s;
 
+    char quote = s[0];
+    if (quote != '"' && quote != '\'')
+        return s;
+
     size_t len = strlen(s);
-    if (len >= 2 && ((s[0] == '"' && s[len - 1] == '"') || (s[0] == '\'' && s[len - 1] == '\''))) {
+    if (len >= 2 && s[len - 1] == quote) {
         s[len - 1] = '\0';
         return s + 1;
     }

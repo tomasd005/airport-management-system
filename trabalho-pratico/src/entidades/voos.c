@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <limits.h>
 
 /**
  * @struct voo
@@ -14,12 +15,12 @@
 struct voo
 {
     int32_t act_dep_day;
-    int32_t atraso_min;
-    int32_t semana;
     uint32_t passageiros;
+    int16_t atraso_min;
+    uint16_t semana;
     uint16_t orig_idx;
     uint16_t dest_idx;
-    unsigned char status;
+    uint8_t status;
 };
 
 struct voo_pool
@@ -81,8 +82,18 @@ static inline void voo_preencher_de_info(voo_t *v, const voo_info_t *info)
     v->orig_idx = info->orig_idx;
     v->dest_idx = info->dest_idx;
     v->act_dep_day = info->act_dep_day;
-    v->atraso_min = info->atraso_min;
-    v->semana = info->semana;
+    if (info->atraso_min < INT16_MIN || info->atraso_min > INT16_MAX)
+        v->atraso_min = (info->atraso_min < 0) ? INT16_MIN : INT16_MAX;
+    else
+        v->atraso_min = (int16_t)info->atraso_min;
+
+    if (info->semana < 0)
+        v->semana = 0xFFFFu;
+    else if (info->semana > 0xFFFE)
+        v->semana = 0xFFFEu;
+    else
+        v->semana = (uint16_t)info->semana;
+
     v->status = info->status;
     v->passageiros = 0;
 }
@@ -371,7 +382,12 @@ int voo_obter_actual_departure_dia(const voo_t *v) { return v ? v->act_dep_day :
  * @param v Ponteiro para o voo
  * @return Semana do ano ou -1 se não disponível
  */
-int voo_obter_semana(const voo_t *v) { return v ? v->semana : -1; }
+int voo_obter_semana(const voo_t *v)
+{
+    if (!v)
+        return -1;
+    return (v->semana == 0xFFFFu) ? -1 : (int)v->semana;
+}
 
 /**
  * @brief Obtém o código do status do voo.
@@ -396,7 +412,21 @@ void voo_incrementar_passageiros(voo_t *v, int delta)
 {
     if (!v)
         return;
-    v->passageiros += delta;
+
+    if (delta >= 0) {
+        uint32_t inc = (uint32_t)delta;
+        if (UINT32_MAX - v->passageiros < inc)
+            v->passageiros = UINT32_MAX;
+        else
+            v->passageiros += inc;
+        return;
+    }
+
+    uint32_t dec = (uint32_t)(-delta);
+    if (dec > v->passageiros)
+        v->passageiros = 0;
+    else
+        v->passageiros -= dec;
 }
 
 /**
