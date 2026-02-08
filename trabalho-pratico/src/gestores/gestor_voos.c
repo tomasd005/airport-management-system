@@ -48,7 +48,15 @@ typedef struct
 typedef struct
 {
     gestor_aeroportos_t *gestor_aeroportos;
+    gestor_voos_t *gestor_voos;
 } contagens_ctx_t;
+
+typedef struct
+{
+    gestor_voos_t *gestor;
+    void (*func)(voo_t *, void *);
+    void *user_data;
+} foreach_ctx_t;
 
 /**
  * @brief Arredonda um valor de atraso para milissegundos.
@@ -105,6 +113,14 @@ static void q3_visit_voo(voo_t *voo, void *ud)
     counts[idx]++;
 }
 
+static void q3_visit_id(uint32_t id, void *ud)
+{
+    q3_ctx_t *ctx = ud;
+    voo_t *voo = voo_pool_obter(ctx->gestor->pool, id);
+    if (voo)
+        q3_visit_voo(voo, ud);
+}
+
 static void contagens_visit_voo(voo_t *voo, void *ud)
 {
     contagens_ctx_t *ctx = ud;
@@ -131,6 +147,22 @@ static void contagens_visit_voo(voo_t *voo, void *ud)
         if (a)
             aeroporto_incrementar_chegadas(a, passageiros);
     }
+}
+
+static void contagens_visit_id(uint32_t id, void *ud)
+{
+    contagens_ctx_t *ctx = ud;
+    voo_t *voo = voo_pool_obter(ctx->gestor_voos->pool, id);
+    if (voo)
+        contagens_visit_voo(voo, ud);
+}
+
+static void foreach_visit_id(uint32_t id, void *ud)
+{
+    foreach_ctx_t *ctx = ud;
+    voo_t *voo = voo_pool_obter(ctx->gestor->pool, id);
+    if (voo)
+        ctx->func(voo, ctx->user_data);
 }
 
 /**
@@ -167,7 +199,7 @@ gestor_voos_t *gestor_voos_criar(void)
     }
     g->pool = voo_pool_criar(1 << 16);
     if (!g->pool) {
-        voo_table_free(g->tabela, NULL);
+        voo_table_free(g->tabela);
         free(g);
         return NULL;
     }
@@ -199,7 +231,7 @@ void gestor_voos_destruir(gestor_voos_t *gestor)
         q5_cache_destruir(gestor->q5_cache);
     g_hash_table_destroy(gestor->atrasos_airline);
     if (gestor->tabela) {
-        voo_table_free(gestor->tabela, NULL);
+        voo_table_free(gestor->tabela);
         gestor->tabela = NULL;
     }
     if (gestor->pool) {
@@ -230,7 +262,8 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_info_t *info)
         voo_info_destruir(info);
         return;
     }
-    if (voo_table_lookup(gestor->tabela, keyplus))
+    uint32_t existing_id = 0;
+    if (voo_table_lookup_id(gestor->tabela, keyplus, &existing_id))
     {
         voo_info_destruir(info);
         return;
@@ -263,14 +296,15 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_info_t *info)
         }
     }
 
-    voo_t *voo = voo_pool_criar_from_info(gestor->pool, info);
+    uint32_t voo_id = 0;
+    voo_t *voo = voo_pool_criar_from_info_com_id(gestor->pool, info, &voo_id);
     if (!voo)
     {
         voo_info_destruir(info);
         return;
     }
 
-    if (!gestor->tabela || !voo_table_insert(gestor->tabela, keyplus, voo))
+    if (!gestor->tabela || !voo_table_insert_id(gestor->tabela, keyplus, voo_id))
     {
         voo_info_destruir(info);
         return;
@@ -297,7 +331,10 @@ voo_t *gestor_voos_obter_por_key(gestor_voos_t *gestor, uint64_t key)
         return NULL;
     if (!gestor->tabela)
         return NULL;
-    return voo_table_lookup(gestor->tabela, (uint64_t)(key + 1ull));
+    uint32_t voo_id = 0;
+    if (!voo_table_lookup_id(gestor->tabela, (uint64_t)(key + 1ull), &voo_id))
+        return NULL;
+    return voo_pool_obter(gestor->pool, voo_id);
 }
 
 
@@ -319,7 +356,8 @@ void gestor_voos_para_cada(gestor_voos_t *gestor, void (*func)(voo_t *, void *),
 
     if (!gestor->tabela)
         return;
-    voo_table_foreach(gestor->tabela, func, user_data);
+    foreach_ctx_t ctx = {.gestor = gestor, .func = func, .user_data = user_data};
+    voo_table_foreach_id(gestor->tabela, foreach_visit_id, &ctx);
 }
 
 /**
@@ -418,7 +456,7 @@ void gestor_voos_preparar_q3(gestor_voos_t *gestor)
     q3_ctx_t ctx = {.gestor = gestor};
     if (!gestor->tabela)
         return;
-    voo_table_foreach(gestor->tabela, q3_visit_voo, &ctx);
+    voo_table_foreach_id(gestor->tabela, q3_visit_id, &ctx);
 
     for (int i = 0; i < (26 * 26 * 26); i++)
     {
@@ -434,7 +472,7 @@ void gestor_voos_descartar_tabela(gestor_voos_t *gestor)
 {
     if (!gestor || !gestor->tabela)
         return;
-    voo_table_free(gestor->tabela, NULL);
+    voo_table_free(gestor->tabela);
     gestor->tabela = NULL;
 }
 
@@ -557,8 +595,8 @@ void gestor_voos_atualizar_contagens_aeroportos(gestor_voos_t *gestor_voos, gest
     if (!gestor_voos || !gestor_aeroportos)
         return;
 
-    contagens_ctx_t ctx = {.gestor_aeroportos = gestor_aeroportos};
+    contagens_ctx_t ctx = {.gestor_aeroportos = gestor_aeroportos, .gestor_voos = gestor_voos};
     if (!gestor_voos->tabela)
         return;
-    voo_table_foreach(gestor_voos->tabela, contagens_visit_voo, &ctx);
+    voo_table_foreach_id(gestor_voos->tabela, contagens_visit_id, &ctx);
 }

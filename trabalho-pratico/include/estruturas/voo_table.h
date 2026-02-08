@@ -12,8 +12,6 @@
  * diferentes de zero (0 é tratado como slot vazio).
  */
 
-typedef struct voo voo_t;
-
 /**
  * @struct voo_table_t
  * @brief Estrutura opaca da tabela de voos.
@@ -34,7 +32,7 @@ void voo_table_init(voo_table_t *t, size_t capacity);
  * @param t Tabela.
  * @param destroy Função para destruir valores (pode ser NULL).
  */
-void voo_table_destroy(voo_table_t *t, void (*destroy)(voo_t *));
+void voo_table_destroy(voo_table_t *t);
 
 /**
  * @brief Cria uma nova tabela e inicializa com capacidade mínima.
@@ -52,7 +50,7 @@ voo_table_t *voo_table_create(size_t capacity);
  * @param destroy Função para destruir valores (pode ser NULL).
  * @note Aceita NULL.
  */
-void voo_table_free(voo_table_t *t, void (*destroy)(voo_t *));
+void voo_table_free(voo_table_t *t);
 
 /**
  * @brief Procura um voo por chave.
@@ -61,7 +59,7 @@ void voo_table_free(voo_table_t *t, void (*destroy)(voo_t *));
  * @param key Chave numérica (não pode ser 0).
  * @return Ponteiro para voo_t ou NULL se não encontrado.
  */
-voo_t *voo_table_lookup(const voo_table_t *t, uint64_t key);
+int voo_table_lookup_id(const voo_table_t *t, uint64_t key, uint32_t *out_id);
 
 /**
  * @brief Insere um voo na tabela.
@@ -71,7 +69,7 @@ voo_t *voo_table_lookup(const voo_table_t *t, uint64_t key);
  * @param value Ponteiro para voo_t.
  * @return 1 em sucesso, 0 em erro ou chave duplicada.
  */
-int voo_table_insert(voo_table_t *t, uint64_t key, voo_t *value);
+int voo_table_insert_id(voo_table_t *t, uint64_t key, uint32_t id);
 
 /**
  * @brief Itera todos os voos armazenados.
@@ -80,7 +78,7 @@ int voo_table_insert(voo_table_t *t, uint64_t key, voo_t *value);
  * @param fn Função callback.
  * @param user_data Contexto opcional.
  */
-void voo_table_foreach(const voo_table_t *t, void (*fn)(voo_t *, void *), void *user_data);
+void voo_table_foreach_id(const voo_table_t *t, void (*fn)(uint32_t id, void *), void *user_data);
 
 /**
  * @brief Obtém o número de elementos armazenados.

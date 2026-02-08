@@ -262,6 +262,25 @@ void voo_pool_destruir(voo_pool_t *pool);
 voo_t *voo_pool_criar_from_info(voo_pool_t *pool, const voo_info_t *info);
 
 /**
+ * @brief Cria um voo no pool e devolve também o id interno.
+ *
+ * @param pool Pool de voos.
+ * @param info Informação validada.
+ * @param out_id Id interno do voo no pool.
+ * @return Ponteiro para voo no pool, ou NULL em erro.
+ */
+voo_t *voo_pool_criar_from_info_com_id(voo_pool_t *pool, const voo_info_t *info, uint32_t *out_id);
+
+/**
+ * @brief Obtém um voo por id interno no pool.
+ *
+ * @param pool Pool de voos.
+ * @param id Id interno.
+ * @return Ponteiro para voo, ou NULL se id inválido.
+ */
+voo_t *voo_pool_obter(const voo_pool_t *pool, uint32_t id);
+
+/**
  * @brief Liberta recursos associados ao interning de voos.
  */
 void voo_intern_pool_destruir(void);

@@ -22,17 +22,13 @@ struct voo
     unsigned char status;
 };
 
-typedef struct voo_pool_block
-{
-    struct voo_pool_block *next;
-    size_t used;
-    voo_t items[];
-} voo_pool_block_t;
-
 struct voo_pool
 {
     size_t block_capacity;
-    voo_pool_block_t *blocks;
+    voo_t **blocks;
+    uint32_t blocks_count;
+    uint32_t blocks_capacity;
+    uint32_t count;
 };
 
 /**
@@ -165,6 +161,9 @@ voo_pool_t *voo_pool_criar(size_t block_capacity)
 
     pool->block_capacity = block_capacity;
     pool->blocks = NULL;
+    pool->blocks_count = 0;
+    pool->blocks_capacity = 0;
+    pool->count = 0;
     return pool;
 }
 
@@ -173,38 +172,78 @@ void voo_pool_destruir(voo_pool_t *pool)
     if (!pool)
         return;
 
-    voo_pool_block_t *b = pool->blocks;
-    while (b)
+    for (uint32_t i = 0; i < pool->blocks_count; i++)
+        free(pool->blocks[i]);
+    free(pool->blocks);
+    free(pool);
+}
+
+static int voo_pool_garantir_bloco(voo_pool_t *pool, uint32_t block_idx)
+{
+    if (block_idx < pool->blocks_count)
+        return 1;
+
+    if (block_idx >= pool->blocks_capacity)
     {
-        voo_pool_block_t *next = b->next;
-        free(b);
-        b = next;
+        uint32_t new_cap = pool->blocks_capacity ? (pool->blocks_capacity * 2u) : 16u;
+        while (new_cap <= block_idx)
+            new_cap *= 2u;
+
+        voo_t **novo = realloc(pool->blocks, (size_t)new_cap * sizeof(voo_t *));
+        if (!novo)
+            return 0;
+        for (uint32_t i = pool->blocks_capacity; i < new_cap; i++)
+            novo[i] = NULL;
+        pool->blocks = novo;
+        pool->blocks_capacity = new_cap;
     }
 
-    free(pool);
+    while (pool->blocks_count <= block_idx)
+    {
+        voo_t *bloco = malloc(pool->block_capacity * sizeof(voo_t));
+        if (!bloco)
+            return 0;
+        pool->blocks[pool->blocks_count++] = bloco;
+    }
+
+    return 1;
+}
+
+voo_t *voo_pool_obter(const voo_pool_t *pool, uint32_t id)
+{
+    if (!pool)
+        return NULL;
+    uint32_t block_idx = id / (uint32_t)pool->block_capacity;
+    uint32_t off = id % (uint32_t)pool->block_capacity;
+    if (block_idx >= pool->blocks_count)
+        return NULL;
+    return &pool->blocks[block_idx][off];
+}
+
+voo_t *voo_pool_criar_from_info_com_id(voo_pool_t *pool, const voo_info_t *info, uint32_t *out_id)
+{
+    if (!pool || !info || info->key == 0 || !out_id)
+        return NULL;
+
+    uint32_t id = pool->count++;
+    uint32_t block_idx = id / (uint32_t)pool->block_capacity;
+    uint32_t off = id % (uint32_t)pool->block_capacity;
+    if (!voo_pool_garantir_bloco(pool, block_idx))
+    {
+        pool->count--;
+        return NULL;
+    }
+
+    voo_t *v = &pool->blocks[block_idx][off];
+    voo_preencher_de_info(v, info);
+    *out_id = id;
+    return v;
 }
 
 voo_t *voo_pool_criar_from_info(voo_pool_t *pool, const voo_info_t *info)
 {
-    if (!pool || !info || info->key == 0)
-        return NULL;
-
-    voo_pool_block_t *b = pool->blocks;
-    if (!b || b->used >= pool->block_capacity)
-    {
-        size_t bytes = sizeof(*b) + pool->block_capacity * sizeof(voo_t);
-        voo_pool_block_t *novo = malloc(bytes);
-        if (!novo)
-            return NULL;
-        novo->next = pool->blocks;
-        novo->used = 0;
-        pool->blocks = novo;
-        b = novo;
-    }
-
-    voo_t *v = &b->items[b->used++];
-    voo_preencher_de_info(v, info);
-    return v;
+    uint32_t id = 0;
+    return voo_pool_criar_from_info_com_id(pool, info, &id);
 }
 
 /**
