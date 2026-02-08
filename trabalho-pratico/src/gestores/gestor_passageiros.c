@@ -1,4 +1,5 @@
 #include "gestores/gestor_passageiros.h"
+#include "estruturas/passageiro_table.h"
 #include "parsers/parser.h"
 #include "validacoes/validacao_passageiros.h"
 #include "utils.h"
@@ -15,7 +16,7 @@
  */
 struct gestor_passageiros
 {
-    GHashTable *por_documento;
+    passageiro_table_t *por_documento;
     char *ficheiro_csv;
     int dataset_grande;
 };
@@ -28,12 +29,14 @@ struct gestor_passageiros
 gestor_passageiros_t *gestor_passageiros_criar(void)
 {
     gestor_passageiros_t *g = malloc(sizeof(*g));
-    g->por_documento = g_hash_table_new_full(
-        g_direct_hash,
-        g_direct_equal,
-        NULL,
-        (GDestroyNotify)passageiro_destruir
-    );
+    if (!g)
+        return NULL;
+    g->por_documento = passageiro_table_create(1 << 16);
+    if (!g->por_documento)
+    {
+        free(g);
+        return NULL;
+    }
     g->ficheiro_csv = NULL;
     g->dataset_grande = 0;
     return g;
@@ -48,7 +51,7 @@ void gestor_passageiros_destruir(gestor_passageiros_t *gestor)
 {
     if (!gestor)
         return;
-    g_hash_table_destroy(gestor->por_documento);
+    passageiro_table_free(gestor->por_documento, passageiro_destruir);
     free(gestor->ficheiro_csv);
     free(gestor);
 }
@@ -74,14 +77,14 @@ void gestor_passageiros_adicionar(gestor_passageiros_t *gestor, passageiro_t *p)
         return;
     }
 
-    gpointer kptr = GINT_TO_POINTER((gint)(key + 1u));
-    if (g_hash_table_contains(gestor->por_documento, kptr))
+    if (passageiro_table_lookup(gestor->por_documento, key))
     {
         passageiro_destruir(p);
         return;
     }
 
-    g_hash_table_insert(gestor->por_documento, kptr, p);
+    if (!passageiro_table_insert(gestor->por_documento, key, p))
+        passageiro_destruir(p);
 }
 
 /**
@@ -103,7 +106,7 @@ passageiro_t *gestor_passageiros_obter_por_documento_key(gestor_passageiros_t *g
 {
     if (!gestor)
         return NULL;
-    return g_hash_table_lookup(gestor->por_documento, GINT_TO_POINTER((gint)(key + 1u)));
+    return passageiro_table_lookup(gestor->por_documento, key);
 }
 
 /**
@@ -114,7 +117,7 @@ passageiro_t *gestor_passageiros_obter_por_documento_key(gestor_passageiros_t *g
  */
 unsigned int gestor_passageiros_numero(gestor_passageiros_t *gestor)
 {
-    return gestor ? g_hash_table_size(gestor->por_documento) : 0;
+    return gestor ? (unsigned int)passageiro_table_size(gestor->por_documento) : 0;
 }
 
 /**

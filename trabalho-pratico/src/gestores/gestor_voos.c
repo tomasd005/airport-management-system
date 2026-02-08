@@ -20,6 +20,8 @@
 struct gestor_voos
 {
     voo_table_t *tabela;          /**< Tabela de voos (key -> voo_t*) */
+    voo_pool_t *pool;             /**< Pool de voos para alocação em blocos */
+    guint total_voos;             /**< Número total de voos válidos inseridos */
     int **q3_contagens;           /**< Contagens para query 3 (origem_idx -> array) */
     int q3_min_day;               /**< Menor dia de voo processado */
     int q3_max_day;               /**< Maior dia de voo processado */
@@ -163,6 +165,13 @@ gestor_voos_t *gestor_voos_criar(void)
         free(g);
         return NULL;
     }
+    g->pool = voo_pool_criar(1 << 16);
+    if (!g->pool) {
+        voo_table_free(g->tabela, NULL);
+        free(g);
+        return NULL;
+    }
+    g->total_voos = 0;
     g->q3_contagens = NULL;
     g->q3_min_day = INT_MAX;
     g->q3_max_day = INT_MIN;
@@ -190,8 +199,12 @@ void gestor_voos_destruir(gestor_voos_t *gestor)
         q5_cache_destruir(gestor->q5_cache);
     g_hash_table_destroy(gestor->atrasos_airline);
     if (gestor->tabela) {
-        voo_table_free(gestor->tabela, voo_destruir);
+        voo_table_free(gestor->tabela, NULL);
         gestor->tabela = NULL;
+    }
+    if (gestor->pool) {
+        voo_pool_destruir(gestor->pool);
+        gestor->pool = NULL;
     }
     voo_intern_pool_destruir();
     free(gestor);
@@ -213,7 +226,10 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_info_t *info)
     }
     uint64_t keyplus = key + 1ull;
     if (!gestor->tabela)
+    {
+        voo_info_destruir(info);
         return;
+    }
     if (voo_table_lookup(gestor->tabela, keyplus))
     {
         voo_info_destruir(info);
@@ -247,7 +263,7 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_info_t *info)
         }
     }
 
-    voo_t *voo = voo_criar_from_info(info);
+    voo_t *voo = voo_pool_criar_from_info(gestor->pool, info);
     if (!voo)
     {
         voo_info_destruir(info);
@@ -256,12 +272,12 @@ void gestor_voos_adicionar(gestor_voos_t *gestor, voo_info_t *info)
 
     if (!gestor->tabela || !voo_table_insert(gestor->tabela, keyplus, voo))
     {
-        voo_destruir(voo);
         voo_info_destruir(info);
         return;
     }
 
     voo_info_destruir(info);
+    gestor->total_voos++;
 }
 
 /**
@@ -290,7 +306,7 @@ voo_t *gestor_voos_obter_por_key(gestor_voos_t *gestor, uint64_t key)
  */
 unsigned gestor_voos_contar(const gestor_voos_t *gestor)
 {
-    return (gestor && gestor->tabela) ? (unsigned)voo_table_size(gestor->tabela) : 0;
+    return gestor ? gestor->total_voos : 0;
 }
 
 /**
@@ -412,6 +428,14 @@ void gestor_voos_preparar_q3(gestor_voos_t *gestor)
         for (int j = 1; j < gestor->q3_range; j++)
             counts[j] += counts[j - 1];
     }
+}
+
+void gestor_voos_descartar_tabela(gestor_voos_t *gestor)
+{
+    if (!gestor || !gestor->tabela)
+        return;
+    voo_table_free(gestor->tabela, NULL);
+    gestor->tabela = NULL;
 }
 
 /**

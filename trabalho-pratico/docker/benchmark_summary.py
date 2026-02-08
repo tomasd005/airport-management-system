@@ -91,8 +91,8 @@ def main():
 <body>
   <h1>Resumo de Benchmarks</h1>
   <div class="grid">
-    {render_dataset_card('Dataset Regular', reg)}
-    {render_dataset_card('Dataset Large', large)}
+    {render_dataset_card(reg.get('dataset', 'Dataset A'), reg)}
+    {render_dataset_card(large.get('dataset', 'Dataset B'), large)}
   </div>
   <div class="note">Gerado automaticamente a partir de benchmark-regular.json e benchmark-large.json.</div>
 </body>

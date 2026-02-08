@@ -144,4 +144,14 @@ const GArray *gestor_voos_obter_q5_cache(gestor_voos_t *gestor);
  */
 void gestor_voos_atualizar_contagens_aeroportos(gestor_voos_t *gestor_voos, gestor_aeroportos_t *gestor_aeroportos);
 
+/**
+ * @brief Descarta a tabela detalhada de voos após pré-processamento.
+ *
+ * Mantém apenas índices/agregados usados nas queries (Q3 e Q5),
+ * reduzindo memória no modo de execução normal.
+ *
+ * @param gestor Gestor de voos.
+ */
+void gestor_voos_descartar_tabela(gestor_voos_t *gestor);
+
 #endif

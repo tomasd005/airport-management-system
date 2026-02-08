@@ -562,6 +562,8 @@ void parser_carrega(void *contexto, const char *ficheiro_csv, AdicionaObjeto adi
 
     g_sem_erros_ativo = sem_erros;
     g_dataset_grande_ativo = dataset_grande;
+    g_skip_error_log_decidido = 0;
+    g_skip_error_log = 0;
     int n_threads = parser_threads_ativado();
     int skip_errors = parser_skip_error_log();
     if (n_threads > 1 && (sem_erros || skip_errors)) {

@@ -365,6 +365,7 @@ static void carregar_dataset(gestor_interativo_t *gestor, const char *pasta)
     }
     gestor_voos_atualizar_contagens_aeroportos(gestor->voos, gestor->aeroportos);
     gestor_voos_preparar_q3(gestor->voos);
+    gestor_voos_descartar_tabela(gestor->voos);
 
     gestor->dados_carregados = 1;
     snprintf(gestor->dataset_path, sizeof(gestor->dataset_path), "%s", pasta);

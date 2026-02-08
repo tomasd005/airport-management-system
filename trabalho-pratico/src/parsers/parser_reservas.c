@@ -440,6 +440,8 @@ void parser_reservas_carregar(void *contexto, const char *ficheiro_csv,
     int dataset_grande = (strstr(ficheiro_csv, "grande") != NULL);
     parser_definir_sem_erros(sem_erros);
     parser_definir_dataset_grande(dataset_grande);
+    g_skip_error_log_decidido = 0;
+    g_skip_error_log = 0;
     int n_threads = parser_threads_ativado();
     int skip_errors = parser_skip_error_log();
     if (n_threads > 1 && (sem_erros || skip_errors)) {

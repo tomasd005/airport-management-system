@@ -106,6 +106,7 @@ void gestor_programa_executa(GestorDePrograma *gestor, const char *pastaDados, c
     }
     gestor_voos_atualizar_contagens_aeroportos(gestor->voos, gestor->aeroportos);
     gestor_voos_preparar_q3(gestor->voos);
+    gestor_voos_descartar_tabela(gestor->voos);
 
     if (aeroportos == 0 || voos == 0 || passageiros == 0)
     {

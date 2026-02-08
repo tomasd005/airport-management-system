@@ -5,8 +5,8 @@ MAKEFLAGS += --warn-undefined-variables
 CC ?= gcc
 PKG_CONFIG ?= pkg-config
 
-# Build modes: debug (default), release, sanitize
-MODE ?= debug
+# Build modes: release (default), debug, sanitize
+MODE ?= release
 
 # Common flags
 CPPFLAGS := -D_GNU_SOURCE \
@@ -95,7 +95,7 @@ SRC_QUERIES = \
 	src/queries/querie6.c
 
 SRC_UTILS = src/utils.c src/string_pool.c
-SRC_ESTRUTURAS = src/estruturas/voo_table.c src/estruturas/doc_total_table.c
+SRC_ESTRUTURAS = src/estruturas/voo_table.c src/estruturas/doc_total_table.c src/estruturas/passageiro_table.c
 
 SRC_CORE = $(SRC_ENTIDADES) $(SRC_GESTORES) $(SRC_PARSERS) $(SRC_QUERIES) $(SRC_UTILS) $(SRC_ESTRUTURAS)
 
@@ -156,6 +156,9 @@ validacoes: $(EXEC_VALIDACOES)
 release:
 	$(MAKE) MODE=release
 
+debug:
+	$(MAKE) MODE=debug
+
 sanitize:
 	$(MAKE) MODE=sanitize
 
@@ -186,4 +189,4 @@ format:
 		echo "clang-format não encontrado"; \
 	fi
 
-.PHONY: all clean interativo validacoes release sanitize run test run-valgrind format
+.PHONY: all clean interativo validacoes release debug sanitize run test run-valgrind format

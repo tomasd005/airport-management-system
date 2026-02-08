@@ -2,6 +2,7 @@
 #define VOOS_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 /**
@@ -18,6 +19,7 @@
  * @brief Estrutura opaca que representa um voo.
  */
 typedef struct voo voo_t;
+typedef struct voo_pool voo_pool_t;
 
 /**
  * @brief Estrutura com dados validados de um voo (para ingestão).
@@ -234,6 +236,30 @@ int voo_obter_passageiros(const voo_t *v);
  * @param delta Variação a aplicar.
  */
 void voo_incrementar_passageiros(voo_t *v, int delta);
+
+/**
+ * @brief Cria um pool de voos para alocação em blocos.
+ *
+ * @param block_capacity Número de voos por bloco.
+ * @return Pool criado ou NULL em erro.
+ */
+voo_pool_t *voo_pool_criar(size_t block_capacity);
+
+/**
+ * @brief Liberta todos os blocos associados ao pool de voos.
+ *
+ * @param pool Pool a destruir (aceita NULL).
+ */
+void voo_pool_destruir(voo_pool_t *pool);
+
+/**
+ * @brief Cria um voo no pool a partir de informação validada.
+ *
+ * @param pool Pool de voos.
+ * @param info Informação validada.
+ * @return Ponteiro para voo no pool, ou NULL em erro.
+ */
+voo_t *voo_pool_criar_from_info(voo_pool_t *pool, const voo_info_t *info);
 
 /**
  * @brief Liberta recursos associados ao interning de voos.

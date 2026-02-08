@@ -13,15 +13,26 @@
  */
 struct voo
 {
-    uint64_t key;
-    int32_t dep_day;
     int32_t act_dep_day;
     int32_t atraso_min;
     int32_t semana;
+    uint32_t passageiros;
     uint16_t orig_idx;
     uint16_t dest_idx;
-    uint32_t passageiros;
     unsigned char status;
+};
+
+typedef struct voo_pool_block
+{
+    struct voo_pool_block *next;
+    size_t used;
+    voo_t items[];
+} voo_pool_block_t;
+
+struct voo_pool
+{
+    size_t block_capacity;
+    voo_pool_block_t *blocks;
 };
 
 /**
@@ -69,6 +80,17 @@ static const char *status_to_str(unsigned char status)
     }
 }
 
+static inline void voo_preencher_de_info(voo_t *v, const voo_info_t *info)
+{
+    v->orig_idx = info->orig_idx;
+    v->dest_idx = info->dest_idx;
+    v->act_dep_day = info->act_dep_day;
+    v->atraso_min = info->atraso_min;
+    v->semana = info->semana;
+    v->status = info->status;
+    v->passageiros = 0;
+}
+
 /**
  * @brief Cria um novo voo.
  * @param flight_id Identificador do voo
@@ -114,15 +136,7 @@ voo_t *voo_criar(const char *flight_id, const char *departure,
         return NULL;
     }
 
-    v->key = info->key;
-    v->orig_idx = info->orig_idx;
-    v->dest_idx = info->dest_idx;
-    v->dep_day = info->dep_day;
-    v->act_dep_day = info->act_dep_day;
-    v->atraso_min = info->atraso_min;
-    v->semana = info->semana;
-    v->status = info->status;
-    v->passageiros = 0;
+    voo_preencher_de_info(v, info);
 
     voo_info_destruir(info);
     return v;
@@ -140,12 +154,65 @@ void voo_destruir(voo_t *v)
     free(v);
 }
 
+voo_pool_t *voo_pool_criar(size_t block_capacity)
+{
+    if (block_capacity < 1024)
+        block_capacity = 1024;
+
+    voo_pool_t *pool = malloc(sizeof(*pool));
+    if (!pool)
+        return NULL;
+
+    pool->block_capacity = block_capacity;
+    pool->blocks = NULL;
+    return pool;
+}
+
+void voo_pool_destruir(voo_pool_t *pool)
+{
+    if (!pool)
+        return;
+
+    voo_pool_block_t *b = pool->blocks;
+    while (b)
+    {
+        voo_pool_block_t *next = b->next;
+        free(b);
+        b = next;
+    }
+
+    free(pool);
+}
+
+voo_t *voo_pool_criar_from_info(voo_pool_t *pool, const voo_info_t *info)
+{
+    if (!pool || !info || info->key == 0)
+        return NULL;
+
+    voo_pool_block_t *b = pool->blocks;
+    if (!b || b->used >= pool->block_capacity)
+    {
+        size_t bytes = sizeof(*b) + pool->block_capacity * sizeof(voo_t);
+        voo_pool_block_t *novo = malloc(bytes);
+        if (!novo)
+            return NULL;
+        novo->next = pool->blocks;
+        novo->used = 0;
+        pool->blocks = novo;
+        b = novo;
+    }
+
+    voo_t *v = &b->items[b->used++];
+    voo_preencher_de_info(v, info);
+    return v;
+}
+
 /**
  * @brief Obtém o identificador do voo.
  * @param v Ponteiro para o voo
  * @return Identificador do voo ou NULL
  */
-uint64_t voo_obter_key(const voo_t *v) { return v ? v->key : 0; }
+uint64_t voo_obter_key(const voo_t *v) { (void)v; return 0; }
 
 /**
  * @brief Obtém a data de partida prevista como string.
@@ -251,7 +318,7 @@ double voo_calcular_atraso_minutos(const voo_t *v)
  * @param v Ponteiro para o voo
  * @return Dia de partida ou -1 se não disponível
  */
-int voo_obter_departure_dia(const voo_t *v) { return v ? v->dep_day : -1; }
+int voo_obter_departure_dia(const voo_t *v) { (void)v; return -1; }
 
 /**
  * @brief Obtém o dia de partida real.
@@ -358,14 +425,6 @@ voo_t *voo_criar_from_info(const voo_info_t *info)
     if (!v)
         return NULL;
 
-    v->key = info->key;
-    v->orig_idx = info->orig_idx;
-    v->dest_idx = info->dest_idx;
-    v->dep_day = info->dep_day;
-    v->act_dep_day = info->act_dep_day;
-    v->atraso_min = info->atraso_min;
-    v->semana = info->semana;
-    v->status = info->status;
-    v->passageiros = 0;
+    voo_preencher_de_info(v, info);
     return v;
 }

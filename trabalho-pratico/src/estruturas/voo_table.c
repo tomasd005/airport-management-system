@@ -130,7 +130,7 @@ int voo_table_insert(voo_table_t *t, uint64_t key, voo_t *value)
     if (!t || !t->keys || key == 0)
         return 0;
 
-    if ((t->size + 1) * 10 >= t->capacity * 7)
+    if ((t->size + 1) * 100 >= t->capacity * 85)
     {
         if (!voo_table_resize(t, t->capacity * 2))
             return 0;
