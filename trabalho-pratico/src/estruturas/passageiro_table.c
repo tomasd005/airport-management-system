@@ -11,8 +11,10 @@ struct passageiro_table
 
 static size_t next_pow2(size_t v)
 {
-    size_t n = v + (v >> 1) + 1;
-    return (n < 16) ? 16 : n;
+    size_t n = 16;
+    while (n < v)
+        n <<= 1;
+    return n;
 }
 
 static inline uint32_t hash32(uint32_t x)
@@ -50,12 +52,11 @@ static int passageiro_table_resize(passageiro_table_t *t, size_t new_cap)
         if (!packed)
             continue;
 
-        size_t idx = (size_t)(hash32(packed) % novo.capacity);
+        size_t idx = (size_t)(hash32(packed) & (novo.capacity - 1));
         while (novo.keys[idx])
         {
             idx++;
-            if (idx == novo.capacity)
-                idx = 0;
+            idx &= (novo.capacity - 1);
         }
         novo.keys[idx] = packed;
         novo.values[idx] = t->values[i];
@@ -86,6 +87,16 @@ passageiro_table_t *passageiro_table_create(size_t capacity)
     return t;
 }
 
+int passageiro_table_reserve(passageiro_table_t *t, size_t capacity)
+{
+    if (!t)
+        return 0;
+    capacity = next_pow2(capacity);
+    if (capacity <= t->capacity)
+        return 1;
+    return passageiro_table_resize(t, capacity);
+}
+
 void passageiro_table_free(passageiro_table_t *t, void (*destroy)(passageiro_t *))
 {
     if (!t)
@@ -111,15 +122,14 @@ passageiro_t *passageiro_table_lookup(const passageiro_table_t *t, uint32_t key)
         return NULL;
 
     uint32_t packed = key_pack(key);
-    size_t idx = (size_t)(hash32(packed) % t->capacity);
+    size_t idx = (size_t)(hash32(packed) & (t->capacity - 1));
 
     while (t->keys[idx])
     {
         if (t->keys[idx] == packed)
             return t->values[idx];
         idx++;
-        if (idx == t->capacity)
-            idx = 0;
+        idx &= (t->capacity - 1);
     }
     return NULL;
 }
@@ -129,22 +139,21 @@ int passageiro_table_insert(passageiro_table_t *t, uint32_t key, passageiro_t *v
     if (!t || !t->keys || key == 0)
         return 0;
 
-    if ((t->size + 1) * 100 >= t->capacity * 92)
+    if ((t->size + 1) * 100 >= t->capacity * 78)
     {
-        if (!passageiro_table_resize(t, next_pow2(t->capacity)))
+        if (!passageiro_table_resize(t, t->capacity * 2))
             return 0;
     }
 
     uint32_t packed = key_pack(key);
-    size_t idx = (size_t)(hash32(packed) % t->capacity);
+    size_t idx = (size_t)(hash32(packed) & (t->capacity - 1));
 
     while (t->keys[idx])
     {
         if (t->keys[idx] == packed)
             return 0;
         idx++;
-        if (idx == t->capacity)
-            idx = 0;
+        idx &= (t->capacity - 1);
     }
 
     t->keys[idx] = packed;

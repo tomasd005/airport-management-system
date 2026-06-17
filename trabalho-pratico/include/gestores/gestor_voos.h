@@ -138,6 +138,18 @@ void gestor_voos_para_cada_atraso(gestor_voos_t *gestor, void (*callback)(const 
 const GArray *gestor_voos_obter_q5_cache(gestor_voos_t *gestor);
 
 /**
+ * @brief Regista passageiros num voo e nos agregados por aeroporto.
+ *
+ * Mantém a atualização das contagens dentro do gestor de voos, evitando que
+ * outros módulos conheçam o layout interno de voo_t ou dos agregados.
+ *
+ * @param gestor Gestor de voos.
+ * @param voo Voo a atualizar.
+ * @param delta Número de passageiros a adicionar.
+ */
+void gestor_voos_registar_passageiros(gestor_voos_t *gestor, voo_t *voo, int delta);
+
+/**
  * @brief Atualiza contagens de partidas/chegadas nos aeroportos.
  * @param gestor_voos Gestor de voos.
  * @param gestor_aeroportos Gestor de aeroportos.

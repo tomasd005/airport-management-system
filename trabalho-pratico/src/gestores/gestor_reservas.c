@@ -41,7 +41,8 @@ typedef struct {
     gestor_passageiros_t *gestor_passageiros;
 } reservas_ctx_t;
 
-static void acumular_passageiros_voos_ptr(voo_t *const *voos, size_t num_voos);
+static void acumular_passageiros_voos_ptr(gestor_voos_t *gestor_voos, voo_t *const *voos,
+                                          size_t num_voos);
 
 static inline gpointer doc_key_para_ptr(uint32_t key)
 {
@@ -314,22 +315,21 @@ static gboolean gestor_reservas_adicionar_validado(reservas_ctx_t *ctx, char **c
         return FALSE;
 
     gestor->total_reservas++;
-    acumular_passageiros_voos_ptr(voos, num_voos);
+    acumular_passageiros_voos_ptr(gestor_voos, voos, num_voos);
     acumular_gastos_semana(gestor, doc_key, preco, voos, num_voos);
     acumular_destinos_nacionalidade(gestor, passageiro, voos, num_voos);
     return TRUE;
 }
 
-static void acumular_passageiros_voos_ptr(voo_t *const *voos, size_t num_voos)
+static void acumular_passageiros_voos_ptr(gestor_voos_t *gestor_voos, voo_t *const *voos,
+                                          size_t num_voos)
 {
-    if (!voos || num_voos == 0)
+    if (!gestor_voos || !voos || num_voos == 0)
         return;
 
     for (size_t i = 0; i < num_voos; i++) {
         voo_t *voo = voos[i];
-        if (voo_obter_status_codigo(voo) == 2)
-            continue;
-        voo_incrementar_passageiros(voo, 1);
+        gestor_voos_registar_passageiros(gestor_voos, voo, 1);
     }
 }
 

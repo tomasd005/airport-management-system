@@ -5,10 +5,12 @@ MAKEFLAGS += --warn-undefined-variables
 CC ?= gcc
 PKG_CONFIG ?= pkg-config
 
-# Build modes: release (default), debug, sanitize
+# Build modes: release (default), debug, sanitize, benchmark
 MODE ?= release
 NATIVE ?= 1
 LTO ?= 1
+PGO ?= none
+PGO_DIR ?= .pgo
 
 # Common flags
 CPPFLAGS := -D_GNU_SOURCE \
@@ -36,6 +38,8 @@ LDFLAGS :=
 
 CFLAGS_DEBUG := $(CSTD) -O0 -g3 $(WARN_FLAGS) -fno-omit-frame-pointer
 CFLAGS_RELEASE := $(CSTD) -O3 -DNDEBUG $(WARN_FLAGS)
+CFLAGS_BENCHMARK := $(CSTD) -O3 -DNDEBUG $(WARN_FLAGS) \
+	-march=native -mtune=native -fno-plt -fomit-frame-pointer
 CFLAGS_SANITIZE := $(CSTD) -O1 -g3 $(WARN_FLAGS) -fno-omit-frame-pointer \
 	-fsanitize=address,undefined
 
@@ -45,13 +49,24 @@ endif
 
 ifeq ($(LTO),1)
 CFLAGS_RELEASE += -flto=auto
+CFLAGS_BENCHMARK += -flto=auto
 LDFLAGS += -flto=auto
+endif
+
+ifeq ($(PGO),generate)
+CFLAGS_BENCHMARK += -fprofile-generate=$(PGO_DIR)
+LDFLAGS += -fprofile-generate=$(PGO_DIR)
+else ifeq ($(PGO),use)
+CFLAGS_BENCHMARK += -fprofile-use=$(PGO_DIR) -fprofile-correction
+LDFLAGS += -fprofile-use=$(PGO_DIR)
 endif
 
 LDLIBS := $(GLIB_LIBS)
 
 ifeq ($(MODE),release)
 CFLAGS := $(CFLAGS_RELEASE)
+else ifeq ($(MODE),benchmark)
+CFLAGS := $(CFLAGS_BENCHMARK)
 else ifeq ($(MODE),sanitize)
 CFLAGS := $(CFLAGS_SANITIZE)
 LDFLAGS += -fsanitize=address,undefined
@@ -173,6 +188,19 @@ debug:
 sanitize:
 	$(MAKE) MODE=sanitize
 
+benchmark:
+	$(MAKE) MODE=benchmark
+
+pgo-generate:
+	$(MAKE) clean
+	@mkdir -p $(PGO_DIR)
+	$(MAKE) MODE=benchmark PGO=generate
+	LI3_DISABLE_RESULT_CACHE=1 ./$(EXEC_PRINCIPAL) ./sem_erros_grande inputs_fase2.txt
+
+pgo-use:
+	$(MAKE) clean
+	$(MAKE) MODE=benchmark PGO=use
+
 clean:
 	@echo "CLEAN"
 	@rm -rf build $(EXEC_PRINCIPAL) $(EXEC_TESTES) $(EXEC_INTERATIVO) $(EXEC_VALIDACOES)
@@ -200,4 +228,4 @@ format:
 		echo "clang-format não encontrado"; \
 	fi
 
-.PHONY: all clean interativo validacoes release debug sanitize run test run-valgrind format
+.PHONY: all clean interativo validacoes release debug sanitize benchmark pgo-generate pgo-use run test run-valgrind format

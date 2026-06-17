@@ -7,93 +7,6 @@
 #include <stdlib.h>
 
 /**
- * @brief Estrutura auxiliar para armazenar dados do avião e contagem de voos.
- */
-typedef struct
-{
-    const char *id;        
-    const char *fabricante;
-    const char *modelo;    
-    guint count;           
-} ContadorVoos;
-
-/**
- * @brief Verifica se o avião corresponde ao filtro de fabricante.
- *
- * @param fabricante Nome do fabricante do avião.
- * @param filtro Nome do fabricante a filtrar. NULL ou string vazia significa sem filtro.
- * @return TRUE se corresponder ou não houver filtro, FALSE caso contrário.
- */
-static inline gboolean fabricante_match(const char *fabricante, const char *filtro)
-{
-    if (!filtro || !*filtro)
-        return TRUE;
-    if (!fabricante)
-        return FALSE;
-    return strcmp(fabricante, filtro) == 0;
-}
-
-/**
- * @brief Função de comparação para ordenar os contadores de voos.
- *
- * Ordena em ordem decrescente pelo número de voos. Em caso de empate,
- * ordena pelo identificador do avião em ordem alfabética.
- *
- * @param a Primeiro elemento.
- * @param b Segundo elemento.
- * @param user_data Não usado.
- * @return Valor <0, 0 ou >0 conforme comparação.
- */
-static gint compara_contadores(gconstpointer a, gconstpointer b, gpointer user_data)
-{
-    (void)user_data;
-    const ContadorVoos *ca = a, *cb = b;
-
-    if (ca->count > cb->count)
-        return -1;
-    if (ca->count < cb->count)
-        return 1;
-    return strcmp(ca->id, cb->id);
-}
-
-/**
- * @brief Processa cada avião do gestor, adicionando à lista de resultados se válido.
- *
- * @param aviao Ponteiro para o avião.
- * @param user_data Array de ponteiros com: [0]=GArray resultados, [2]=filtro de fabricante.
- */
-static void processar_aviao(aviao_t *aviao, gpointer user_data)
-{
-    if (!aviao)
-        return;
-
-    gpointer *dados = user_data;
-    GArray *resultados = dados[0];
-    const char *fabricante_filtro = dados[2];
-
-    const char *id = aviao_obter_identificador(aviao);
-    const char *fabricante = aviao_obter_fabricante(aviao);
-
-    if (!id || !*id)
-        return;
-
-    if (!fabricante_match(fabricante, fabricante_filtro))
-        return;
-
-    int cnt = aviao_obter_contagem_voos(aviao);
-    if (cnt <= 0)
-        return;
-
-    const char *modelo = aviao_obter_modelo(aviao);
-    ContadorVoos c = {
-        .id = id,
-        .fabricante = fabricante ? fabricante : "",
-        .modelo = modelo ? modelo : "",
-        .count = (guint)cnt};
-    g_array_append_val(resultados, c);
-}
-
-/**
  * @brief Verifica se o comando indica uso do formato alternativo.
  *
  * O formato alternativo é indicado quando, após dígitos iniciais, existe
@@ -136,13 +49,9 @@ void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
 
     const char *separador = usa_formato_alternativo(comando_completo) ? "=" : ";";
 
-    GArray *resultados = g_array_new(FALSE, FALSE, sizeof(ContadorVoos));
-    gpointer dados[3] = {resultados, NULL, (gpointer)fabricante};
-    gestor_avioes_para_cada(gestor_avioes, processar_aviao, dados);
-
-    g_array_sort_with_data(resultados, compara_contadores, NULL);
-
-    guint n_imprimir = (guint)N < resultados->len ? (guint)N : resultados->len;
+    const GArray *resultados = gestor_avioes_obter_q2_ranking(gestor_avioes, fabricante);
+    guint len = resultados ? resultados->len : 0;
+    guint n_imprimir = (guint)N < len ? (guint)N : len;
 
     if (n_imprimir == 0)
         fprintf(output, "\n");
@@ -150,10 +59,9 @@ void query2(gestor_avioes_t *gestor_avioes, gestor_voos_t *gestor_voos,
     {
         for (guint i = 0; i < n_imprimir; i++)
         {
-            ContadorVoos *c = &g_array_index(resultados, ContadorVoos, i);
+            const gestor_avioes_q2_item_t *c =
+                &g_array_index((GArray *)resultados, gestor_avioes_q2_item_t, i);
             fprintf(output, "%s%s%s%s%s%s%u\n", c->id, separador, c->fabricante, separador, c->modelo, separador, c->count);
         }
     }
-
-    g_array_free(resultados, TRUE);
 }

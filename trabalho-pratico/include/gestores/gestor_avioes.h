@@ -15,6 +15,17 @@
 typedef struct gestor_avioes gestor_avioes_t;
 
 /**
+ * @brief Entrada materializada para ranking da Query 2.
+ */
+typedef struct
+{
+    const char *id;
+    const char *fabricante;
+    const char *modelo;
+    guint count;
+} gestor_avioes_q2_item_t;
+
+/**
  * @brief Cria um gestor de aviões.
  * @return Gestor alocado, ou NULL em erro de memória.
  */
@@ -62,5 +73,17 @@ void gestor_avioes_carregar(gestor_avioes_t *gestor, const char *ficheiro_csv);
  * @param user_data Contexto do utilizador.
  */
 void gestor_avioes_para_cada(gestor_avioes_t *gestor, void (*callback)(aviao_t *, void *), void *user_data);
+
+/**
+ * @brief Obtém ranking ordenado para a Query 2.
+ *
+ * O índice é criado de forma lazy após as contagens de voos estarem completas.
+ * Se fabricante for NULL ou vazio, devolve o ranking global.
+ *
+ * @param gestor Gestor de aviões.
+ * @param fabricante Fabricante opcional.
+ * @return GArray de gestor_avioes_q2_item_t, ou NULL se não houver resultados.
+ */
+const GArray *gestor_avioes_obter_q2_ranking(gestor_avioes_t *gestor, const char *fabricante);
 
 #endif

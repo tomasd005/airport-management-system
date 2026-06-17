@@ -77,12 +77,6 @@ void gestor_passageiros_adicionar(gestor_passageiros_t *gestor, passageiro_t *p)
         return;
     }
 
-    if (passageiro_table_lookup(gestor->por_documento, key))
-    {
-        passageiro_destruir(p);
-        return;
-    }
-
     if (!passageiro_table_insert(gestor->por_documento, key, p))
         passageiro_destruir(p);
 }
@@ -148,6 +142,8 @@ void gestor_passageiros_carregar(gestor_passageiros_t *gestor, const char *fiche
     free(gestor->ficheiro_csv);
     gestor->ficheiro_csv = g_strdup(ficheiro_csv);
     gestor->dataset_grande = (strstr(ficheiro_csv, "grande") != NULL);
+    if (gestor->dataset_grande)
+        passageiro_table_reserve(gestor->por_documento, 1u << 22);
     // Em datasets grandes só precisamos das 5 primeiras colunas para a versão compacta.
     int colunas_necessarias = gestor->dataset_grande ? 5 : 10;
 

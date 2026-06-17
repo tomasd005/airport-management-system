@@ -7,9 +7,12 @@
 #include <pthread.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 
 #define MAX_COLUNAS_RESERVAS 16
-#define RESERVA_COLS 8
+#define RESERVA_COLS_COMPLETAS 8
+#define RESERVA_COLS_SEM_ERROS 5
 #define IO_BUFFER_SIZE (8 * 1024 * 1024)
 #define PARSE_QUEUE_CAP 128
 
@@ -34,6 +37,7 @@ typedef struct {
     void *contexto;
     ReservaProcessaLinha processa_linha;
     pthread_mutex_t *add_mutex;
+    int colunas_necessarias;
 } reserva_worker_ctx_t;
 static int g_skip_error_log_decidido = 0;
 static int g_skip_error_log = 0;
@@ -136,9 +140,9 @@ static void *reserva_worker(void *arg)
 
             if (*cur) {
                 char *colunas[MAX_COLUNAS_RESERVAS + 1];
-                int numColunas =
-                    parser_dividir_csv_ate(cur, colunas, MAX_COLUNAS_RESERVAS, RESERVA_COLS);
-                if (numColunas >= RESERVA_COLS) {
+                int numColunas = parser_dividir_csv_ate(cur, colunas, MAX_COLUNAS_RESERVAS,
+                                                        ctx->colunas_necessarias);
+                if (numColunas >= ctx->colunas_necessarias) {
                     pthread_mutex_lock(ctx->add_mutex);
                     ctx->processa_linha(ctx->contexto, colunas);
                     pthread_mutex_unlock(ctx->add_mutex);
@@ -163,16 +167,20 @@ static void parser_reservas_tratar_linha(char *linha, char *linha_parse, size_t 
 {
     char *linha_trabalho = linha;
     size_t len_parse = len;
+    int colunas_necessarias = sem_erros ? RESERVA_COLS_SEM_ERROS : RESERVA_COLS_COMPLETAS;
 
     if (!sem_erros && !skip_errors) {
-        if (len + 1 > tamanho_parse)
+        if (len >= tamanho_parse)
             return;
         memcpy(linha_parse, linha, len);
         linha_parse[len] = '\0';
-        if (len > 0 && linha_parse[len - 1] == '\r')
+        if (len > 0 && linha_parse[len - 1] == '\r') {
             linha_parse[len - 1] = '\0';
+            len_parse = len - 1;
+        } else {
+            len_parse = len;
+        }
         linha_trabalho = linha_parse;
-        len_parse = strlen(linha_trabalho);
     } else {
         if (len > 0 && linha[len - 1] == '\r')
             linha[len - 1] = '\0';
@@ -182,9 +190,9 @@ static void parser_reservas_tratar_linha(char *linha, char *linha_parse, size_t 
         return;
 
     char *colunas[MAX_COLUNAS_RESERVAS + 1];
-    int numColunas =
-        parser_dividir_csv_ate(linha_trabalho, colunas, MAX_COLUNAS_RESERVAS, RESERVA_COLS);
-    if (numColunas < RESERVA_COLS) {
+    int numColunas = parser_dividir_csv_ate(linha_trabalho, colunas, MAX_COLUNAS_RESERVAS,
+                                            colunas_necessarias);
+    if (numColunas < colunas_necessarias) {
         if (ficheiro_erros)
             fprintf(ficheiro_erros, "%s\n", linha);
         return;
@@ -223,6 +231,7 @@ static void parser_reservas_streaming_paralelo(void *contexto, const char *fiche
         .contexto = contexto,
         .processa_linha = processa_linha,
         .add_mutex = &add_mutex,
+        .colunas_necessarias = sem_erros ? RESERVA_COLS_SEM_ERROS : RESERVA_COLS_COMPLETAS,
     };
 
     for (int i = 0; i < n_threads; i++)
@@ -430,6 +439,120 @@ cleanup:
     close(fd);
 }
 
+typedef struct {
+    const char *start;
+    const char *end;
+    void *contexto;
+    ReservaProcessaLinha processa_linha;
+    pthread_mutex_t *add_mutex;
+} mmap_reserva_worker_ctx_t;
+
+static void *mmap_reserva_worker(void *arg) __attribute__((unused));
+static void *mmap_reserva_worker(void *arg)
+{
+    mmap_reserva_worker_ctx_t *ctx = (mmap_reserva_worker_ctx_t *)arg;
+    const char *cur = ctx->start;
+    const char *end = ctx->end;
+    char linebuf[4096];
+    char *colunas[MAX_COLUNAS_RESERVAS + 1];
+
+    while (cur < end) {
+        const char *nl = memchr(cur, '\n', (size_t)(end - cur));
+        if (!nl)
+            nl = end;
+
+        size_t len = (size_t)(nl - cur);
+        if (len > 0 && cur[len - 1] == '\r')
+            len--;
+
+        if (len > 0 && len < sizeof(linebuf)) {
+            memcpy(linebuf, cur, len);
+            linebuf[len] = '\0';
+
+            int colunas_necessarias =
+                parser_sem_erros_ativo() ? RESERVA_COLS_SEM_ERROS : RESERVA_COLS_COMPLETAS;
+            int numColunas = parser_dividir_csv_ate(linebuf, colunas, MAX_COLUNAS_RESERVAS,
+                                                    colunas_necessarias);
+            if (numColunas >= colunas_necessarias) {
+                pthread_mutex_lock(ctx->add_mutex);
+                ctx->processa_linha(ctx->contexto, colunas);
+                pthread_mutex_unlock(ctx->add_mutex);
+            }
+        }
+
+        if (nl == end)
+            break;
+        cur = nl + 1;
+    }
+    return NULL;
+}
+
+static void parser_reservas_mmap(void *contexto, const char *ficheiro_csv,
+                                 ReservaProcessaLinha processa_linha) __attribute__((unused));
+static void parser_reservas_mmap(void *contexto, const char *ficheiro_csv,
+                                 ReservaProcessaLinha processa_linha)
+{
+    int fd = open(ficheiro_csv, O_RDONLY);
+    if (fd < 0)
+        return;
+
+    struct stat st;
+    if (fstat(fd, &st) < 0 || st.st_size == 0) {
+        close(fd);
+        return;
+    }
+
+    size_t file_size = (size_t)st.st_size;
+    char *map = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+    if (map == MAP_FAILED)
+        return;
+
+    madvise(map, file_size, MADV_SEQUENTIAL | MADV_WILLNEED);
+
+    /* Skip header line */
+    const char *data_start = memchr(map, '\n', file_size);
+    if (!data_start) {
+        munmap(map, file_size);
+        return;
+    }
+    data_start++;
+
+    const char *data_end = map + file_size;
+
+    const char *cur = data_start;
+    char linebuf[4096];
+    char *colunas[MAX_COLUNAS_RESERVAS + 1];
+
+    while (cur < data_end) {
+        const char *nl = memchr(cur, '\n', (size_t)(data_end - cur));
+        if (!nl)
+            nl = data_end;
+
+        size_t len = (size_t)(nl - cur);
+        if (len > 0 && cur[len - 1] == '\r')
+            len--;
+
+        if (len > 0 && len < sizeof(linebuf)) {
+            memcpy(linebuf, cur, len);
+            linebuf[len] = '\0';
+
+            int colunas_necessarias =
+                parser_sem_erros_ativo() ? RESERVA_COLS_SEM_ERROS : RESERVA_COLS_COMPLETAS;
+            int numColunas = parser_dividir_csv_ate(linebuf, colunas, MAX_COLUNAS_RESERVAS,
+                                                    colunas_necessarias);
+            if (numColunas >= colunas_necessarias)
+                processa_linha(contexto, colunas);
+        }
+
+        if (nl == data_end)
+            break;
+        cur = nl + 1;
+    }
+
+    munmap(map, file_size);
+}
+
 void parser_reservas_carregar(void *contexto, const char *ficheiro_csv,
                               ReservaProcessaLinha processa_linha)
 {
@@ -444,12 +567,21 @@ void parser_reservas_carregar(void *contexto, const char *ficheiro_csv,
     g_skip_error_log = 0;
     int n_threads = parser_threads_ativado();
     int skip_errors = parser_skip_error_log();
-    if (n_threads > 1 && (sem_erros || skip_errors)) {
+    const char *use_mmap_env = getenv("LI3_USE_MMAP");
+    int use_mmap = use_mmap_env && (*use_mmap_env == '1' || *use_mmap_env == 'y' ||
+                                    *use_mmap_env == 'Y');
+
+    if (use_mmap && (sem_erros || skip_errors)) {
+        parser_definir_mmap_em_uso(1);
+        parser_reservas_mmap(contexto, ficheiro_csv, processa_linha);
+        parser_definir_mmap_em_uso(0);
+    } else if (n_threads > 1 && (sem_erros || skip_errors)) {
         parser_reservas_streaming_paralelo(contexto, ficheiro_csv, processa_linha, sem_erros,
                                            n_threads);
     } else {
         parser_reservas_streaming(contexto, ficheiro_csv, processa_linha, sem_erros);
     }
+    parser_definir_mmap_em_uso(0);
     parser_definir_sem_erros(0);
     parser_definir_dataset_grande(0);
 }

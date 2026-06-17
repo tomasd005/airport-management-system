@@ -44,6 +44,15 @@ void voo_table_destroy(voo_table_t *t);
 voo_table_t *voo_table_create(size_t capacity);
 
 /**
+ * @brief Garante capacidade mínima para reduzir rehashes durante ingestão.
+ *
+ * @param t Tabela.
+ * @param capacity Capacidade mínima desejada.
+ * @return 1 em sucesso, 0 em erro.
+ */
+int voo_table_reserve(voo_table_t *t, size_t capacity);
+
+/**
  * @brief Destrói e liberta a tabela criada dinamicamente.
  *
  * @param t Tabela.

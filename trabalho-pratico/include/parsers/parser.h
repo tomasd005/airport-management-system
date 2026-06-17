@@ -70,6 +70,12 @@ int parser_dividir_csv_ate(char *linha, char **colunas, int max_colunas, int col
 int parser_mmap_em_uso(void);
 
 /**
+ * @brief Define se o parser está no caminho mmap.
+ * @param ativo 1 para ativar, 0 para desativar.
+ */
+void parser_definir_mmap_em_uso(int ativo);
+
+/**
  * @brief Indica se o parser está em modo sem_erros.
  * @return 1 se está a processar dataset sem_erros, 0 caso contrário.
  */

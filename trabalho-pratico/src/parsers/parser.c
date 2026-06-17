@@ -8,6 +8,8 @@
 #include <pthread.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 
 #define MAX_COLUNAS 100
 #define IO_BUFFER_SIZE (8 * 1024 * 1024)
@@ -39,10 +41,11 @@ typedef struct {
     int colunas_necessarias;
     pthread_mutex_t *add_mutex;
 } parse_worker_ctx_t;
-static int g_sem_erros_ativo = 0;
-static int g_dataset_grande_ativo = 0;
-static int g_skip_error_log_decidido = 0;
-static int g_skip_error_log = 0;
+static __thread int g_sem_erros_ativo = 0;
+static __thread int g_dataset_grande_ativo = 0;
+static __thread int g_mmap_ativo = 0;
+static __thread int g_skip_error_log_decidido = 0;
+static __thread int g_skip_error_log = 0;
 
 static int parser_skip_error_log(void)
 {
@@ -175,7 +178,12 @@ int parser_sem_erros_ativo(void)
 
 int parser_mmap_em_uso(void)
 {
-    return 0;
+    return g_mmap_ativo;
+}
+
+void parser_definir_mmap_em_uso(int ativo)
+{
+    g_mmap_ativo = ativo ? 1 : 0;
 }
 
 void parser_definir_sem_erros(int ativo)
@@ -211,36 +219,20 @@ int parser_dividir_csv_ate(char *linha, char **colunas, int max_colunas, int col
 
     int numColunas = 0;
     char *campo_inicio = linha;
+    int dentro_aspas = 0;
 
-    if (strchr(linha, '"') == NULL) {
-        for (char *p = linha; *p; p++) {
-            if (*p == ',') {
-                *p = '\0';
-                colunas[numColunas++] = campo_inicio;
-                campo_inicio = p + 1;
-                if (numColunas == colunas_necessarias) {
-                    colunas[numColunas] = NULL;
-                    for (int i = numColunas + 1; i <= max_colunas; i++)
-                        colunas[i] = NULL;
-                    return numColunas;
-                }
-            }
-        }
-    } else {
-        int dentro_aspas = 0;
-        for (char *p = linha; *p; p++) {
-            if (*p == '"')
-                dentro_aspas = !dentro_aspas;
-            else if (*p == ',' && !dentro_aspas) {
-                *p = '\0';
-                colunas[numColunas++] = campo_inicio;
-                campo_inicio = p + 1;
-                if (numColunas == colunas_necessarias) {
-                    colunas[numColunas] = NULL;
-                    for (int i = numColunas + 1; i <= max_colunas; i++)
-                        colunas[i] = NULL;
-                    return numColunas;
-                }
+    for (char *p = linha; *p; p++) {
+        if (*p == '"')
+            dentro_aspas = !dentro_aspas;
+        else if (*p == ',' && !dentro_aspas) {
+            *p = '\0';
+            colunas[numColunas++] = campo_inicio;
+            campo_inicio = p + 1;
+            if (numColunas == colunas_necessarias) {
+                colunas[numColunas] = NULL;
+                for (int i = numColunas + 1; i <= max_colunas; i++)
+                    colunas[i] = NULL;
+                return numColunas;
             }
         }
     }
@@ -262,14 +254,17 @@ static void parser_tratar_linha(char *linha, char *linha_parse, size_t tamanho_p
     size_t len_parse = len;
 
     if (!sem_erros && !skip_errors) {
-        if (len + 1 > tamanho_parse)
+        if (len >= tamanho_parse)
             return;
         memcpy(linha_parse, linha, len);
         linha_parse[len] = '\0';
-        if (len > 0 && linha_parse[len - 1] == '\r')
+        if (len > 0 && linha_parse[len - 1] == '\r') {
             linha_parse[len - 1] = '\0';
+            len_parse = len - 1;
+        } else {
+            len_parse = len;
+        }
         linha_trabalho = linha_parse;
-        len_parse = strlen(linha_trabalho);
     } else {
         if (len > 0 && linha[len - 1] == '\r')
             linha[len - 1] = '\0';
@@ -548,6 +543,138 @@ static void parser_carrega_streaming_paralelo(void *contexto, const char *fichei
     close(fd);
 }
 
+typedef struct {
+    const char *start;
+    const char *end;
+    void *contexto;
+    AdicionaObjeto adiciona_objeto;
+    LinhaParaObjeto linha_para_objeto;
+    DestroiObjeto destroi_objeto;
+    int max_colunas;
+    int colunas_necessarias;
+    pthread_mutex_t *add_mutex;
+} mmap_worker_ctx_t;
+
+static void *mmap_worker(void *arg) __attribute__((unused));
+static void *mmap_worker(void *arg)
+{
+    mmap_worker_ctx_t *ctx = (mmap_worker_ctx_t *)arg;
+    const char *cur = ctx->start;
+    const char *end = ctx->end;
+    char linebuf[8192];
+    char *colunas[MAX_COLUNAS + 1];
+
+    while (cur < end) {
+        const char *nl = memchr(cur, '\n', (size_t)(end - cur));
+        if (!nl)
+            nl = end;
+
+        size_t len = (size_t)(nl - cur);
+        if (len > 0 && cur[len - 1] == '\r')
+            len--;
+
+        if (len > 0 && len < sizeof(linebuf)) {
+            memcpy(linebuf, cur, len);
+            linebuf[len] = '\0';
+
+            int numColunas = parser_dividir_csv_ate(linebuf, colunas, ctx->max_colunas,
+                                                     ctx->colunas_necessarias);
+            if (numColunas >= ctx->colunas_necessarias) {
+                gpointer objeto = ctx->linha_para_objeto(colunas);
+                if (objeto) {
+                    int ok;
+                    pthread_mutex_lock(ctx->add_mutex);
+                    ok = ctx->adiciona_objeto(ctx->contexto, objeto);
+                    pthread_mutex_unlock(ctx->add_mutex);
+                    if (!ok)
+                        ctx->destroi_objeto(objeto);
+                }
+            }
+        }
+
+        if (nl == end)
+            break;
+        cur = nl + 1;
+    }
+    return NULL;
+}
+
+/**
+ * @brief Carrega um ficheiro via mmap (read-only) — skip error log.
+ */
+static void parser_carrega_mmap(void *contexto, const char *ficheiro_csv,
+                                AdicionaObjeto adiciona_objeto, LinhaParaObjeto linha_para_objeto,
+                                DestroiObjeto destroi_objeto, int max_colunas,
+                                int colunas_necessarias) __attribute__((unused));
+static void parser_carrega_mmap(void *contexto, const char *ficheiro_csv,
+                                AdicionaObjeto adiciona_objeto, LinhaParaObjeto linha_para_objeto,
+                                DestroiObjeto destroi_objeto, int max_colunas,
+                                int colunas_necessarias)
+{
+    int fd = open(ficheiro_csv, O_RDONLY);
+    if (fd < 0)
+        return;
+
+    struct stat st;
+    if (fstat(fd, &st) < 0 || st.st_size == 0) {
+        close(fd);
+        return;
+    }
+
+    size_t file_size = (size_t)st.st_size;
+    char *map = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+    if (map == MAP_FAILED)
+        return;
+
+    madvise(map, file_size, MADV_SEQUENTIAL | MADV_WILLNEED);
+
+    /* Skip header line */
+    const char *data_start = memchr(map, '\n', file_size);
+    if (!data_start) {
+        munmap(map, file_size);
+        return;
+    }
+    data_start++;
+
+    const char *data_end = map + file_size;
+
+    const char *cur = data_start;
+    char linebuf[8192];
+    char *colunas[MAX_COLUNAS + 1];
+
+    while (cur < data_end) {
+        const char *nl = memchr(cur, '\n', (size_t)(data_end - cur));
+        if (!nl)
+            nl = data_end;
+
+        size_t len = (size_t)(nl - cur);
+        if (len > 0 && cur[len - 1] == '\r')
+            len--;
+
+        if (len > 0 && len < sizeof(linebuf)) {
+            memcpy(linebuf, cur, len);
+            linebuf[len] = '\0';
+
+            int numColunas =
+                parser_dividir_csv_ate(linebuf, colunas, max_colunas, colunas_necessarias);
+            if (numColunas >= colunas_necessarias) {
+                gpointer objeto = linha_para_objeto(colunas);
+                if (objeto) {
+                    if (!adiciona_objeto(contexto, objeto))
+                        destroi_objeto(objeto);
+                }
+            }
+        }
+
+        if (nl == data_end)
+            break;
+        cur = nl + 1;
+    }
+
+    munmap(map, file_size);
+}
+
 /**
  * @brief Carrega um ficheiro CSV e processa cada linha.
  */
@@ -566,7 +693,16 @@ void parser_carrega(void *contexto, const char *ficheiro_csv, AdicionaObjeto adi
     g_skip_error_log = 0;
     int n_threads = parser_threads_ativado();
     int skip_errors = parser_skip_error_log();
-    if (n_threads > 1 && (sem_erros || skip_errors)) {
+    const char *use_mmap_env = getenv("LI3_USE_MMAP");
+    int use_mmap = use_mmap_env && (*use_mmap_env == '1' || *use_mmap_env == 'y' ||
+                                    *use_mmap_env == 'Y');
+
+    if (use_mmap && (sem_erros || skip_errors)) {
+        g_mmap_ativo = 1;
+        parser_carrega_mmap(contexto, ficheiro_csv, adiciona_objeto, linha_para_objeto,
+                            destroi_objeto, max_colunas, colunas_necessarias);
+        g_mmap_ativo = 0;
+    } else if (n_threads > 1 && (sem_erros || skip_errors)) {
         parser_carrega_streaming_paralelo(contexto, ficheiro_csv, adiciona_objeto,
                                           linha_para_objeto, destroi_objeto, max_colunas,
                                           colunas_necessarias, sem_erros, n_threads);
@@ -576,6 +712,7 @@ void parser_carrega(void *contexto, const char *ficheiro_csv, AdicionaObjeto adi
     }
     g_sem_erros_ativo = 0;
     g_dataset_grande_ativo = 0;
+    g_mmap_ativo = 0;
 }
 
 /**

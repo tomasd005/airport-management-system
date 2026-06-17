@@ -29,14 +29,12 @@
  */
 static gboolean valida_reservation_id(const char *res_id)
 {
-    if (!res_id || strlen(res_id) != 10)
-        return FALSE;
-    if (res_id[0] != 'R')
+    if (!res_id || res_id[0] != 'R')
         return FALSE;
     for (int i = 1; i < 10; i++)
         if (!isdigit((unsigned char)res_id[i]))
             return FALSE;
-    return TRUE;
+    return res_id[10] == '\0';
 }
 
 /**
@@ -49,12 +47,12 @@ static gboolean valida_reservation_id(const char *res_id)
  */
 static gboolean valida_document_number(const char *doc)
 {
-    if (!doc || strlen(doc) != 9)
+    if (!doc)
         return FALSE;
     for (int i = 0; i < 9; i++)
         if (!isdigit((unsigned char)doc[i]))
             return FALSE;
-    return TRUE;
+    return doc[9] == '\0';
 }
 
 static gboolean valida_flight_id_rapida(const char *flight_id)
@@ -82,8 +80,10 @@ static size_t processar_flight_ids_inplace(char *flight_str, const char **out_id
     if (!flight_str || !out_ids)
         return 0;
 
+    if (flight_str[0] != '[')
+        return 0;
     size_t len = strlen(flight_str);
-    if (len < 2 || flight_str[0] != '[' || flight_str[len - 1] != ']')
+    if (len < 2 || flight_str[len - 1] != ']')
         return 0;
 
     flight_str[len - 1] = '\0';
@@ -285,11 +285,11 @@ gboolean reserva_validar_sintatica(char **colunas, const char **out_flight_ids,
         !out_preco)
         return FALSE;
 
-    for (int i = 0; i < 8; i++)
-        if (!colunas[i])
-            return FALSE;
-
     if (parser_sem_erros_ativo()) {
+        for (int i = 0; i < 5; i++)
+            if (!colunas[i])
+                return FALSE;
+
         char *flight_ids = strip_outer_quotes(colunas[IDX_FLIGHT_IDS]);
         const char *doc = colunas[IDX_DOC];
         char *price_str = strip_outer_quotes(colunas[IDX_PRICE]);
@@ -312,8 +312,16 @@ gboolean reserva_validar_sintatica(char **colunas, const char **out_flight_ids,
         return TRUE;
     }
 
-    for (int i = 0; i < 8; i++) {
-        utils_remove_aspas_somente(colunas[i]);
+    for (int i = 0; i < 8; i++)
+        if (!colunas[i])
+            return FALSE;
+
+    if (parser_dataset_grande_ativo()) {
+        for (int i = 0; i < 8; i++)
+            colunas[i] = strip_outer_quotes(colunas[i]);
+    } else {
+        for (int i = 0; i < 8; i++)
+            utils_remove_aspas_somente(colunas[i]);
     }
 
     if (!valida_reservation_id(colunas[IDX_RES_ID]))
@@ -329,11 +337,14 @@ gboolean reserva_validar_sintatica(char **colunas, const char **out_flight_ids,
     if (!parse_preco_valid(colunas[IDX_PRICE], &price) || price < 0.0)
         return FALSE;
 
-    if (strcmp(colunas[IDX_EXTRA_BAG], "true") != 0 && strcmp(colunas[IDX_EXTRA_BAG], "false") != 0)
-        return FALSE;
-
-    if (strcmp(colunas[IDX_PRIORITY], "true") != 0 && strcmp(colunas[IDX_PRIORITY], "false") != 0)
-        return FALSE;
+    {
+        char c = colunas[IDX_EXTRA_BAG][0];
+        if (c != 't' && c != 'f')
+            return FALSE;
+        c = colunas[IDX_PRIORITY][0];
+        if (c != 't' && c != 'f')
+            return FALSE;
+    }
 
     if (!colunas[IDX_QR] || colunas[IDX_QR][0] == '\0')
         return FALSE;
